@@ -6,7 +6,9 @@ Penumbra is a psychological horror mod for **Minecraft 26.1.2 on Fabric**. A per
 
 **Status: 0.19.0, early public testing.** Maintained by [SpilerixOff](https://github.com/SpilerixOff). On **21 October 2026**, the maintainer confirmed having tested solo and multiplayer; **208 automated tests passed** during release preparation. Feedback on longer sessions and different mod combinations is welcome.
 
-**[Download a playable build](https://github.com/SpilerixOff/Penumbra/releases)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
+**[Releases](https://github.com/SpilerixOff/Penumbra/releases)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
+
+The first downloadable pre-release is being prepared. You can already build the mod from source below. / La première préversion téléchargeable est en préparation ; le code peut déjà être compilé.
 
 ## Play Penumbra
 
