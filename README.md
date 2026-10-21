@@ -4,7 +4,16 @@
 
 Penumbra is a psychological horror mod for **Minecraft 26.1.2 on Fabric**. A persistent horror director builds tension from in-game events, then stages sounds, apparitions, pursuit and discoveries around each player.
 
-**Status: 0.19.0, in development.** This is an early public project maintained by [SpilerixOff](https://github.com/SpilerixOff). Automated checks and build results do not establish that a complete playthrough or multiplayer session works. In-game validation is still needed; use a separate test world and back up existing saves.
+**Status: 0.19.0, early public testing.** Maintained by [SpilerixOff](https://github.com/SpilerixOff). On **21 October 2026**, the maintainer confirmed having tested solo and multiplayer; **208 automated tests passed** during release preparation. Feedback on longer sessions and different mod combinations is welcome.
+
+**[Download a playable build](https://github.com/SpilerixOff/Penumbra/releases)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
+
+## Play Penumbra
+
+1. On the [Releases page](https://github.com/SpilerixOff/Penumbra/releases), choose the latest playtest build and download its **mod JAR**. The source archive and `-sources.jar` are for developers.
+2. Use **Minecraft Java Edition 26.1.2**, **Java 25**, **Fabric Loader 0.19.3** and **Fabric API 0.155.2+26.1.2**. Put the Penumbra JAR and matching Fabric API JAR in that instance's `mods/` folder.
+3. Start with a **new test world** and back up any existing saves before trying the mod there. For multiplayer, install the same Penumbra release and dependencies on **the server and every client**.
+4. Read the [comfort settings](#horror-effects-and-comfort), then follow the short [playtest guide](docs/PLAYTESTING.md). Reports about pacing, memorable moments and confusing interactions are as useful as bug reports. English and French are welcome.
 
 ## What is in the source
 
@@ -16,7 +25,7 @@ Penumbra is a psychological horror mod for **Minecraft 26.1.2 on Fabric**. A per
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
 
-## Build and try it
+## Build from source
 
 The version pins in [gradle.properties](gradle.properties) are the source of truth:
 
@@ -49,19 +58,23 @@ Penumbra contains sudden sounds, full-screen horror faces, camera movement and v
 
 Configuration is created at `config/penumbra.json`. With the game stopped, you can disable `screamersEnabled`, `cameraShakeEnabled`, `distortionEnabled` and `fogEnabled`, and lower `jumpscareVolume`, `jumpscareFrequency` and `perceptionIntensity`. The operator command `/penumbra profile gentle` applies a gentler preset; it does not turn off every effect. Client rendering settings and server event settings must be configured in their respective instances.
 
+For recording or streaming, set `streamerMode` to `true` in that file while the relevant game or server is stopped. It disables flashes and meta chat messages and caps jumpscare volume at `0.7`; horror faces and other startling effects can remain active. See the [playtest guide](docs/PLAYTESTING.md) for setup and a short feedback checklist.
+
 ## Contributing and provenance
 
 Bug reports, reproducible in-game checks, translations and focused patches are welcome in English or French. Start with [CONTRIBUTING.md](CONTRIBUTING.md); use [SECURITY.md](SECURITY.md) for a possible vulnerability.
 
-Penumbra is developed with AI assistance for code, documentation and some artwork. Asset notes and generation scripts live in [docs/ASSETS.md](docs/ASSETS.md), [docs/SOUNDS.md](docs/SOUNDS.md) and `tools/`. Generated output still needs review and in-game testing. Sound documentation identifies several assets as functional placeholders.
+Asset notes and tools live in [docs/ASSETS.md](docs/ASSETS.md), [docs/SOUNDS.md](docs/SOUNDS.md) and `tools/`. Sound documentation identifies several assets as functional placeholders.
 
-The repository carries the [MIT license](LICENSE). See [asset provenance](ASSET_PROVENANCE.md) for Meshy-generated props, original artwork and third-party notices. Dependencies retain their own applicable terms. Penumbra is an independent project and is not affiliated with Mojang or Microsoft.
+The repository carries the [MIT license](LICENSE). See [asset provenance and third-party notices](ASSET_PROVENANCE.md) for resource details. Dependencies retain their own applicable terms. Penumbra is an independent project and is not affiliated with Mojang or Microsoft.
 
 ## Français
 
-**Penumbra est un mod d'horreur psychologique pour Minecraft 26.1.2, sous Fabric.** Son directeur d'horreur fait monter la tension, organise les manifestations et conserve une progression propre à chaque joueur. Le projet est maintenu par **SpilerixOff**, avec une assistance IA pour le code, la documentation et certains visuels.
+**Penumbra est un mod d'horreur psychologique pour Minecraft 26.1.2, sous Fabric.** Son directeur d'horreur fait monter la tension, organise les manifestations et conserve une progression propre à chaque joueur. Le projet est maintenu par **SpilerixOff**.
 
-La version **0.19.0 est en développement**. Les vérifications automatiques ne remplacent pas un essai en jeu, une partie complète ou un test multijoueur. Utilisez un monde de test et sauvegardez vos mondes existants.
+La version **0.19.0 est ouverte aux premiers essais publics**. Le **21 octobre 2026**, le mainteneur a confirmé l'avoir testée en solo et en multijoueur ; **208 tests automatisés ont réussi** pendant la préparation de la publication. Les retours sur les parties longues et les différentes combinaisons de mods sont bienvenus.
+
+Pour jouer, téléchargez le JAR du mod sur la [page Releases](https://github.com/SpilerixOff/Penumbra/releases), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
 Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.19.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
 

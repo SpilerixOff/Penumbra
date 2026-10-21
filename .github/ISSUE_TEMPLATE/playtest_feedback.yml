@@ -1,0 +1,53 @@
+name: Playtest feedback / Retour de partie
+description: Share a short solo or multiplayer playtest report in English or French.
+title: "[Playtest] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Penumbra. English and French are welcome; a short report is enough.
+        Merci pour votre essai. Un retour court en français ou en anglais suffit.
+
+        This issue is public. Do not share your real identity, server address, credentials, full saves or raw logs. Hide player names and chat in optional screenshots.
+        Ce ticket est public. N'ajoutez ni identité réelle, ni adresse de serveur, ni identifiants, ni sauvegarde complète, ni logs bruts. Masquez les pseudos et le chat des captures facultatives.
+  - type: input
+    id: release
+    attributes:
+      label: Penumbra release / Version de Penumbra
+      description: Copy the release tag or JAR filename you used.
+      placeholder: "e.g. penumbra-0.19.0.jar"
+    validations:
+      required: true
+  - type: dropdown
+    id: session_type
+    attributes:
+      label: Session / Partie
+      options:
+        - Solo
+        - Multiplayer - LAN / Multijoueur - LAN
+        - Multiplayer - dedicated server / Multijoueur - serveur dédié
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup and time played / Configuration et durée
+      description: Approximate minutes, player count if multiplayer, profile/settings, and other mods if any. Mention differences from Minecraft 26.1.2, Loader 0.19.3 and Fabric API 0.155.2+26.1.2. No server address or player names.
+      placeholder: "25 minutes, 2 players / joueurs, gentle / doux, no other mods / aucun autre mod."
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: How did it feel? / Comment était la partie ?
+      description: What was memorable, too quiet, too frequent, uncomfortable or confusing? An uneventful session is useful feedback too.
+      placeholder: "One or two concrete moments / Un ou deux moments précis."
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to reproduce, if any / Problème à reproduire, si présent
+      description: Steps, expected result and actual result. In multiplayer, say whether one or all players were affected. Leave blank if there was no bug; no logs required.
+    validations:
+      required: false
