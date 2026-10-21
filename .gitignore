@@ -1,0 +1,44 @@
+# Gradle
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Runtime
+run/
+logs/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local experiments, source references and generated Python caches
+ai/
+tmp/
+.zoomfix/
+buildnightcheck/
+__pycache__/
+*.py[cod]
+
+# Private configuration, keys and world data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+world/
+worlds/
+crash-reports/

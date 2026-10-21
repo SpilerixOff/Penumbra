@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "G": "minecraft:glass_pane",
+    "I": "minecraft:iron_ingot",
+    "L": "minecraft:leather"
+  },
+  "pattern": [
+    "G G",
+    "ILI",
+    "G G"
+  ],
+  "result": {
+    "id": "penumbra:binoculars"
+  }
+}

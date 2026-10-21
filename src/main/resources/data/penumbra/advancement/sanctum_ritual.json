@@ -1,0 +1,24 @@
+{
+  "parent": "penumbra:root",
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.penumbra.sanctum_ritual.description"
+    },
+    "icon": {
+      "id": "penumbra:ash_sigil"
+    },
+    "title": {
+      "translate": "advancements.penumbra.sanctum_ritual.title"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ]
+}

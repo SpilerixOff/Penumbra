@@ -1,0 +1,26 @@
+{
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "background": "minecraft:gui/advancements/backgrounds/nether",
+    "description": {
+      "translate": "advancements.penumbra.root.description"
+    },
+    "icon": {
+      "id": "penumbra:ash_sigil"
+    },
+    "show_toast": false,
+    "title": {
+      "translate": "advancements.penumbra.root.title"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ]
+}

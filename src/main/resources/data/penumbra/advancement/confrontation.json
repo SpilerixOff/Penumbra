@@ -1,0 +1,25 @@
+{
+  "parent": "penumbra:sanctum_ritual",
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.penumbra.confrontation.description"
+    },
+    "frame": "challenge",
+    "icon": {
+      "id": "penumbra:impossible_photo"
+    },
+    "title": {
+      "translate": "advancements.penumbra.confrontation.title"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ]
+}

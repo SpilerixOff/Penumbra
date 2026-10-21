@@ -1,0 +1,357 @@
+{
+  "host_whisper": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.host_whisper",
+    "sounds": [
+      {
+        "name": "penumbra:host_whisper",
+        "stream": false
+      },
+      {
+        "name": "penumbra:host_whisper_3",
+        "stream": false
+      },
+      {
+        "name": "penumbra:host_whisper_4",
+        "stream": false
+      }
+    ]
+  },
+  "host_stinger": {
+    "category": "hostile",
+    "subtitle": "subtitles.penumbra.host_stinger",
+    "sounds": [
+      {
+        "name": "penumbra:host_stinger",
+        "stream": false
+      },
+      {
+        "name": "penumbra:host_stinger_2",
+        "stream": false,
+        "weight": 1
+      }
+    ]
+  },
+  "host_step": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.host_step",
+    "sounds": [
+      {
+        "name": "penumbra:host_step",
+        "stream": false
+      }
+    ]
+  },
+  "footstep_mimic": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.footstep_mimic",
+    "sounds": [
+      {
+        "name": "penumbra:footstep_mimic",
+        "stream": false
+      }
+    ]
+  },
+  "breath_behind": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.breath_behind",
+    "sounds": [
+      {
+        "name": "penumbra:breath_behind",
+        "stream": false
+      },
+      {
+        "name": "penumbra:breath_behind_3",
+        "stream": false
+      }
+    ]
+  },
+  "door_groan": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.door_groan",
+    "sounds": [
+      {
+        "name": "penumbra:door_groan",
+        "stream": false
+      }
+    ]
+  },
+  "fake_creeper": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.fake_creeper",
+    "sounds": [
+      {
+        "name": "penumbra:fake_creeper",
+        "stream": false
+      }
+    ]
+  },
+  "torch_sputter": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.torch_sputter",
+    "sounds": [
+      {
+        "name": "penumbra:torch_sputter",
+        "stream": false
+      }
+    ]
+  },
+  "silence_drone": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.silence_drone",
+    "sounds": [
+      {
+        "name": "penumbra:silence_drone",
+        "stream": true
+      }
+    ]
+  },
+  "heartbeat": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.heartbeat",
+    "sounds": [
+      {
+        "name": "penumbra:heartbeat",
+        "stream": false
+      }
+    ]
+  },
+  "binoculars_on": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.binoculars_on",
+    "sounds": [
+      {
+        "name": "penumbra:binoculars_on",
+        "stream": false
+      }
+    ]
+  },
+  "binoculars_off": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.binoculars_off",
+    "sounds": [
+      {
+        "name": "penumbra:binoculars_off",
+        "stream": false
+      }
+    ]
+  },
+  "lure_door": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.lure_door",
+    "sounds": [
+      {
+        "name": "penumbra:lure_door",
+        "stream": false
+      }
+    ]
+  },
+  "distant_hum": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.distant_hum",
+    "sounds": [
+      {
+        "name": "penumbra:distant_hum",
+        "stream": true
+      }
+    ]
+  },
+  "chase_stinger": {
+    "category": "hostile",
+    "subtitle": "subtitles.penumbra.chase_stinger",
+    "sounds": [
+      {
+        "name": "penumbra:chase_stinger",
+        "stream": false
+      }
+    ]
+  },
+  "footstep_mimic_2": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.footstep_mimic_2",
+    "sounds": [
+      {
+        "name": "penumbra:footstep_mimic_2",
+        "stream": false
+      }
+    ]
+  },
+  "breath_behind_2": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.breath_behind_2",
+    "sounds": [
+      {
+        "name": "penumbra:breath_behind_2",
+        "stream": false
+      }
+    ]
+  },
+  "ambient_bed_low": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.ambient_bed_low",
+    "sounds": [
+      {
+        "name": "penumbra:ambient_bed_low",
+        "stream": true
+      }
+    ]
+  },
+  "ambient_bed_mid": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.ambient_bed_mid",
+    "sounds": [
+      {
+        "name": "penumbra:ambient_bed_mid",
+        "stream": true
+      }
+    ]
+  },
+  "ambient_bed_high": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.ambient_bed_high",
+    "sounds": [
+      {
+        "name": "penumbra:ambient_bed_high",
+        "stream": true
+      }
+    ]
+  },
+  "host_whisper_2": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.host_whisper_2",
+    "sounds": [
+      {
+        "name": "penumbra:host_whisper_2",
+        "stream": false
+      }
+    ]
+  },
+  "originel_hum": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.originel_hum",
+    "sounds": [
+      {
+        "name": "penumbra:originel_hum",
+        "stream": false
+      }
+    ]
+  },
+  "ritual_release": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.ritual_release",
+    "sounds": [
+      {
+        "name": "penumbra:ritual_release",
+        "stream": false
+      }
+    ]
+  },
+  "screamer_shriek": {
+    "category": "hostile",
+    "subtitle": "subtitles.penumbra.screamer_shriek",
+    "sounds": [
+      {
+        "name": "penumbra:screamer_shriek",
+        "stream": false
+      },
+      {
+        "name": "penumbra:screamer_shriek_2",
+        "stream": false
+      },
+      {
+        "name": "penumbra:screamer_shriek_3",
+        "stream": false
+      }
+    ]
+  },
+  "voice_hey": {
+    "category": "hostile",
+    "subtitle": "subtitles.penumbra.voice_hey",
+    "sounds": [
+      {
+        "name": "penumbra:voice_hey",
+        "stream": false
+      }
+    ]
+  },
+  "memoire_disc": {
+    "category": "record",
+    "subtitle": "subtitles.penumbra.memoire_disc",
+    "sounds": [
+      {
+        "name": "penumbra:memoire_disc",
+        "stream": true
+      }
+    ]
+  },
+  "listener_click": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.listener_click",
+    "sounds": [
+      {
+        "name": "penumbra:listener_click",
+        "stream": false
+      }
+    ]
+  },
+  "listener_inhale": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.listener_inhale",
+    "sounds": [
+      {
+        "name": "penumbra:listener_inhale",
+        "stream": false
+      }
+    ]
+  },
+  "listener_lock": {
+    "category": "hostile",
+    "subtitle": "subtitles.penumbra.listener_lock",
+    "sounds": [
+      {
+        "name": "penumbra:listener_lock",
+        "stream": false
+      }
+    ]
+  },
+  "listener_leave": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.listener_leave",
+    "sounds": [
+      {
+        "name": "penumbra:listener_leave",
+        "stream": false
+      }
+    ]
+  },
+  "held_breath": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.held_breath",
+    "sounds": [
+      {
+        "name": "penumbra:held_breath",
+        "stream": false
+      }
+    ]
+  },
+  "extra_step": {
+    "category": "ambient",
+    "subtitle": "subtitles.penumbra.extra_step",
+    "sounds": [
+      {
+        "name": "penumbra:extra_step",
+        "stream": false
+      }
+    ]
+  },
+  "page_turn": {
+    "category": "player",
+    "subtitle": "subtitles.penumbra.page_turn",
+    "sounds": [
+      {
+        "name": "penumbra:page_turn",
+        "stream": false
+      }
+    ]
+  }
+}

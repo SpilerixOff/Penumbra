@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "penumbra:stone_hammer",
+    "penumbra:hammer",
+    "penumbra:golden_hammer",
+    "penumbra:diamond_hammer"
+  ]
+}

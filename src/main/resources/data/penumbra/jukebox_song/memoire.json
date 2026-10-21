@@ -1,0 +1,8 @@
+{
+  "comparator_output": 7,
+  "description": {
+    "translate": "jukebox_song.penumbra.memoire"
+  },
+  "length_in_seconds": 78.0,
+  "sound_event": "penumbra:memoire_disc"
+}

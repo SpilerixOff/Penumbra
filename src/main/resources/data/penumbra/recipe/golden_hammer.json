@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "S": "minecraft:stick"
+  },
+  "pattern": [
+    "GGG",
+    "GSG",
+    " S "
+  ],
+  "result": {
+    "id": "penumbra:golden_hammer"
+  }
+}

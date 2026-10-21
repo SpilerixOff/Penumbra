@@ -1,0 +1,26 @@
+{
+  "parent": "penumbra:root",
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.penumbra.you_see_me.description"
+    },
+    "frame": "challenge",
+    "icon": {
+      "id": "penumbra:binoculars"
+    },
+    "show_toast": true,
+    "title": {
+      "translate": "advancements.penumbra.you_see_me.title"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ]
+}

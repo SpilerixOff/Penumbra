@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "penumbra",
+  "version": "${mod_version}",
+  "name": "Penumbra",
+  "description": "Un directeur d'horreur psychologique qui observe, attend et se manifeste.",
+  "authors": [
+    "SpilerixOff",
+    "Penumbra Team"
+  ],
+  "license": "MIT",
+  "icon": "assets/penumbra/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "fr.penumbra.PenumbraMod"
+    ],
+    "client": [
+      "fr.penumbra.PenumbraClient"
+    ]
+  },
+  "mixins": [
+    "penumbra.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": ">=${fabric_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=${java_version}"
+  },
+  "contact": {
+    "homepage": "https://github.com/SpilerixOff/Penumbra",
+    "sources": "https://github.com/SpilerixOff/Penumbra",
+    "issues": "https://github.com/SpilerixOff/Penumbra/issues"
+  }
+}

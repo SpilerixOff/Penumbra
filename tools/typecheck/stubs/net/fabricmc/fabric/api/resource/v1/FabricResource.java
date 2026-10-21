@@ -1,0 +1,4 @@
+package net.fabricmc.fabric.api.resource.v1;
+
+/** Interface injectée par Fabric dans une classe vanilla. Doublure de vérification. */
+public interface FabricResource { }

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "group": "penumbra_compass",
+  "ingredients": [
+    "minecraft:compass",
+    "minecraft:copper_ingot"
+  ],
+  "result": {
+    "id": "penumbra:survey_compass"
+  }
+}

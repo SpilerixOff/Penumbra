@@ -1,0 +1,24 @@
+{
+  "parent": "penumbra:first_anomaly",
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.penumbra.first_structure.description"
+    },
+    "icon": {
+      "id": "penumbra:impossible_photo"
+    },
+    "title": {
+      "translate": "advancements.penumbra.first_structure.title"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ]
+}

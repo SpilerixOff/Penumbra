@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "fr.penumbra.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "CameraFovMixin",
+    "GameRendererHandMixin",
+    "MouseHandlerScrollMixin",
+    "DynamicLightMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,283 @@
+plugins {
+    id "java"
+    id "net.fabricmc.fabric-loom" version "${fabric_loom_version}"
+}
+
+group = project.maven_group
+version = project.mod_version
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    // 26.1 : jeu non-obfusqué, aucun mappings (plugin net.fabricmc.fabric-loom, sans remap).
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    // Workflow non-obfusqué : configurations standards (pas de modImplementation / remapJar).
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Version présente dans le cache du wrapper et utilisable avec --offline.
+    testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_version}"
+    // Gradle 9.6 ne fournit plus implicitement le lanceur de la plateforme.
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${project.junit_platform_version}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(project.java_version as int)
+    }
+    sourceCompatibility = JavaVersion.toVersion(project.java_version)
+    targetCompatibility = JavaVersion.toVersion(project.java_version)
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = project.java_version as int
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+processResources {
+    inputs.properties(
+            mod_version: project.mod_version,
+            minecraft_version: project.minecraft_version,
+            loader_version: project.loader_version,
+            fabric_version: project.fabric_version,
+            java_version: project.java_version
+    )
+    filesMatching("fabric.mod.json") {
+        expand(
+                mod_version: project.mod_version,
+                minecraft_version: project.minecraft_version,
+                loader_version: project.loader_version,
+                fabric_version: project.fabric_version,
+                java_version: project.java_version
+        )
+    }
+}
+
+// Les objets nommés ont une définition ; les variantes graphiques sont des
+// dépendances de ces définitions, pas des objets supplémentaires.
+def validateItemDefinitions = { Set<String> itemIds, Map definitions, Set<String> modelIds ->
+    Set<String> missingDefinitions = itemIds - definitions.keySet()
+    if (!missingDefinitions.isEmpty()) {
+        throw new GradleException("Définitions d'objets modernes absentes : ${missingDefinitions.sort()}")
+    }
+
+    Set<String> referencedModels = [] as Set
+    Closure visit
+    visit = { node ->
+        if (node instanceof Map) {
+            String referenceKey = node.type == "minecraft:special" ? "base" : "model"
+            if (node.type in ["minecraft:model", "minecraft:special"]) {
+                def reference = node[referenceKey]
+                if (!(reference instanceof String) || reference.isEmpty()) {
+                    throw new GradleException("Référence de modèle invalide : ${node}")
+                }
+                if (reference.startsWith("penumbra:")) {
+                    referencedModels.add(reference)
+                }
+            }
+            node.values().each { visit(it) }
+        } else if (node instanceof List) {
+            node.each { visit(it) }
+        }
+    }
+    definitions.each { id, definition ->
+        if (!(definition.model instanceof Map)) {
+            throw new GradleException("Définition d'objet sans modèle : ${id}")
+        }
+        visit(definition.model)
+    }
+    Set<String> missingModels = referencedModels - modelIds
+    if (!missingModels.isEmpty()) {
+        throw new GradleException("Modèles référencés absents : ${missingModels.sort()}")
+    }
+    Set<String> unboundModels = modelIds.findAll { id ->
+        id.startsWith("penumbra:item/")
+                && !definitions.containsKey(id.substring("penumbra:item/".length()))
+                && !referencedModels.contains(id)
+    }.toSet()
+    if (!unboundModels.isEmpty()) {
+        throw new GradleException("Modèles sans définition d'objet ni référence : ${unboundModels.sort()}")
+    }
+}
+
+tasks.register("validatePenumbraResources") {
+    group = "verification"
+    description = "Valide les JSON et les liens langue/sons/modèles de Penumbra."
+
+    def resources = layout.projectDirectory.dir("src/main/resources")
+    inputs.files(fileTree(resources) { include "**/*.json", "**/*.ogg", "**/*.png" })
+
+    doLast {
+        def parser = new groovy.json.JsonSlurper()
+        def jsonFiles = fileTree(resources).matching { include "**/*.json" }.files.sort()
+        jsonFiles.each { parser.parse(it) }
+
+        def langDir = resources.dir("assets/penumbra/lang").asFile
+        Map french = (Map) parser.parse(new File(langDir, "fr_fr.json"))
+        Map swissFrench = (Map) parser.parse(new File(langDir, "fr_ch.json"))
+        Map english = (Map) parser.parse(new File(langDir, "en_us.json"))
+        if (french.keySet() != english.keySet()) {
+            throw new GradleException("Les clés fr_fr/en_us diffèrent : "
+                    + "FR seulement=${french.keySet() - english.keySet()}, "
+                    + "EN seulement=${english.keySet() - french.keySet()}")
+        }
+        if (swissFrench != french) {
+            throw new GradleException("fr_ch doit rester intégralement synchronisé avec fr_fr : "
+                    + "CH seulement=${swissFrench.keySet() - french.keySet()}, "
+                    + "FR seulement=${french.keySet() - swissFrench.keySet()}, "
+                    + "valeurs différentes=${french.keySet().findAll { swissFrench[it] != french[it] }}")
+        }
+
+        def soundRoot = resources.dir("assets/penumbra/sounds").asFile
+        Map soundManifest = (Map) parser.parse(resources.file("assets/penumbra/sounds.json").asFile)
+        Set<String> declaredSounds = soundManifest.values().collectMany { event ->
+            ((List) event.sounds).collect { sound ->
+                String name = (sound instanceof Map ? sound.name : sound).toString()
+                name.replaceFirst("^penumbra:", "") + ".ogg"
+            }
+        }.toSet()
+        Set<String> packagedSounds = fileTree(soundRoot).matching { include "**/*.ogg" }.files.collect {
+            soundRoot.toPath().relativize(it.toPath()).toString().replace('\\', '/')
+        }.toSet()
+        if (declaredSounds != packagedSounds) {
+            throw new GradleException("Manifest sons incohérent : "
+                    + "manquants=${declaredSounds - packagedSounds}, "
+                    + "non déclarés=${packagedSounds - declaredSounds}")
+        }
+        soundManifest.each { id, event ->
+            if (!french.containsKey(event.subtitle) || !swissFrench.containsKey(event.subtitle)
+                    || !english.containsKey(event.subtitle)) {
+                throw new GradleException("Sous-titre absent pour le son ${id}: ${event.subtitle}")
+            }
+        }
+
+        fileTree(resources.dir("assets/penumbra/models/item")).matching { include "*.json" }.files.each { modelFile ->
+            Map model = (Map) parser.parse(modelFile)
+            ((Map) (model.textures ?: [:])).values().each { rawTexture ->
+                String texture = rawTexture?.toString()
+                if (texture?.startsWith("penumbra:")) {
+                    File image = resources.file("assets/penumbra/textures/"
+                            + texture.substring("penumbra:".length()) + ".png").asFile
+                    if (!image.isFile()) {
+                        throw new GradleException("Texture absente pour ${modelFile.name}: ${texture}")
+                    }
+                }
+            }
+        }
+
+        // Les screamers 0.16.0 sont des textures plein écran haute définition :
+        // un PNG absent, illisible ou d'une taille différente provoquerait un
+        // carré manquant ou un rendu incohérent selon le ratio de l'écran. Les
+        // neuf variantes historiques et les cinq contextuelles restent validées.
+        (1..9).each { index ->
+            String suffix = index == 1 ? "" : "_${index}"
+            File imageFile = resources.file(
+                    "assets/penumbra/textures/gui/screamer_host${suffix}.png").asFile
+            if (!imageFile.isFile()) {
+                throw new GradleException("Texture de screamer absente : ${imageFile.name}")
+            }
+            def image = javax.imageio.ImageIO.read(imageFile)
+            if (image == null) {
+                throw new GradleException("Texture de screamer illisible : ${imageFile.name}")
+            }
+            if (image.width != 1024 || image.height != 1024) {
+                throw new GradleException("Texture de screamer invalide ${imageFile.name}: "
+                        + "${image.width}x${image.height}, attendu 1024x1024")
+            }
+        }
+        ["screamer_rampant.png", "screamer_absent.png", "screamer_chorus.png",
+         "screamer_refuge.png", "screamer_mimic.png",
+         "screamer_listener.png"].each { name ->
+            File imageFile = resources.file(
+                    "assets/penumbra/textures/gui/${name}").asFile
+            if (!imageFile.isFile()) {
+                throw new GradleException("Texture de screamer absente : ${imageFile.name}")
+            }
+            def image = javax.imageio.ImageIO.read(imageFile)
+            if (image == null || image.width != 1024 || image.height != 1024) {
+                throw new GradleException("Texture de screamer invalide ${imageFile.name}: "
+                        + "${image == null ? 'illisible' : image.width + 'x' + image.height}, "
+                        + "attendu 1024x1024")
+            }
+        }
+
+        // 0.8.0 : les quatre silhouettes ont chacune un atlas UV 64×64.
+        // L'incrustation du Projectionniste doit conserver le format exact de
+        // l'album (128×72) et un canal alpha pour ne pas masquer la vraie photo.
+        Map<String, List<Integer>> releaseImages = [
+                "assets/penumbra/textures/entity/projectionist.png": [64, 64],
+                "assets/penumbra/textures/entity/rampant.png": [64, 64],
+                "assets/penumbra/textures/entity/absent.png": [64, 64],
+                "assets/penumbra/textures/entity/absent_photo_truth.png": [128, 72],
+                "assets/penumbra/textures/entity/scuttler.png": [64, 64],
+                // 0.19.0 : atlas haute densité (texScale 0.25 dans ListenerModel).
+                "assets/penumbra/textures/entity/listener.png": [256, 256],
+                "assets/penumbra/textures/entity/projectionist_photo.png": [128, 72],
+                "assets/penumbra/textures/item/ash_ward.png": [64, 64]
+        ]
+        releaseImages.each { path, expected ->
+            File imageFile = resources.file(path).asFile
+            if (!imageFile.isFile()) {
+                throw new GradleException("Texture de monstre absente : ${path}")
+            }
+            def image = javax.imageio.ImageIO.read(imageFile)
+            if (image == null || image.width != expected[0] || image.height != expected[1]) {
+                throw new GradleException("Texture de monstre invalide ${path}: "
+                        + "${image == null ? 'illisible' : image.width + 'x' + image.height}, "
+                        + "attendu ${expected[0]}x${expected[1]}")
+            }
+            if ((path.endsWith("projectionist_photo.png")
+                    || path.endsWith("absent_photo_truth.png"))
+                    && !image.colorModel.hasAlpha()) {
+                throw new GradleException(
+                        "${imageFile.name} doit conserver un canal alpha")
+            }
+        }
+
+        // Depuis 1.21.4/26.1, chaque objet nommé a une définition moderne.
+        // Les 32 cadrans de boussole et les modèles en main sont parcourus
+        // récursivement depuis ces définitions, sans exception de suffixe.
+        def itemDefinitionDir = resources.dir("assets/penumbra/items").asFile
+        def modelDir = resources.dir("assets/penumbra/models").asFile
+        Set<String> namedItemIds = french.keySet().findAll {
+            it ==~ /item\.penumbra\.[a-z0-9_]+/
+        }.collect { it.substring("item.penumbra.".length()) }.toSet()
+        Map definitions = fileTree(itemDefinitionDir).matching { include "**/*.json" }.files.collectEntries {
+            String id = itemDefinitionDir.toPath().relativize(it.toPath()).toString()
+                    .replace('\\', '/').replaceFirst(/\.json$/, "")
+            [(id): parser.parse(it)]
+        }
+        Set<String> modelIds = fileTree(modelDir).matching { include "**/*.json" }.files.collect {
+            "penumbra:" + modelDir.toPath().relativize(it.toPath()).toString()
+                    .replace('\\', '/').replaceFirst(/\.json$/, "")
+        }.toSet()
+        validateItemDefinitions(namedItemIds, definitions, modelIds)
+
+        Map metadata = (Map) parser.parse(resources.file("fabric.mod.json").asFile)
+        if (metadata.version != '${mod_version}') {
+            throw new GradleException("fabric.mod.json doit utiliser le placeholder mod_version")
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn tasks.named("validatePenumbraResources")
+}
+
+jar {
+    inputs.property "archivesName", project.base.archivesName
+    from("LICENSE") {
+        rename { "${it}_${inputs.properties.archivesName}" }
+    }
+    from("ASSET_PROVENANCE.md")
+}
