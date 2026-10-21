@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
@@ -119,12 +120,18 @@ public final class ListenerManager {
      */
     public static void reportBurst(ServerLevel level, ServerPlayer player,
                                    Vec3 origin, double radius) {
-        if (ACTIVE_BY_OWNER.isEmpty() || !PenumbraConfig.get().listenerEnabled) {
+        if (ACTIVE_BY_OWNER.isEmpty() || !PenumbraConfig.get().listenerEnabled
+                || player.level() != level || !player.isAlive() || player.isRemoved()
+                || player.isSpectator() || player.isSleeping()
+                || !Double.isFinite(radius) || radius <= 0.0) {
             return;
         }
+        boolean shared = PenumbraConfig.get().multiplayerContent;
         for (ListenerEntity entity :
-                ListenerEntity.ownedNear(level, player, BURST_SEARCH_RADIUS)) {
-            entity.hearBurst(origin, radius);
+                level.getEntitiesOfClass(ListenerEntity.class,
+                        new AABB(origin, origin).inflate(BURST_SEARCH_RADIUS),
+                        listener -> listener.isAlive() && (shared || listener.isOwnedBy(player)))) {
+            entity.hearBurst(origin, Math.min(radius, ListenerNoise.MAX_RADIUS));
         }
     }
 

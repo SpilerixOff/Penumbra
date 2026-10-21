@@ -73,6 +73,7 @@ public class ChasePlayerGoal extends Goal {
     }
 
     private final HostEntity host;
+    private final HostPursuitMemory memory = new HostPursuitMemory();
     private ServerPlayer target;
     private Phase phase = Phase.STAGING;
     private int stagingTicks;
@@ -96,7 +97,8 @@ public class ChasePlayerGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (!isChaseBehavior() || !PenumbraConfig.get().chasesEnabled
+        if (!isChaseBehavior() || !PenumbraConfig.get().hostEnabled
+                || !PenumbraConfig.get().chasesEnabled || this.host.isLunging()
                 || !(this.host.level() instanceof ServerLevel serverLevel)) {
             return false;
         }
@@ -108,9 +110,12 @@ public class ChasePlayerGoal extends Goal {
     public boolean canContinueToUse() {
         return isChaseBehavior()
                 && PenumbraConfig.get().chasesEnabled
+                && PenumbraConfig.get().hostEnabled
                 && this.target != null
                 && this.target.isAlive()
                 && !this.target.isRemoved()
+                && !this.target.isSpectator()
+                && !this.target.isSleeping()
                 && this.host.isOwnedBy(this.target)
                 && this.target.level() == this.host.level();
     }
@@ -124,7 +129,13 @@ public class ChasePlayerGoal extends Goal {
         this.farTicks = 0;
         this.repathCooldown = 0;
         this.telegraphTicks = 0;
+        this.memory.reset();
         this.host.getNavigation().stop();
+    }
+
+    @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
     }
 
     @Override
@@ -153,6 +164,13 @@ public class ChasePlayerGoal extends Goal {
             return;
         }
         double distance = this.host.distanceTo(this.target);
+        boolean visible = this.host.hasLineOfSight(this.target);
+        this.memory.observe(visible, this.target.getX(), this.target.getY(), this.target.getZ());
+        if (this.memory.escaped()) {
+            // Sustained cover is a successful escape, never a teleporting fake retreat.
+            abandon(serverLevel, false);
+            return;
+        }
         if (distance > FAR_DISTANCE) {
             if (++this.farTicks >= FAR_TICKS) {
                 abandon(serverLevel);
@@ -172,7 +190,7 @@ public class ChasePlayerGoal extends Goal {
     /** Phase d'ouverture : immobile, regard fixé sur le joueur. */
     private void tickStaging() {
         this.host.getNavigation().stop();
-        this.host.getLookControl().setLookAt(this.target, 30.0f, 30.0f);
+        lookAtLastSeen();
         if (++this.stagingTicks >= STAGING_TICKS) {
             this.phase = Phase.PURSUIT;
             this.repathCooldown = 0;
@@ -191,13 +209,13 @@ public class ChasePlayerGoal extends Goal {
             this.host.getNavigation().stop();
             return;
         }
-        this.host.getLookControl().setLookAt(this.target, 30.0f, 30.0f);
+        lookAtLastSeen();
         int pursuitTicks = Math.max(0, this.chaseTicks - STAGING_TICKS);
         double ramp = Math.min(1.0, pursuitTicks / (double) RAMP_TICKS);
         double speed = SPEED_START + (SPEED_END - SPEED_START) * ramp;
         if (--this.repathCooldown <= 0 || this.host.getNavigation().isDone()) {
             this.repathCooldown = REPATH_TICKS;
-            moveToward(serverLevel, this.target.getX(), this.target.getY(), this.target.getZ(), speed);
+            moveTowardLastSeen(serverLevel, speed);
         }
     }
 
@@ -206,6 +224,13 @@ public class ChasePlayerGoal extends Goal {
      * rapprochés (volume et pitch montants), puis la frappe.
      */
     private void tickTelegraph(ServerLevel serverLevel) {
+        if (!this.host.hasLineOfSight(this.target)) {
+            this.host.getNavigation().stop();
+            this.host.setBehavior(HostBehavior.CHASING);
+            this.phase = Phase.PURSUIT;
+            this.repathCooldown = 0;
+            return;
+        }
         this.host.getLookControl().setLookAt(this.target, 60.0f, 60.0f);
         if (this.telegraphTicks % 5 == 0) {
             moveToward(serverLevel, this.target.getX(), this.target.getY(), this.target.getZ(),
@@ -249,9 +274,30 @@ public class ChasePlayerGoal extends Goal {
      */
     private void abandon(ServerLevel serverLevel) {
         boolean fakeRetreat = this.host.getRandom().nextFloat() < 0.4f;
+        abandon(serverLevel, fakeRetreat);
+    }
+
+    private void abandon(ServerLevel serverLevel, boolean fakeRetreat) {
         HorrorDirector.endChase(this.target, fakeRetreat);
         this.host.setBehavior(fakeRetreat ? HostBehavior.HIDING : HostBehavior.COOLDOWN);
         this.host.getNavigation().stop();
+    }
+
+    private void lookAtLastSeen() {
+        HostPursuitMemory.Position seen = this.memory.lastSeen();
+        if (seen != null) {
+            this.host.getLookControl().setLookAt(
+                    seen.x(), seen.y() + this.target.getEyeHeight(), seen.z(), 30.0f, 30.0f);
+        }
+    }
+
+    private void moveTowardLastSeen(ServerLevel level, double speed) {
+        HostPursuitMemory.Position seen = this.memory.lastSeen();
+        if (seen == null) {
+            this.host.getNavigation().stop();
+        } else {
+            moveToward(level, seen.x(), seen.y(), seen.z(), speed);
+        }
     }
 
     /** HOST_STEP positionné, audible par tout joueur assez proche de l'Hôte. */
@@ -278,7 +324,7 @@ public class ChasePlayerGoal extends Goal {
     private ServerPlayer findNearestPlayer(ServerLevel serverLevel) {
         ServerPlayer owner = this.host.getOwnerPlayer();
         if (owner != null) {
-            return owner.distanceTo(this.host) <= DETECT_RANGE ? owner : null;
+            return eligible(owner) && owner.distanceTo(this.host) <= DETECT_RANGE ? owner : null;
         }
         // Une manifestation déjà liée ne doit jamais changer de joueur.
         if (this.host.hasOwner()) {
@@ -287,7 +333,7 @@ public class ChasePlayerGoal extends Goal {
         ServerPlayer nearest = null;
         double best = DETECT_RANGE;
         for (ServerPlayer player : serverLevel.players()) {
-            if (player.isSpectator() || !player.isAlive()) {
+            if (!eligible(player)) {
                 continue;
             }
             double dist = player.distanceTo(this.host);
@@ -300,5 +346,10 @@ public class ChasePlayerGoal extends Goal {
             this.host.setOwner(nearest);
         }
         return nearest;
+    }
+
+    private static boolean eligible(ServerPlayer player) {
+        return player.isAlive() && !player.isRemoved() && !player.isSpectator()
+                && !player.isSleeping();
     }
 }

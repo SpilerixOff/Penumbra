@@ -29,6 +29,11 @@ These are implemented systems to explore and test, not a promise that every comb
 
 ## Build from source
 
+This branch prepares **0.20.0**: more deliberate horror pacing, escapable Host
+pursuits, silence-based Listener counterplay, a readable field journal and
+selectable compass destinations. The public download above remains **0.19.0**
+until a new release is published. See [the changelog](CHANGELOG.md).
+
 The version pins in [gradle.properties](gradle.properties) are the source of truth:
 
 | Component | Target |
@@ -50,7 +55,7 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The mod JAR is `build/libs/penumbra-0.19.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The mod JAR is `build/libs/penumbra-0.20.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 
@@ -78,7 +83,9 @@ La version **0.19.0 est ouverte aux premiers essais publics**. Le **21 octobre 2
 
 Pour jouer, téléchargez le JAR du mod sur la [page Releases](https://github.com/SpilerixOff/Penumbra/releases), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
-Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.19.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
+Cette branche prépare la **0.20.0** : rythme, fuite face à l'Hôte, silence face à l'Écouteur, carnet lisible et destinations de la boussole. Le téléchargement public ci-dessus reste la **0.19.0** jusqu'à la prochaine publication.
+
+Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.20.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
 
 Le mod contient des sons soudains, des visages horrifiques plein écran, des secousses et des distorsions. Les flashs sont désactivés par défaut, mais d'autres effets restent actifs. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
 

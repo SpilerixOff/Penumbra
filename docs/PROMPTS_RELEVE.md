@@ -279,7 +279,7 @@ du frontispice tienne, `shift` ensuite pour l'asseoir sur la réglure,
   de chargement de ressource et le texte du carnet devient illisible. Ce n'est
   pas instable, mais vérifie le log au premier lancement.
 - **N'active `journalHandwrittenFont` qu'une fois les deux fichiers en place.**
-  Tant que l'option est à `false`, le carnet utilise l'italique vanilla et rien
+  Tant que l'option est à `false`, le carnet utilise la police vanilla sans ombre et rien
   ne peut casser.
 - **Les accents comptent.** Le texte français utilise `é è ê à ç ô û ù ï «  »
   … —`. Vérifie que ta police les possède **tous** : une police anglophone

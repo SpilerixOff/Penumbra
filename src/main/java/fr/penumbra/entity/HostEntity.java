@@ -9,6 +9,7 @@ import fr.penumbra.entity.ai.VanishWhenSeenGoal;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraEntities;
 import fr.penumbra.registry.PenumbraParticles;
+import fr.penumbra.registry.PenumbraSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -46,6 +47,7 @@ public class HostEntity extends Monster {
     private static final int OWNER_MISSING_GRACE_TICKS = 200;
     private static final int RETREAT_LIFETIME_TICKS = 100;
     private static final int COOLDOWN_LIFETIME_TICKS = 40;
+    private static final int STARE_WINDUP_TICKS = 12;
 
     /** Ordinal du {@link HostBehavior} courant, synchronisé client/serveur. */
     private static final EntityDataAccessor<Integer> DATA_BEHAVIOR =
@@ -60,6 +62,8 @@ public class HostEntity extends Monster {
     private int ownerMissingTicks;
     private int terminalTicks;
     private Vec3 lungeStartPosition;
+    private Vec3 lungeTargetPosition;
+    private int lungeWindupTicks;
     /**
      * Certaines scènes asymétriques montrent l'Hôte à un seul témoin. Ce
      * drapeau doit être armé avant {@code addFreshEntity}; les Hôtes ordinaires
@@ -157,31 +161,45 @@ public class HostEntity extends Monster {
         return StareLunge.progress(this.entityData.get(DATA_LUNGE_STATE), partialTick);
     }
 
+    public boolean canReactToStare() {
+        return !this.isLunging() && HostLunge.canArmFrom(this.getBehavior());
+    }
+
     /**
      * Remplace l'ancienne disparition sous le regard : l'Hôte se fige, puis
      * parcourt la distance jusqu'au visage avant de frapper et hurler.
      */
     public boolean beginStareLunge(ServerPlayer watcher) {
-        if (this.isLunging() || watcher == null || !watcher.isAlive()
-                || watcher.isSpectator() || !this.isOwnedBy(watcher)) {
-            return false;
-        }
-        HostBehavior behavior = this.getBehavior();
-        if (behavior == HostBehavior.CHASING || behavior == HostBehavior.ATTACKING) {
+        if (!this.canReactToStare() || !PenumbraConfig.get().hostEnabled
+                || watcher == null || !watcher.isAlive() || watcher.isRemoved()
+                || watcher.isSpectator() || watcher.isSleeping()
+                || watcher.level() != this.level() || !this.isOwnedBy(watcher)
+                || !this.hasLineOfSight(watcher)) {
             return false;
         }
         int duration = StareLunge.MIN_DURATION_TICKS
                 + this.random.nextInt(StareLunge.MAX_DURATION_TICKS
                 - StareLunge.MIN_DURATION_TICKS + 1);
         this.lungeStartPosition = this.position();
+        Vec3 targetEye = watcher.getEyePosition();
+        Vec3 fromFace = this.getEyePosition().subtract(targetEye);
+        if (fromFace.lengthSqr() < 1.0E-6) {
+            fromFace = watcher.getLookAngle();
+        }
+        // Commit to the observed location. A lateral dodge must not be homed onto.
+        Vec3 endEye = targetEye.add(fromFace.normalize().scale(0.68));
+        this.lungeTargetPosition = new Vec3(endEye.x, watcher.getY(), endEye.z);
+        this.lungeWindupTicks = STARE_WINDUP_TICKS;
         this.getNavigation().stop();
         this.setTarget(null);
         this.setDeltaMovement(Vec3.ZERO);
         this.setNoAi(true);
         this.setNoGravity(true);
         this.setInvulnerable(true);
-        this.noPhysics = true;
+        this.noPhysics = false;
         this.entityData.set(DATA_LUNGE_STATE, StareLunge.pack(0, duration));
+        PenumbraNetworking.sendSound(watcher, PenumbraSounds.HOST_WHISPER,
+                this.position(), 0.8f, 0.8f);
         return true;
     }
 
@@ -233,7 +251,9 @@ public class HostEntity extends Monster {
         if (!this.level().isClientSide()) {
             if (this.isLunging() && this.level() instanceof ServerLevel level) {
                 ServerPlayer owner = this.getOwnerPlayer();
-                if (owner == null || !owner.isAlive() || owner.isSpectator()) {
+                if (owner == null || !owner.isAlive() || owner.isRemoved()
+                        || owner.isSpectator() || owner.isSleeping()
+                        || !PenumbraConfig.get().hostEnabled) {
                     this.discard();
                 } else {
                     this.tickStareLunge(level, owner);
@@ -245,7 +265,19 @@ public class HostEntity extends Monster {
                 return;
             }
 
+            ServerPlayer owner = this.getOwnerPlayer();
+            if (!PenumbraConfig.get().hostEnabled || (owner != null
+                    && (!owner.isAlive() || owner.isRemoved() || owner.isSpectator()
+                    || owner.isSleeping()))) {
+                this.getNavigation().stop();
+                this.setTarget(null);
+                this.discard();
+                return;
+            }
+
             if (this.ownerUuid != null && this.getOwnerPlayer() == null) {
+                this.getNavigation().stop();
+                this.setTarget(null);
                 if (++this.ownerMissingTicks > OWNER_MISSING_GRACE_TICKS) {
                     this.discard();
                     return;
@@ -275,32 +307,40 @@ public class HostEntity extends Monster {
     }
 
     private void tickStareLunge(ServerLevel level, ServerPlayer owner) {
+        if (!this.hasLineOfSight(owner) || this.lungeStartPosition == null
+                || this.lungeTargetPosition == null) {
+            VanishWhenSeenGoal.vanishInAsh(level, this);
+            return;
+        }
+        if (this.lungeWindupTicks > 0) {
+            this.lungeWindupTicks--;
+            this.setDeltaMovement(Vec3.ZERO);
+            this.faceLungeTarget(owner);
+            return;
+        }
         int state = this.entityData.get(DATA_LUNGE_STATE);
         int duration = StareLunge.durationTicks(state);
         int elapsed = Math.min(duration, StareLunge.elapsedTicks(state) + 1);
         this.entityData.set(DATA_LUNGE_STATE, StareLunge.pack(elapsed, duration));
 
-        if (this.lungeStartPosition == null) {
-            this.lungeStartPosition = this.position();
-        }
-        Vec3 targetEye = owner.getEyePosition();
-        Vec3 startEye = this.lungeStartPosition.add(0.0, this.getEyeHeight(), 0.0);
-        Vec3 fromFace = startEye.subtract(targetEye);
-        if (fromFace.lengthSqr() < 1.0E-6) {
-            fromFace = owner.getLookAngle();
-        }
-        Vec3 endEye = targetEye.add(fromFace.normalize().scale(0.68));
-        Vec3 endFeet = endEye.subtract(0.0, this.getEyeHeight(), 0.0);
         double eased = StareLunge.easedProgress(elapsed, duration);
-        this.setPos(this.lungeStartPosition.lerp(endFeet, eased));
+        Vec3 next = this.lungeStartPosition.lerp(this.lungeTargetPosition, eased);
+        AABB swept = this.getBoundingBox().expandTowards(next.subtract(this.position()));
+        if (!level.isLoaded(BlockPos.containing(next)) || !level.noCollision(this, swept)) {
+            VanishWhenSeenGoal.vanishInAsh(level, this);
+            return;
+        }
+        this.setPos(next);
         this.setDeltaMovement(Vec3.ZERO);
         this.faceLungeTarget(owner);
 
         if (elapsed >= duration) {
-            this.doHurtTarget(level, owner);
-            String type = PenumbraConfig.get().screamersEnabled
-                    ? "lunge_screamer" : "apparition";
-            PenumbraNetworking.sendJumpscare(owner, type, 1.0f);
+            if (this.isWithinMeleeAttackRange(owner) && this.hasLineOfSight(owner)) {
+                this.doHurtTarget(level, owner);
+                String type = PenumbraConfig.get().screamersEnabled
+                        ? "lunge_screamer" : "apparition";
+                PenumbraNetworking.sendJumpscare(owner, type, 1.0f);
+            }
             level.sendParticles(PenumbraParticles.ASH_MOTE,
                     this.getX(), this.getY() + 1.3, this.getZ(),
                     34, 0.42, 0.85, 0.42, 0.015);

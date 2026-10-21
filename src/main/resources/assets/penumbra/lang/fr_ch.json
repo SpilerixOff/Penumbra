@@ -339,7 +339,7 @@
   "item.penumbra.torn_page": "Page arrachée",
   "item.penumbra.torn_page.desc": "Arrachée net, près de la reliure.",
   "screen.penumbra.journal.title": "Le Relevé",
-  "screen.penumbra.journal.footer": "%s / %s   ·   %s pages sur %s",
+  "screen.penumbra.journal.footer": "%s / %s   ·   Notes : %s / %s",
   "screen.penumbra.journal.faded": "L'humidité a mangé le reste.",
   "screen.penumbra.journal.torn_title": "Page manquante",
   "screen.penumbra.journal.torn_body": "Il ne reste que le talon. La page a été arrachée d'un coup sec, et pas par accident : les autres tiennent encore.",
@@ -368,8 +368,8 @@
   "journal.penumbra.host.line1": "Le premier que j'aie vu, et celui que je comprends le moins. Une silhouette pâle, plus haute qu'un homme, qui se tient au bord de ce qu'on éclaire.",
   "journal.penumbra.host.line2": "Il n'apparaît jamais devant vous. Il est déjà là quand vous vous retournez, et il n'y est plus quand vous insistez.",
   "journal.penumbra.host.line3": "Il apprend. J'en suis certain maintenant. Il marche comme moi. Il s'arrête où je m'arrête. La deuxième année, il boitait — je boitais.",
-  "journal.penumbra.host.line4": "Le fixer trop longtemps est une erreur. Il se fige d'abord. C'est le seul avertissement que vous aurez.",
-  "journal.penumbra.host.line5": "Contre lui : la lumière ne suffit pas, mais elle le tient à distance. Et ne le regardez pas dans les yeux plus de trois secondes.",
+  "journal.penumbra.host.line4": "Le fixer est une erreur. Il se fige, un bruit le trahit, puis il bondit vers l'endroit où vous étiez. N'attendez pas : écartez-vous ou passez derrière un obstacle.",
+  "journal.penumbra.host.line5": "Contre lui : rompez son regard. Derrière un mur ou un tournant, comptez quatre secondes sans qu'il vous revoie. Il fouille votre dernière position. Ne revenez pas vérifier trop tôt.",
   "journal.penumbra.watcher.title": "l'Observateur",
   "journal.penumbra.watcher.subtitle": "première observation : quatrième mois",
   "journal.penumbra.watcher.faded": "…debout, à distance, sans jamais s'approcher. J'ai compté onze minutes avant que…",
@@ -518,5 +518,11 @@
   "command.penumbra.pyre_result_underwater": "Le site [%s, %s] est tombé en mer : ce monde n'aura pas de Bûcher.",
   "command.penumbra.pyre_result_failed": "La construction a échoué. Le détail est dans le journal du jeu.",
   "command.penumbra.pyre_reset": "Le Bûcher est oublié : il se rebâtira à la prochaine approche.",
-  "command.penumbra.pyre_teleported": "Vous êtes sur le site : [%s, %s, %s]."
+  "command.penumbra.pyre_teleported": "Vous êtes sur le site : [%s, %s, %s].",
+  "item.penumbra.survey_compass.mode": "Destination : %s",
+  "item.penumbra.survey_compass.mode.camp": "Le camp de Warrick",
+  "item.penumbra.survey_compass.mode.unexplored": "Sites inexplorés",
+  "item.penumbra.survey_compass.mode.nearest": "Le site le plus proche",
+  "item.penumbra.survey_compass.controls": "Clic droit : changer de destination.",
+  "item.penumbra.survey_compass.no_new_site": "Aucun nouveau site connu ici. Explorez plus loin dans l’Overworld."
 }

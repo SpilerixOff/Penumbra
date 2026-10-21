@@ -228,7 +228,9 @@ public final class FauxMobManager {
                 continue;
             }
             ServerPlayer owner = server.getPlayerList().getPlayer(session.ownerId);
-            if (owner == null || owner.level() != session.level) {
+            if (owner == null || owner.level() != session.level || !owner.isAlive()
+                    || owner.isRemoved() || owner.isSpectator()
+                    || owner.isSleeping()) {
                 // Propriétaire parti : la créature s'efface sans témoin ni effet.
                 mob.discard();
                 iterator.remove();

@@ -1,7 +1,6 @@
 package fr.penumbra.entity.ai;
 
 import fr.penumbra.config.PenumbraConfig;
-import fr.penumbra.entity.HostBehavior;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraParticles;
@@ -15,9 +14,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Goal prioritaire : si un joueur regarde l'Hôte (cône de vision dot &gt; 0.94,
  * ligne de vue libre, ≤ 40 blocs) pendant au moins {@code seuilTicksLos} ticks
- * cumulés (8 par défaut), l'Hôte disparaît.
- * 70 % : nuage de cendre + HOST_WHISPER puis discard ; 30 % : téléportation
- * 8–14 blocs derrière le joueur et passage en STALKING.
+ * cumulés (8 par défaut), l'Hôte annonce un bond vers la position observée.
+ * Le joueur peut gagner un couvert ou esquiver pendant l'annonce.
  * Si {@code hostEnabled} est faux, l'Hôte est supprimé immédiatement.
  * Phase 2 : inactif pendant CHASING/ATTACKING (la poursuite ne s'interrompt pas
  * sous le regard) ; le constructeur à seuil réduit sert la fausse silhouette.
@@ -63,9 +61,7 @@ public class VanishWhenSeenGoal extends Goal {
         }
         // Phase 2 : pendant une poursuite, l'Hôte ne disparaît plus quand on le
         // regarde — ChasePlayerGoal (priorité 0) pilote CHASING/ATTACKING.
-        HostBehavior behavior = this.host.getBehavior();
-        if (this.host.isLunging()
-                || behavior == HostBehavior.CHASING || behavior == HostBehavior.ATTACKING) {
+        if (!this.host.canReactToStare()) {
             return false;
         }
         if (this.host.tickCount % this.scanInterval != 0) {
@@ -76,7 +72,12 @@ public class VanishWhenSeenGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return !this.done && !this.host.isLunging();
+        return !this.done && this.host.canReactToStare();
+    }
+
+    @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
     }
 
     @Override
@@ -87,9 +88,6 @@ public class VanishWhenSeenGoal extends Goal {
 
     @Override
     public void tick() {
-        if (this.host.tickCount % this.scanInterval != 0) {
-            return;
-        }
         ServerPlayer watcher = findWatcher(this.host, RANGE);
         if (watcher == null) {
             // Regard perdu : le compteur cumulé retombe à zéro et le goal s'arrête.
@@ -97,10 +95,10 @@ public class VanishWhenSeenGoal extends Goal {
             this.done = true;
             return;
         }
-        this.seenTicks += this.scanInterval;
+        this.seenTicks++;
         if (this.seenTicks >= this.seuilTicksLos) {
             this.done = true;
-            if (this.host.level() instanceof ServerLevel serverLevel) {
+            if (this.host.level() instanceof ServerLevel) {
                 triggerLunge(watcher);
             }
         }
@@ -142,7 +140,8 @@ public class VanishWhenSeenGoal extends Goal {
         ServerPlayer best = null;
         double bestDist = maxDist;
         for (ServerPlayer player : serverLevel.players()) {
-            if (player.isSpectator() || !host.isOwnedBy(player)) {
+            if (!player.isAlive() || player.isRemoved() || player.isSpectator()
+                    || player.isSleeping() || !host.isOwnedBy(player)) {
                 continue;
             }
             double dist = player.distanceTo(host);

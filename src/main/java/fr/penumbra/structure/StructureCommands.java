@@ -89,21 +89,20 @@ public final class StructureCommands {
 
     /**
      * /penumbra structure spawn <type> : construit la structure
-     * {@value #SPAWN_AHEAD} blocs devant le joueur, sur la surface, et
+     * {@value #SPAWN_AHEAD} blocs devant la source de commande, sur la surface, et
      * l'enregistre au tracker (commande d'administration, chunks existants).
      */
     private static int spawn(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
-        ServerPlayer player = source.getPlayerOrException();
         StructureType type = StructureType.byId(StringArgumentType.getString(context, "type"));
         if (type == null) {
             source.sendFailure(Component.translatable("penumbra.structure.unknown",
                     StringArgumentType.getString(context, "type")));
             return 0;
         }
-        ServerLevel level = player.level();
-        Direction facing = player.getDirection();
-        BlockPos ahead = player.blockPosition().relative(facing, SPAWN_AHEAD);
+        ServerLevel level = source.getLevel();
+        Direction facing = Direction.fromYRot(source.getRotation().y);
+        BlockPos ahead = BlockPos.containing(source.getPosition()).relative(facing, SPAWN_AHEAD);
         int y = level.getHeight(Heightmap.Types.WORLD_SURFACE, ahead.getX(), ahead.getZ());
         BlockPos surface = new BlockPos(ahead.getX(), y, ahead.getZ());
         int variant = level.getRandom().nextInt(type.variantCount());

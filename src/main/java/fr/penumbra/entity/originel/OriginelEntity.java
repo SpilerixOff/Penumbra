@@ -212,7 +212,8 @@ public class OriginelEntity extends Monster {
         }
 
         ServerPlayer owner = this.resolveOwner(level);
-        if (owner == null || owner.isSpectator() || !owner.isAlive()) {
+        if (owner == null || owner.isSpectator() || !owner.isAlive()
+                || owner.isRemoved() || owner.isSleeping()) {
             this.discard();
             return;
         }
@@ -271,6 +272,10 @@ public class OriginelEntity extends Monster {
     }
 
     private void tickLunge(ServerLevel level, ServerPlayer player) {
+        if (!this.hasLineOfSight(player)) {
+            this.discard();
+            return;
+        }
         this.setNoGravity(true);
         this.noPhysics = true;
         this.lungeTicks++;

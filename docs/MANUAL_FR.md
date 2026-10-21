@@ -7,6 +7,28 @@ d'ajouter un monstre : il observe votre façon de jouer, monte la tension progre
 manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et disparaît
 dès que vous la regardez.
 
+## Nouveau en 0.20.0 — apprendre à s'en sortir
+
+- **Échapper à l'Hôte :** cachez-vous derrière un vrai obstacle et gardez sa
+  ligne de vue coupée pendant quatre secondes. Il cherche à l'endroit où il
+  vous a vu pour la dernière fois. Son bond commence par un bref arrêt sonore
+  et vise une position fixe : se décaler ou se mettre à couvert peut sauver.
+- **Face à l'Écouteur :** immobilisez-vous et cessez de frapper. Il peut venir
+  vers un bruit produit par quelqu'un d'autre, mais ne peut pas toucher son
+  propriétaire silencieux. Son annonce de charge laisse un court temps de
+  réaction ; ses coups ne passent plus à travers les murs.
+- **Boussole d'arpenteur :** un clic droit change sa destination. Le camp
+  permet de chercher le Relevé ; les sites inexplorés écartent vos découvertes
+  déjà enregistrées ; le site le plus proche aide à retrouver une ruine.
+  Seuls les sites déjà générés et le camp sont connus de l'aiguille. Quand
+  vous découvrez un site, passez au mode « plus proche » pour finir de le fouiller.
+- **Le Relevé** adapte ses pages à l'écran. Les flèches gauche/droite et la
+  molette le feuillettent ; les textes longs continuent sur le feuillet suivant.
+  Ses pages sont lisibles sur un papier uni, avec les bords usés du carnet.
+- Le directeur espace mieux les rencontres et laisse récupérer après une
+  situation critique. Une créature déjà engagée reste à gérer : le repos du
+  directeur ne remplace pas les contre-mesures.
+
 ## Nouveau en 0.19.0 — une aiguille, une flamme, et de la 3D
 
 - **Les objets trouvés.** Une chaise de cuisine, seule, dos tourné, à quatre

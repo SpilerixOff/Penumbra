@@ -6,7 +6,6 @@ import fr.penumbra.journal.JournalEntry;
 import fr.penumbra.registry.PenumbraSounds;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,56 +25,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Le Relevé (0.18.0) — double page de parchemin, écriture à l'encre.
- *
- * <p>Trois rendus selon l'état de la page :</p>
- * <ul>
- *   <li><b>Lisible</b> : portrait à l'encre, titre, sous-titre daté, et le texte
- *       complet en italique brun sur le feuillet de droite.</li>
- *   <li><b>Délavée</b> : le portrait est noyé sous un lavis, une seule ligne
- *       reste lisible, et le reste est dessiné en <em>taches d'encre diluée</em>
- *       plutôt qu'en faux caractères — l'œil comprend « illisible » sans
- *       chercher à déchiffrer.</li>
- *   <li><b>Arrachée</b> : il ne reste qu'un talon dentelé au niveau de la
- *       reliure, et l'indice que l'ancien avait noté sur la page d'en face.</li>
- * </ul>
- *
- * <p>Aucun nouvel accès API : uniquement {@code fill}, {@code blit},
- * {@code text}, {@code centeredText} et {@code outline} de
- * {@code GuiGraphicsExtractor}, déjà utilisés par {@code PhotoAlbumScreen}.</p>
- */
+/** Le Relevé : papier vieilli, portraits à l'encre et feuillets mesurés à la police active. */
 @Environment(EnvType.CLIENT)
 public final class SurveyJournalScreen extends Screen {
-
-    private static final Identifier SPREAD =
-            PenumbraMod.id("textures/gui/journal_spread.png");
-    private static final Identifier PORTRAITS =
-            PenumbraMod.id("textures/gui/journal_portraits.png");
-
-    /** Dimensions du livre à l'écran, et de l'atlas de portraits. */
-    private static final int BOOK_WIDTH = 348;
-    private static final int BOOK_HEIGHT = 224;
+    private static final Identifier SPREAD = PenumbraMod.id("textures/gui/journal_spread.png");
+    private static final Identifier PORTRAITS = PenumbraMod.id("textures/gui/journal_portraits.png");
     private static final int PORTRAIT_GRID = 4;
     private static final int PORTRAIT_SIZE = 96;
-
-    // ——— Encres ———
     private static final int INK = 0xFF2E2418;
     private static final int INK_SOFT = 0xFF554431;
-    private static final int INK_FADED = 0xFF9A8A70;
+    private static final int INK_FADED = 0xFF73654F;
     private static final int INK_RED = 0xFF6E2A1E;
+    private static final int PAPER_LEFT = 0xFFE5D4AF;
+    private static final int PAPER_RIGHT = 0xFFEADDBF;
     private static final int PAPER_SHADE = 0x224A3A24;
-    /** Blanc entre deux paragraphes d'Elias. */
     private static final int PARAGRAPH_GAP = 3;
+    private static final FontDescription.Resource INK_FONT =
+            new FontDescription.Resource(PenumbraMod.id("ink"));
 
     private final Map<JournalEntry, JournalEntry.State> states;
     private final int progress;
     private final int total;
     private final RandomSource smudgeRandom = RandomSource.create(0x5E1EC7L);
-
+    private final List<Sheet> sheets = new ArrayList<>();
+    private JournalLayout.Spread layout;
     private int page;
-    private int left;
-    private int top;
+    private double scrollRemainder;
 
     public SurveyJournalScreen(Set<String> readableIds, int progress, int total) {
         super(Component.translatable("screen.penumbra.journal.title"));
@@ -88,263 +63,235 @@ public final class SurveyJournalScreen extends Screen {
         }
     }
 
-
-    /**
-     * Identifiant de la police manuscrite optionnelle. Le mod ne livre aucun
-     * fichier TTF : si {@code journalHandwrittenFont} est actif, il faut que
-     * {@code assets/penumbra/font/ink.json} et le TTF qu'il référence aient été
-     * déposés par le joueur ou par un pack de ressources.
-     */
-    private static final FontDescription.Resource INK_FONT =
-            new FontDescription.Resource(PenumbraMod.id("ink"));
-
-    /**
-     * Passe un texte à l'encre. Sans police manuscrite installée, on retombe sur
-     * l'italique vanilla — c'est le rendu par défaut du carnet, et il tient tout
-     * seul. Tout le texte de l'écran passe par ici : changer de police est donc
-     * une modification d'une seule ligne.
-     */
+    /** Une police manuscrite peut être fournie par un pack ; sinon, écriture vanilla nette. */
     private static MutableComponent ink(Component text) {
         MutableComponent copy = text.copy();
         if (PenumbraConfig.get().journalHandwrittenFont) {
             return copy.withStyle(style -> style.withFont(INK_FONT));
         }
-        return copy.withStyle(ChatFormatting.ITALIC);
+        return copy;
     }
 
-    /**
-     * Un feuillet affiché : une entrée, et la tranche de ses paragraphes qui
-     * tient réellement sur la page de droite.
-     *
-     * <p>C'est le cœur de la mise en page. Les entrées d'Elias font jusqu'à six
-     * paragraphes de trois lignes : elles ne tiennent pas sur une page, et les
-     * tronquer couperait justement les lignes de contre-mesure, qui sont
-     * toujours les dernières. Le carnet se feuillette donc comme un vrai livre —
-     * une entrée longue occupe deux ou trois feuillets.</p>
-     */
-    private record Sheet(JournalEntry entry, int firstParagraph, int paragraphCount,
-                         boolean continued) {
+    private record Paragraph(Component text, int color) {
     }
 
-    private final List<Sheet> sheets = new ArrayList<>();
+    private record BodyLine(FormattedCharSequence text, int color, JournalLayout.Line position) {
+    }
+
+    private record Sheet(JournalEntry entry, List<BodyLine> lines, boolean continued,
+                         boolean lastForEntry) {
+    }
 
     @Override
     protected void init() {
-        this.left = (this.width - BOOK_WIDTH) / 2;
-        this.top = (this.height - BOOK_HEIGHT) / 2;
-        // La police n'est disponible qu'ici : c'est le premier moment où l'on
-        // peut mesurer le texte, donc le premier où la pagination est possible.
+        Sheet previous = this.sheets.isEmpty() ? null : sheet();
+        this.layout = JournalLayout.fit(this.width, this.height);
         paginate();
-        this.page = Math.max(0, Math.min(this.sheets.size() - 1, this.page));
+        // Une nouvelle taille change le nombre de feuillets. Revenir au même
+        // paragraphe évite de sauter à une autre créature après le redimensionnement.
+        this.page = 0;
+        if (previous != null) {
+            int paragraph = previous.lines().isEmpty() ? 0
+                    : previous.lines().getFirst().position().paragraph();
+            for (int index = 0; index < this.sheets.size(); index++) {
+                Sheet candidate = this.sheets.get(index);
+                if (candidate.entry() == previous.entry()
+                        && (candidate.lines().isEmpty() || candidate.lines().stream()
+                        .anyMatch(line -> line.position().paragraph() == paragraph))) {
+                    this.page = index;
+                    break;
+                }
+            }
+        }
+        this.scrollRemainder = 0;
     }
 
-    /** Découpe chaque entrée en autant de feuillets que nécessaire. */
     private void paginate() {
         this.sheets.clear();
-        int available = textBottom() - textTop();
         for (JournalEntry entry : JournalEntry.ORDER) {
-            JournalEntry.State state = this.states.getOrDefault(entry, entry.defaultState());
-            if (state != JournalEntry.State.KNOWN || entry.lineCount() == 0) {
-                // Une page délavée ou arrachée n'a qu'un feuillet, par construction.
-                this.sheets.add(new Sheet(entry, 0, 0, false));
-                continue;
+            List<Paragraph> paragraphs = paragraphs(entry);
+            List<List<FormattedCharSequence>> wrapped = paragraphs.stream()
+                    .map(paragraph -> this.font.split(paragraph.text(),
+                            this.layout.rightBody().width() - 4)).toList();
+            List<List<JournalLayout.Line>> pages = JournalLayout.paginate(
+                    wrapped.stream().map(List::size).toList(),
+                    this.layout.rightBody().height(), lineAdvance(), PARAGRAPH_GAP);
+            for (int index = 0; index < pages.size(); index++) {
+                List<BodyLine> lines = pages.get(index).stream().map(position -> new BodyLine(
+                        wrapped.get(position.paragraph()).get(position.index()),
+                        paragraphs.get(position.paragraph()).color(), position)).toList();
+                this.sheets.add(new Sheet(entry, lines, index > 0, index == pages.size() - 1));
             }
-            int first = 0;
-            int used = 0;
-            int count = 0;
-            for (int index = 0; index < entry.lineCount(); index++) {
-                int height = paragraphHeight(entry, index);
-                if (count > 0 && used + height > available) {
-                    this.sheets.add(new Sheet(entry, first, count, first > 0));
-                    first = index;
-                    used = 0;
-                    count = 0;
-                }
-                used += height;
-                count++;
-            }
-            this.sheets.add(new Sheet(entry, first, Math.max(1, count), first > 0));
         }
     }
 
-    /** Hauteur réellement occupée par un paragraphe, espacement compris. */
-    private int paragraphHeight(JournalEntry entry, int index) {
-        Component line = ink(Component.translatable(entry.lineKey(index)));
-        return this.font.split(line, textWidth()).size() * lineAdvance() + PARAGRAPH_GAP;
+    /** Les indices des pages arrachées sont paginés aussi : ils ne doivent jamais disparaître. */
+    private List<Paragraph> paragraphs(JournalEntry entry) {
+        List<Paragraph> result = new ArrayList<>();
+        switch (this.states.getOrDefault(entry, entry.defaultState())) {
+            case KNOWN -> {
+                for (int index = 0; index < entry.lineCount(); index++) {
+                    result.add(new Paragraph(ink(Component.translatable(entry.lineKey(index))), INK));
+                }
+            }
+            case FADED -> {
+                result.add(new Paragraph(ink(Component.translatable(entry.fadedKey())), INK_SOFT));
+                result.add(new Paragraph(ink(Component.translatable("screen.penumbra.journal.faded")),
+                        INK_FADED));
+            }
+            case TORN -> {
+                result.add(new Paragraph(ink(Component.translatable("screen.penumbra.journal.torn_body")),
+                        INK_SOFT));
+                result.add(new Paragraph(Component.translatable("screen.penumbra.journal.hint_label"),
+                        INK_RED));
+                result.add(new Paragraph(ink(Component.translatable(entry.hintKey())), INK_SOFT));
+            }
+        }
+        return result;
     }
 
-    private int textLeft() {
-        return this.left + BOOK_WIDTH / 2 + 16;
-    }
-
-    private int textWidth() {
-        return BOOK_WIDTH / 2 - 34;
-    }
-
-    private int textTop() {
-        return this.top + 30;
-    }
-
-    private int textBottom() {
-        return this.top + BOOK_HEIGHT - 44;
-    }
-
-    /**
-     * Interligne. Une police TTF manuscrite dépasse largement les neuf pixels de
-     * la police vanilla : sans marge supplémentaire, ses jambages mordraient sur
-     * la ligne suivante.
-     */
     private int lineAdvance() {
-        return this.font.lineHeight
-                + (PenumbraConfig.get().journalHandwrittenFont ? 4 : 1);
+        return this.font.lineHeight + (PenumbraConfig.get().journalHandwrittenFont ? 4 : 1);
     }
 
     private Sheet sheet() {
-        if (this.sheets.isEmpty()) {
-            return new Sheet(JournalEntry.FRONTISPIECE, 0, 0, false);
-        }
-        return this.sheets.get(
-                Math.max(0, Math.min(this.sheets.size() - 1, this.page)));
+        return this.sheets.get(Math.max(0, Math.min(this.sheets.size() - 1, this.page)));
     }
-
-    private JournalEntry current() {
-        return sheet().entry();
-    }
-
-    private JournalEntry.State state() {
-        return this.states.getOrDefault(current(), current().defaultState());
-    }
-
-    // ===================== Rendu =====================
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
                                    float partialTick) {
         graphics.fill(0, 0, this.width, this.height, 0xE0080709);
-        graphics.blit(SPREAD, this.left, this.top,
-                this.left + BOOK_WIDTH, this.top + BOOK_HEIGHT, 0.0f, 1.0f, 0.0f, 1.0f);
-
-        JournalEntry entry = current();
-        JournalEntry.State state = state();
-        drawLeftPage(graphics, entry, state);
-        drawRightPage(graphics, entry, state);
+        JournalLayout.Rect book = this.layout.book();
+        graphics.blit(SPREAD, book.x(), book.y(), book.right(), book.bottom(),
+                0.0f, 1.0f, 0.0f, 1.0f);
+        // La texture garde les bords usés et le pli. Sous l'écriture, le papier
+        // est opaque : aucune hachure ne peut traverser les lettres.
+        drawPaper(graphics, this.layout.leftPaper(), PAPER_LEFT);
+        drawPaper(graphics, this.layout.rightPaper(), PAPER_RIGHT);
+        Sheet sheet = sheet();
+        JournalEntry.State state = this.states.getOrDefault(sheet.entry(), sheet.entry().defaultState());
+        drawLeftPage(graphics, sheet, state, mouseX, mouseY);
+        drawRightPage(graphics, sheet, state);
         drawFooter(graphics, mouseX, mouseY);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
-    /** Feuillet gauche : le portrait à l'encre et son cartouche. */
-    private void drawLeftPage(GuiGraphicsExtractor graphics, JournalEntry entry,
-                              JournalEntry.State state) {
-        int centerX = this.left + BOOK_WIDTH / 4;
-        int portraitLeft = centerX - PORTRAIT_SIZE / 2;
-        int portraitTop = this.top + 30;
+    private void drawPaper(GuiGraphicsExtractor graphics, JournalLayout.Rect paper, int color) {
+        graphics.fill(paper.x(), paper.y(), paper.right(), paper.bottom(), color);
+        graphics.outline(paper.x(), paper.y(), paper.width(), paper.height(), PAPER_SHADE);
+        graphics.fill(paper.x() + 1, paper.y() + 1, paper.x() + 3, paper.bottom() - 1,
+                0x14664D2C);
+    }
 
-        if (state == JournalEntry.State.TORN) {
-            drawTornStub(graphics, portraitLeft, portraitTop);
-        } else {
-            float cell = 1.0f / PORTRAIT_GRID;
-            int column = entry.portraitIndex() % PORTRAIT_GRID;
-            int row = entry.portraitIndex() / PORTRAIT_GRID;
-            graphics.blit(PORTRAITS, portraitLeft, portraitTop,
-                    portraitLeft + PORTRAIT_SIZE, portraitTop + PORTRAIT_SIZE,
-                    column * cell, (column + 1) * cell,
-                    row * cell, (row + 1) * cell);
-            if (state == JournalEntry.State.FADED) {
-                // Lavis : le portrait a coulé, il ne reste qu'une masse.
-                graphics.fill(portraitLeft, portraitTop,
-                        portraitLeft + PORTRAIT_SIZE, portraitTop + PORTRAIT_SIZE, 0xC4D9CBAC);
-                graphics.centeredText(this.font, Component.literal("?"),
-                        centerX, portraitTop + PORTRAIT_SIZE / 2 - this.font.lineHeight / 2,
-                        INK_FADED);
-            }
-            graphics.outline(portraitLeft - 2, portraitTop - 2,
-                    PORTRAIT_SIZE + 4, PORTRAIT_SIZE + 4, PAPER_SHADE);
-        }
-
-        int titleY = portraitTop + PORTRAIT_SIZE + 12;
+    private void drawLeftPage(GuiGraphicsExtractor graphics, Sheet sheet, JournalEntry.State state,
+                              int mouseX, int mouseY) {
+        JournalLayout.Rect body = this.layout.leftBody();
         Component title = state == JournalEntry.State.TORN
                 ? Component.translatable("screen.penumbra.journal.torn_title")
-                : Component.translatable(entry.titleKey());
-        graphics.centeredText(this.font, title, centerX, titleY,
-                state == JournalEntry.State.KNOWN ? INK : INK_FADED);
-        // Trait de plume sous le titre, jamais parfaitement droit.
-        graphics.fill(centerX - 46, titleY + 11, centerX + 43, titleY + 12, PAPER_SHADE);
-
-        if (state != JournalEntry.State.TORN) {
-            Component subtitle = ink(sheet().continued()
-                    ? Component.translatable("screen.penumbra.journal.continued")
-                    : Component.translatable(entry.subtitleKey()));
-            graphics.centeredText(this.font, subtitle, centerX, titleY + 17,
-                    state == JournalEntry.State.KNOWN ? INK_SOFT : INK_FADED);
+                : Component.translatable(sheet.entry().titleKey());
+        Component subtitle = state == JournalEntry.State.TORN ? Component.empty()
+                : ink(Component.translatable(sheet.continued()
+                ? "screen.penumbra.journal.continued" : sheet.entry().subtitleKey()));
+        List<FormattedCharSequence> titleLines = this.font.split(title, body.width() - 4);
+        List<FormattedCharSequence> subtitleLines = state == JournalEntry.State.TORN ? List.of()
+                : this.font.split(subtitle, body.width() - 4);
+        int captionHeight = titleLines.size() * this.font.lineHeight
+                + (subtitleLines.isEmpty() ? 0 : 6 + subtitleLines.size() * lineAdvance());
+        int portraitSize = Math.max(0, Math.min(PORTRAIT_SIZE,
+                Math.min(body.width() - 4, body.height() - captionHeight - 12)));
+        if (portraitSize < 24) {
+            portraitSize = 0;
         }
-    }
-
-    /** Feuillet droit : le corps du texte, ou ce qu'il en reste. */
-    private void drawRightPage(GuiGraphicsExtractor graphics, JournalEntry entry,
-                               JournalEntry.State state) {
-        int textLeft = textLeft();
-        int textWidth = textWidth();
-        int y = textTop();
-
-        switch (state) {
-            case KNOWN -> {
-                Sheet sheet = sheet();
-                int last = Math.min(entry.lineCount(),
-                        sheet.firstParagraph() + sheet.paragraphCount());
-                for (int index = sheet.firstParagraph(); index < last; index++) {
-                    Component line = ink(Component.translatable(entry.lineKey(index)));
-                    y = drawWrapped(graphics, line, textLeft, y, textWidth, INK);
-                    y += PARAGRAPH_GAP;
+        int portraitLeft = body.centerX() - portraitSize / 2;
+        if (portraitSize > 0) {
+            if (state == JournalEntry.State.TORN) {
+                drawTornStub(graphics, portraitLeft, body.y(), portraitSize);
+            } else {
+                float cell = 1.0f / PORTRAIT_GRID;
+                int column = sheet.entry().portraitIndex() % PORTRAIT_GRID;
+                int row = sheet.entry().portraitIndex() / PORTRAIT_GRID;
+                graphics.blit(PORTRAITS, portraitLeft, body.y(),
+                        portraitLeft + portraitSize, body.y() + portraitSize,
+                        column * cell, (column + 1) * cell, row * cell, (row + 1) * cell);
+                if (state == JournalEntry.State.FADED) {
+                    graphics.fill(portraitLeft, body.y(), portraitLeft + portraitSize,
+                            body.y() + portraitSize, 0xC4D9CBAC);
+                    drawCenteredText(graphics, Component.literal("?"), body.centerX(),
+                            body.y() + (portraitSize - this.font.lineHeight) / 2, INK_FADED);
                 }
+                graphics.outline(portraitLeft - 1, body.y() - 1,
+                        portraitSize + 2, portraitSize + 2, PAPER_SHADE);
             }
-            case FADED -> {
-                Component line = ink(Component.translatable(entry.fadedKey()));
-                y = drawWrapped(graphics, line, textLeft, y, textWidth, INK_SOFT) + 8;
-                drawSmudges(graphics, textLeft, y, textWidth, 7);
-                graphics.text(this.font,
-                        ink(Component.translatable("screen.penumbra.journal.faded")),
-                        textLeft, this.top + BOOK_HEIGHT - 52, INK_FADED);
+        }
+        int titleY = body.y() + (portraitSize > 0 ? portraitSize + 12 : 0);
+        graphics.enableScissor(body.x(), body.y(), body.right(), body.bottom());
+        int subtitleY = drawCenteredLines(graphics, titleLines, body, titleY,
+                this.font.lineHeight, state == JournalEntry.State.KNOWN ? INK : INK_SOFT);
+        if (!subtitleLines.isEmpty()) {
+            if (subtitleY + 6 < body.bottom()) {
+                int ruleHalfWidth = Math.min(46, body.width() / 2 - 2);
+                graphics.fill(body.centerX() - ruleHalfWidth, subtitleY + 2,
+                        body.centerX() + ruleHalfWidth, subtitleY + 3, PAPER_SHADE);
             }
-            case TORN -> {
-                Component line = ink(Component.translatable("screen.penumbra.journal.torn_body"));
-                y = drawWrapped(graphics, line, textLeft, y, textWidth, INK_SOFT) + 10;
-                // L'indice que l'ancien avait griffonné sur la page d'en face,
-                // et qui a donc survécu à l'arrachage.
-                graphics.text(this.font,
-                        Component.translatable("screen.penumbra.journal.hint_label"),
-                        textLeft, y, INK_RED);
-                y += this.font.lineHeight + 3;
-                drawWrapped(graphics, ink(Component.translatable(entry.hintKey())),
-                        textLeft, y, textWidth, INK_SOFT);
-            }
+            drawCenteredLines(graphics, subtitleLines, body, subtitleY + 6,
+                    lineAdvance(), INK_SOFT);
+        }
+        graphics.disableScissor();
+        // Un pack peut fournir un titre exceptionnellement long : le survol
+        // conserve l'accès au cartouche entier, sans empiéter sur le texte.
+        if (captionHeight > body.height() && body.contains(mouseX, mouseY)) {
+            graphics.setTooltipForNextFrame(title.copy().append("\n").append(subtitle), mouseX, mouseY);
         }
     }
 
-    /** Écrit un paragraphe avec retour à la ligne, et retourne le y suivant. */
-    private int drawWrapped(GuiGraphicsExtractor graphics, Component text,
-                            int x, int y, int width, int color) {
-        List<FormattedCharSequence> lines = this.font.split(text, width);
-        for (FormattedCharSequence line : lines) {
-            graphics.text(this.font, line, x, y, color);
-            y += lineAdvance();
+    private int drawCenteredLines(GuiGraphicsExtractor graphics, List<FormattedCharSequence> lines,
+                                  JournalLayout.Rect bounds, int y, int advance, int color) {
+        int capacity = Math.max(0, (bounds.bottom() - y) / advance);
+        for (int index = 0; index < Math.min(lines.size(), capacity); index++) {
+            if (index == capacity - 1 && lines.size() > capacity) {
+                drawCenteredText(graphics, Component.literal("…"), bounds.centerX(), y, color);
+            } else {
+                FormattedCharSequence line = lines.get(index);
+                graphics.text(this.font, line, bounds.centerX() - this.font.width(line) / 2,
+                        y, color, false);
+            }
+            y += advance;
         }
         return y;
     }
 
-    /**
-     * Taches d'encre diluée à la place du texte perdu. Le tirage est déterministe
-     * (graine fixe) : la page délavée est <em>toujours</em> délavée de la même
-     * manière, sinon l'œil verrait le papier bouger d'une frame à l'autre.
-     */
-    private void drawSmudges(GuiGraphicsExtractor graphics, int x, int y, int width, int rows) {
-        this.smudgeRandom.setSeed(0x5E1EC7L + current().ordinal() * 977L);
-        for (int row = 0; row < rows; row++) {
+    /** Les overloads sans booléen ajoutent une ombre, qui brouille l'encre sur papier clair. */
+    private void drawCenteredText(GuiGraphicsExtractor graphics, Component text,
+                                  int centerX, int y, int color) {
+        graphics.text(this.font, text, centerX - this.font.width(text) / 2, y, color, false);
+    }
+
+    private void drawRightPage(GuiGraphicsExtractor graphics, Sheet sheet, JournalEntry.State state) {
+        JournalLayout.Rect body = this.layout.rightBody();
+        graphics.enableScissor(body.x(), body.y(), body.right(), body.bottom());
+        int end = body.y();
+        for (BodyLine line : sheet.lines()) {
+            int y = body.y() + line.position().y();
+            graphics.text(this.font, line.text(), body.x() + 2, y, line.color(), false);
+            end = y + lineAdvance();
+        }
+        if (state == JournalEntry.State.FADED && sheet.lastForEntry()) {
+            drawSmudges(graphics, body.x() + 2, end + 8, body.width() - 4, body.bottom());
+        }
+        graphics.disableScissor();
+    }
+
+    /** Le lavis est déterministe : les taches ne bougent pas sous les yeux du lecteur. */
+    private void drawSmudges(GuiGraphicsExtractor graphics, int x, int y, int width, int bottom) {
+        this.smudgeRandom.setSeed(0x5E1EC7L + sheet().entry().ordinal() * 977L);
+        for (int row = 0; row < 7; row++) {
             int rowY = y + row * (this.font.lineHeight + 2);
-            if (rowY > this.top + BOOK_HEIGHT - 60) {
+            if (rowY + 4 > bottom) {
                 return;
             }
             int cursor = x;
-            int limit = x + width - this.smudgeRandom.nextInt(24);
+            int limit = x + width - this.smudgeRandom.nextInt(Math.min(24, Math.max(1, width)));
             while (cursor < limit) {
                 int run = 4 + this.smudgeRandom.nextInt(18);
                 int height = 1 + this.smudgeRandom.nextInt(2);
@@ -356,53 +303,51 @@ public final class SurveyJournalScreen extends Screen {
         }
     }
 
-    /** Talon dentelé d'une page arrachée, contre la reliure. */
-    private void drawTornStub(GuiGraphicsExtractor graphics, int x, int y) {
+    private void drawTornStub(GuiGraphicsExtractor graphics, int x, int y, int size) {
         this.smudgeRandom.setSeed(0x70A2L);
-        for (int row = 0; row < PORTRAIT_SIZE; row++) {
+        for (int row = 0; row < size; row++) {
             int jag = 6 + this.smudgeRandom.nextInt(9);
-            graphics.fill(x + PORTRAIT_SIZE - jag, y + row,
-                    x + PORTRAIT_SIZE, y + row + 1, 0x33534227);
+            graphics.fill(x + size - jag, y + row, x + size, y + row + 1, 0x33534227);
         }
-        graphics.fill(x + PORTRAIT_SIZE - 2, y, x + PORTRAIT_SIZE, y + PORTRAIT_SIZE, 0x554A3A24);
+        graphics.fill(x + size - 2, y, x + size, y + size, 0x554A3A24);
     }
 
-    /** Pied de page : numéro, avancement et flèches. */
     private void drawFooter(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        int footerY = this.top + BOOK_HEIGHT - 26;
-        graphics.centeredText(this.font,
-                Component.translatable("screen.penumbra.journal.footer",
-                        this.page + 1, Math.max(1, this.sheets.size()),
-                        this.progress, this.total),
-                this.left + BOOK_WIDTH / 2, footerY, INK_SOFT);
-
+        JournalLayout.Rect footer = this.layout.footer();
+        graphics.fill(footer.x() - 2, footer.y(), footer.right() + 2, footer.bottom(), PAPER_RIGHT);
+        Component label = Component.translatable("screen.penumbra.journal.footer",
+                this.page + 1, this.sheets.size(), this.progress, this.total);
+        List<FormattedCharSequence> lines = this.font.split(label, footer.width() - 4);
+        int advance = this.font.lineHeight + 1;
+        if (lines.size() * advance > footer.height()) {
+            lines = this.font.split(Component.literal((this.page + 1) + " / " + this.sheets.size()
+                    + "  ·  " + this.progress + " / " + this.total), footer.width() - 4);
+        }
+        drawCenteredLines(graphics, lines, footer,
+                footer.y() + Math.max(0, (footer.height() - lines.size() * advance) / 2),
+                advance, INK_SOFT);
         if (this.page > 0) {
-            drawArrow(graphics, this.left + 22, footerY - 1, false,
-                    isOverArrow(mouseX, mouseY, true));
+            drawArrow(graphics, this.layout.previous(), false,
+                    this.layout.previous().contains(mouseX, mouseY));
         }
         if (this.page < this.sheets.size() - 1) {
-            drawArrow(graphics, this.left + BOOK_WIDTH - 30, footerY - 1, true,
-                    isOverArrow(mouseX, mouseY, false));
+            drawArrow(graphics, this.layout.next(), true, this.layout.next().contains(mouseX, mouseY));
         }
     }
 
-    private void drawArrow(GuiGraphicsExtractor graphics, int x, int y,
+    private void drawArrow(GuiGraphicsExtractor graphics, JournalLayout.Rect bounds,
                            boolean forward, boolean hovered) {
-        int color = hovered ? INK_RED : INK_SOFT;
+        if (hovered) {
+            graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), PAPER_SHADE);
+        }
+        int x = bounds.centerX() - 2;
+        int y = bounds.y() + (bounds.height() - 9) / 2;
         for (int step = 0; step < 5; step++) {
-            int height = 1 + step * 2;
-            int columnX = forward ? x + step : x + 4 - step;
-            graphics.fill(columnX, y + 4 - step, columnX + 1, y + 4 - step + height, color);
+            int columnX = forward ? x + 4 - step : x + step;
+            graphics.fill(columnX, y + 4 - step, columnX + 1, y + 5 + step,
+                    hovered ? INK_RED : INK_SOFT);
         }
     }
-
-    private boolean isOverArrow(int mouseX, int mouseY, boolean previous) {
-        int footerY = this.top + BOOK_HEIGHT - 27;
-        int x = previous ? this.left + 18 : this.left + BOOK_WIDTH - 34;
-        return mouseX >= x && mouseX <= x + 16 && mouseY >= footerY && mouseY <= footerY + 14;
-    }
-
-    // ===================== Interaction =====================
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
@@ -412,41 +357,49 @@ public final class SurveyJournalScreen extends Screen {
         if (event.button() != 0) {
             return false;
         }
-        int mouseX = (int) event.x();
-        int mouseY = (int) event.y();
-        if (isOverArrow(mouseX, mouseY, true)) {
+        if (this.layout.previous().contains(event.x(), event.y())) {
             return turn(-1);
         }
-        if (isOverArrow(mouseX, mouseY, false)) {
+        if (this.layout.next().contains(event.x(), event.y())) {
             return turn(1);
         }
-        // Cliquer dans la moitié droite avance, dans la moitié gauche recule :
-        // c'est le geste que tout le monde essaie sur un livre ouvert.
-        if (mouseY > this.top && mouseY < this.top + BOOK_HEIGHT
-                && mouseX > this.left && mouseX < this.left + BOOK_WIDTH) {
-            return turn(mouseX > this.left + BOOK_WIDTH / 2 ? 1 : -1);
+        if (this.layout.book().contains(event.x(), event.y())) {
+            return turn(event.x() >= this.layout.book().centerX() ? 1 : -1);
         }
         return false;
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (this.layout.book().contains(mouseX, mouseY) && scrollY != 0) {
+            this.scrollRemainder = Math.clamp(this.scrollRemainder + scrollY, -1.0, 1.0);
+            if (Math.abs(this.scrollRemainder) >= 1.0) {
+                turn(this.scrollRemainder < 0 ? 1 : -1);
+                this.scrollRemainder = 0;
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
     public boolean keyPressed(KeyEvent event) {
-        int key = event.key();
-        if (key == 263 || key == 65) {           // flèche gauche, Q/A
-            return turn(-1);
-        }
-        if (key == 262 || key == 68) {           // flèche droite, D
-            return turn(1);
-        }
-        return super.keyPressed(event);
+        return switch (event.key()) {
+            case 263, 65, 81, 266 -> turn(-1); // Gauche, A, Q, page précédente.
+            case 262, 68, 267 -> turn(1);      // Droite, D, page suivante.
+            case 268 -> turn(-this.page);     // Début.
+            case 269 -> turn(this.sheets.size() - 1 - this.page); // Fin.
+            default -> super.keyPressed(event);
+        };
     }
 
     private boolean turn(int delta) {
         int next = this.page + delta;
-        if (next < 0 || next >= this.sheets.size()) {
+        if (next == this.page || next < 0 || next >= this.sheets.size()) {
             return false;
         }
         this.page = next;
+        this.scrollRemainder = 0;
         Minecraft client = Minecraft.getInstance();
         if (client.level != null && client.player != null) {
             client.level.playLocalSound(client.player.getX(), client.player.getY(),
@@ -456,13 +409,12 @@ public final class SurveyJournalScreen extends Screen {
         return true;
     }
 
-    /** Le carnet se lit posément : le monde continue de tourner derrière. */
+    /** Le monde continue de tourner pendant la lecture. */
     @Override
     public boolean isPauseScreen() {
         return false;
     }
 
-    /** Liste ordonnée des pages, exposée pour les tests d'intégration. */
     public List<JournalEntry> pages() {
         return new ArrayList<>(JournalEntry.ORDER);
     }

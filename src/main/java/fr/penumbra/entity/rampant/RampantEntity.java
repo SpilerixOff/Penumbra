@@ -263,7 +263,8 @@ public final class RampantEntity extends Monster {
         }
 
         ServerPlayer owner = owner(level);
-        if (owner == null || !owner.isAlive() || owner.isSpectator()) {
+        if (owner == null || !owner.isAlive() || owner.isSpectator()
+                || owner.isRemoved() || owner.isSleeping()) {
             this.discard();
             return;
         }

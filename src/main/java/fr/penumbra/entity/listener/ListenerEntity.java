@@ -67,8 +67,7 @@ public final class ListenerEntity extends Monster {
     private static final int POLL_INTERVAL = 3;
     /** Distance à laquelle une destination est considérée atteinte. */
     private static final double ARRIVAL_DISTANCE = 1.35;
-    /** Distance de contact réel (jamais à travers un mur : elle marche jusque-là). */
-    private static final double CONTACT_DISTANCE = 1.05;
+    private static final int MAX_LEAVING_TICKS = 100;
 
     private static final double SEEK_SPEED = 1.02;
     private static final double CLOSE_SPEED = 1.62;
@@ -84,8 +83,8 @@ public final class ListenerEntity extends Monster {
     private Vec3 heardPoint;
     private int listenCountdown;
     private int emptySweeps;
-    /** Ticks de silence consécutifs pendant un verrouillage. */
-    private int silenceTicks;
+    private final ListenerPursuit pursuit = new ListenerPursuit();
+    private int leavingTicks;
     private Vec3 leavePoint;
     private boolean contactDone;
 
@@ -132,7 +131,7 @@ public final class ListenerEntity extends Monster {
         return false;
     }
 
-    /** Un coup la fait reculer et se remettre à l'écoute, jamais mourir sur place. */
+    /** Un coup autorisé devient un bruit ; il ne tue jamais la créature sur place. */
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
         if (this.getBehavior() == ListenerBehavior.LEAVING) {
@@ -140,11 +139,11 @@ public final class ListenerEntity extends Monster {
         }
         // Le coup EST un bruit : elle sait maintenant très précisément où vous êtes.
         Entity attacker = source.getEntity();
-        if (attacker != null) {
+        if (attacker instanceof ServerPlayer player && player.isAlive()
+                && !player.isSpectator() && !player.isSleeping()
+                && (this.isOwnedBy(player) || PenumbraConfig.get().multiplayerContent)) {
             this.hear(attacker.position(), true);
         }
-        playSceneSound(ownerPlayer(level), PenumbraSounds.LISTENER_LOCK,
-                this.position(), 0.55f, 1.24f);
         return false;
     }
 
@@ -188,14 +187,20 @@ public final class ListenerEntity extends Monster {
             return;
         }
         ServerPlayer owner = ownerPlayer(level);
-        if (level.getDifficulty() == Difficulty.PEACEFUL || owner == null
-                || !owner.isAlive() || owner.isSpectator()
-                || this.distanceToSqr(owner) > OWNER_RANGE * OWNER_RANGE
-                || ++sceneTicks > MAX_LIFETIME_TICKS) {
+        ++sceneTicks;
+        if (!PenumbraConfig.get().listenerEnabled
+                || level.getDifficulty() == Difficulty.PEACEFUL || owner == null
+                || !owner.isAlive() || owner.isRemoved() || owner.isSpectator()
+                || owner.isSleeping()) {
+            vanish(level);
+            return;
+        }
+        if (this.distanceToSqr(owner) > OWNER_RANGE * OWNER_RANGE
+                || sceneTicks > MAX_LIFETIME_TICKS) {
             if (this.getBehavior() != ListenerBehavior.LEAVING) {
                 beginLeaving(level, owner);
             }
-            if (owner == null || sceneTicks > MAX_LIFETIME_TICKS + 200) {
+            if (sceneTicks > MAX_LIFETIME_TICKS + MAX_LEAVING_TICKS) {
                 vanish(level);
                 return;
             }
@@ -232,7 +237,8 @@ public final class ListenerEntity extends Monster {
                 ? level.players()
                 : owner == null ? List.of() : List.of(owner);
         for (ServerPlayer player : candidates) {
-            if (player == null || !player.isAlive() || player.isSpectator()) {
+            if (player == null || !player.isAlive() || player.isRemoved()
+                    || player.isSpectator() || player.isSleeping()) {
                 continue;
             }
             if (!shared && !this.isOwnedBy(player)) {
@@ -254,15 +260,8 @@ public final class ListenerEntity extends Monster {
         }
 
         if (loudestAt == null) {
-            if (this.getBehavior() == ListenerBehavior.CLOSING
-                    && ++silenceTicks * POLL_INTERVAL >= ListenerNoise.LOCK_GRACE_TICKS) {
-                // Le joueur s'est figé pendant la charge : elle perd le fil et
-                // se remet à écouter, parfois à un bloc de son visage.
-                beginListening(level);
-            }
             return;
         }
-        silenceTicks = 0;
         hear(loudestAt, loudestLockable);
     }
 
@@ -281,6 +280,7 @@ public final class ListenerEntity extends Monster {
      * jamais la position exacte, seulement une zone.
      */
     private void hear(Vec3 source, boolean lockable) {
+        this.pursuit.heardNoise();
         RandomSource random = this.getRandom();
         this.heardPoint = new Vec3(
                 source.x + ListenerNoise.aimOffset(random.nextDouble()),
@@ -300,8 +300,9 @@ public final class ListenerEntity extends Monster {
         if (this.getBehavior() == ListenerBehavior.LEAVING) {
             return;
         }
-        if (ListenerNoise.audible(radius, this.position().distanceTo(source))) {
-            hear(source, false);
+        double distance = this.position().distanceTo(source);
+        if (ListenerNoise.audible(radius, distance)) {
+            hear(source, ListenerNoise.lockable(radius, distance));
         }
     }
 
@@ -348,6 +349,17 @@ public final class ListenerEntity extends Monster {
     }
 
     private void tickClosing(ServerLevel level, ServerPlayer owner) {
+        this.pursuit.tick();
+        if (this.pursuit.lostSound()) {
+            beginListening(level);
+            return;
+        }
+        if (!this.pursuit.warningComplete()) {
+            // The lock sound and forward pose precede any rush or contact.
+            this.getNavigation().stop();
+            this.setDeltaMovement(this.getDeltaMovement().multiply(0.0, 1.0, 0.0));
+            return;
+        }
         Vec3 destination = heardPoint != null ? heardPoint : this.position();
         if (sceneTicks % 3 == 0 || this.getNavigation().isDone()) {
             this.getNavigation().moveTo(
@@ -356,13 +368,14 @@ public final class ListenerEntity extends Monster {
         if (owner == null || contactDone) {
             return;
         }
-        if (this.distanceToSqr(owner) <= CONTACT_DISTANCE * CONTACT_DISTANCE) {
+        if (this.pursuit.canContact(radiusOf(owner), this.distanceTo(owner),
+                this.hasLineOfSight(owner))) {
             contact(level, owner);
         }
     }
 
     private void tickLeaving(ServerLevel level) {
-        if (leavePoint == null) {
+        if (++this.leavingTicks >= MAX_LEAVING_TICKS || leavePoint == null) {
             vanish(level);
             return;
         }
@@ -381,7 +394,7 @@ public final class ListenerEntity extends Monster {
     private void beginListening(ServerLevel level) {
         setBehavior(ListenerBehavior.LISTENING);
         this.listenCountdown = ListenerNoise.listenDuration(this.getRandom().nextInt());
-        this.silenceTicks = 0;
+        this.pursuit.start();
         this.getNavigation().stop();
         playSceneSound(ownerPlayer(level), PenumbraSounds.LISTENER_INHALE,
                 this.getEyePosition(), 0.42f, 0.94f + this.getRandom().nextFloat() * 0.1f);
@@ -392,13 +405,15 @@ public final class ListenerEntity extends Monster {
             return;
         }
         setBehavior(ListenerBehavior.CLOSING);
-        this.silenceTicks = 0;
+        this.pursuit.start();
+        this.getNavigation().stop();
         playSceneSound(ownerPlayer(level), PenumbraSounds.LISTENER_LOCK,
                 this.getEyePosition(), 0.78f, 0.96f + this.getRandom().nextFloat() * 0.12f);
     }
 
     private void beginLeaving(ServerLevel level, ServerPlayer owner) {
         setBehavior(ListenerBehavior.LEAVING);
+        this.leavingTicks = 0;
         this.getNavigation().stop();
         Vec3 away = owner != null
                 ? this.position().subtract(owner.position())

@@ -196,6 +196,7 @@ public final class ScuttlerEntity extends Monster {
         ServerPlayer owner = owner(level);
         if (level.getDifficulty() == Difficulty.PEACEFUL || owner == null
                 || !owner.isAlive() || owner.isSpectator()
+                || owner.isRemoved() || owner.isSleeping()
                 || distanceToSqr(owner) > OWNER_RANGE * OWNER_RANGE
                 || ++sceneTicks > lifetimeLimit) {
             vanish(level);

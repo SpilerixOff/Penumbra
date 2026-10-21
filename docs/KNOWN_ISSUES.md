@@ -1,11 +1,24 @@
-# Problèmes connus — Penumbra 0.18.0
+# Problèmes connus — Penumbra 0.20.0
+
+## 0.20.0 — points à vérifier pendant les essais
+
+- Le nouveau rythme et les fenêtres d'esquive ont des tests automatisés, mais
+  l'équilibrage sur une longue partie, les latences multijoueurs et les
+  combinaisons de mods demandent encore des retours en jeu.
+- La boussole propose le camp, les sites inexplorés ou le site le plus proche.
+  Les sites ordinaires doivent déjà avoir été générés dans le monde ; elle ne
+  crée pas de structures et ne charge pas de chunks lointains. Le Bûcher est
+  l'exception : sa position est calculable avant d'y arriver.
+- « Inexploré » signifie non découvert par ce joueur. À l'approche d'un site,
+  sa découverte peut donc faire tourner l'aiguille vers le suivant. Le mode
+  « site le plus proche » permet de terminer sa fouille ou d'y revenir.
 
 ## Le Relevé et le Bûcher 0.18.0 — comportement attendu
 
-- **Un seul Bûcher par monde, et il peut ne pas exister.** Sa position est
-  dérivée de la graine ; si elle tombe en mer, aucun camp n'est généré et le
-  marqueur est posé quand même pour ne pas retester en boucle. Dans ce cas le
-  monde n'a pas de Relevé naturel — l'objet reste disponible en créatif.
+- **Un seul Bûcher naturel par monde.** Depuis la 0.19.0, la recherche déplace
+  son site vers la terre ferme si le tirage initial tombe en mer. Un monde
+  entièrement océanique peut néanmoins rester sans site viable ; le carnet
+  reste disponible en créatif.
 - **La fumée apparaît avant le camp**, et c'est voulu. Le panache est émis en
   altitude dès qu'un joueur est à moins de 480 blocs ; le camp au sol, lui, ne
   se construit qu'à cent blocs et seulement si le chunk est déjà chargé. Voir de

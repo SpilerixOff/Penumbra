@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.20.0] — Tension, fuite et enquête
+
+### Une peur qui laisse le temps de comprendre
+
+- Le directeur réserve les présages et les retombées aux indices. Les apparitions
+  arrivent pendant la montée et la manifestation ; l'escalade automatique vers
+  une poursuite ou un scare attend la phase de manifestation.
+- Les scènes autonomes respectent aussi une respiration en solo : au moins
+  10 secondes après un effet perceptible, 20 après une manifestation.
+  Une manifestation en retard ne contourne plus l'intervalle des événements.
+- Une santé basse, la faim, le manque d'air, le feu et les dégâts récents
+  suspendent les nouvelles scènes de pression ; 10 secondes de récupération
+  suivent. Cela n'annule pas une créature déjà engagée.
+- Le faux calme sauvegardé est reconnu par l'ambiance client et les règles
+  de contagion. Les commandes de diagnostic restent disponibles ; les suites
+  internes des scènes liées conservent leur déroulement.
+
+### Des rencontres dont on peut apprendre les règles
+
+- **Hôte :** couper sa ligne de vue pendant 4 secondes permet de s'échapper.
+  Il poursuit la dernière position vue, plus la position exacte derrière un
+  mur. Revenir dans son regard réinitialise sa mémoire de poursuite.
+- Son bond de regard commence par 0,6 seconde d'immobilité et un son ; sa
+  destination est fixée au déclenchement. Une esquive, un obstacle ou la
+  rupture de vue peut éviter l'impact. Il ne réarme plus ce bond pendant sa
+  retraite ou son repos.
+- **Écouteur :** sa charge annonce aussi 0,6 seconde avant de pouvoir toucher.
+  Un propriétaire silencieux est protégé au contact, même si un autre joueur
+  attire la créature. Un mur bloque le coup et 34 ticks de silence cassent
+  toujours son verrouillage.
+- Sa durée de scène ne se fige plus quand la cible s'éloigne. Sa sortie est
+  bornée, et les scènes des autres créatures se nettoient lorsque leur
+  propriétaire meurt, dort, quitte ou devient spectateur.
+- Les bonds de l'Observateur, du Contrefait et de l'Originel s'interrompent
+  lorsque la ligne de vue est rompue.
+
+### Retrouver sa route et lire ses découvertes
+
+- **Boussole :** clic droit pour choisir le camp de Warrick, les sites
+  inexplorés ou le site le plus proche. Le choix reste sur l'objet ; la
+  découverte reste propre à chaque joueur. Les anciennes boussoles commencent
+  par guider vers le camp. Aucun chunk distant n'est chargé pour lire son
+  altitude. Les autres sites doivent déjà être générés.
+- **Carnet :** papier lisible sous le texte, auteur et titre sur plusieurs
+  lignes, dimensions adaptées à l'écran, paragraphes longs répartis sans
+  perdre les contre-mesures, indices paginés, flèches corrigées et navigation
+  au clavier ou à la molette.
+- Les structures construites sont immédiatement envoyées aux clients présents,
+  sans devoir recharger le monde. Leur commande respecte maintenant la
+  position et la rotation de `/execute`.
+
+Les tests ajoutés couvrent le rythme, la mémoire de poursuite, le contact de
+l'Écouteur, les itinéraires de boussole et les bornes de pagination. Cette
+version reste à éprouver sur de longues parties et avec plusieurs joueurs.
+
 ## [0.19.0] — Maillages
 
 ### Les objets trouvés — le mobilier qui n'a rien à faire là

@@ -212,7 +212,8 @@ public class ContrefaitEntity extends Monster {
         }
 
         ServerPlayer owner = ownerPlayer(level);
-        if (owner == null || owner.isSpectator() || !owner.isAlive()) {
+        if (owner == null || owner.isSpectator() || !owner.isAlive()
+                || owner.isRemoved() || owner.isSleeping()) {
             this.discard();
             return;
         }
@@ -260,6 +261,10 @@ public class ContrefaitEntity extends Monster {
      * l'arrivée. Aucun goal d'attaque ni aucune collision n'intervient.
      */
     private void tickLunge(ServerLevel level, ServerPlayer owner) {
+        if (!this.hasLineOfSight(owner)) {
+            this.discard();
+            return;
+        }
         this.getNavigation().stop();
         this.setDeltaMovement(Vec3.ZERO);
         this.setNoGravity(true);

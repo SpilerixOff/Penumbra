@@ -224,6 +224,7 @@ public class WatcherEntity extends Monster {
         if (this.ownerUuid != null) {
             ServerPlayer owner = this.ownerPlayer(level);
             if (owner == null || !owner.isAlive() || owner.isSpectator()
+                    || owner.isRemoved() || owner.isSleeping()
                     || this.distanceToSqr(owner) > TRACK_RADIUS * TRACK_RADIUS) {
                 this.vanishInAsh(level);
                 return;
@@ -368,7 +369,9 @@ public class WatcherEntity extends Monster {
      */
     private void tickLunge(ServerLevel level) {
         ServerPlayer owner = this.ownerPlayer(level);
-        if (owner == null || !owner.isAlive() || owner.isSpectator()) {
+        if (owner == null || !owner.isAlive() || owner.isSpectator()
+                || owner.isRemoved() || owner.isSleeping()
+                || !this.hasLineOfSight(owner)) {
             this.vanishInAsh(level);
             return;
         }

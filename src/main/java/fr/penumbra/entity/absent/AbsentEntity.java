@@ -521,6 +521,7 @@ public final class AbsentEntity extends Monster {
 
         ServerPlayer owner = this.owner(level);
         if (owner == null || !owner.isAlive() || owner.isSpectator()
+                || owner.isRemoved() || owner.isSleeping()
                 || this.distanceToSqr(owner) > VANISH_DISTANCE * VANISH_DISTANCE) {
             this.vanish(level, false);
             return;

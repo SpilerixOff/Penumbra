@@ -339,7 +339,7 @@
   "item.penumbra.torn_page": "Torn Page",
   "item.penumbra.torn_page.desc": "Torn clean, close to the binding.",
   "screen.penumbra.journal.title": "The Survey",
-  "screen.penumbra.journal.footer": "%s / %s   ·   %s pages of %s",
+  "screen.penumbra.journal.footer": "%s / %s   ·   Notes: %s / %s",
   "screen.penumbra.journal.faded": "The damp ate the rest.",
   "screen.penumbra.journal.torn_title": "Missing page",
   "screen.penumbra.journal.torn_body": "Only the stub is left. This page was torn out in one pull, and not by accident: the others are still holding.",
@@ -368,8 +368,8 @@
   "journal.penumbra.host.line1": "The first one I saw, and the one I understand least. A pale shape, taller than a man, standing at the edge of whatever we light.",
   "journal.penumbra.host.line2": "It never appears in front of you. It is already there when you turn around, and gone when you insist.",
   "journal.penumbra.host.line3": "It learns. I am certain of it now. It walks the way I walk. It stops where I stop. The second year it limped — I was limping.",
-  "journal.penumbra.host.line4": "Staring too long is a mistake. It freezes first. That is the only warning you will get.",
-  "journal.penumbra.host.line5": "Against it: light is not enough, but it keeps it back. And do not hold its gaze for more than three seconds.",
+  "journal.penumbra.host.line4": "Staring is a mistake. It freezes, a sound gives it away, then it lunges toward where you were. Do not wait: step aside or get behind cover.",
+  "journal.penumbra.host.line5": "Against it: break its line of sight. Behind a wall or a corner, count four seconds without being seen again. It searches your last position. Do not look back too soon.",
   "journal.penumbra.watcher.title": "the Watcher",
   "journal.penumbra.watcher.subtitle": "first sighting: fourth month",
   "journal.penumbra.watcher.faded": "…standing off, never coming closer. I counted eleven minutes before…",
@@ -518,5 +518,11 @@
   "command.penumbra.pyre_result_underwater": "Site [%s, %s] fell in the sea: this world will have no Pyre.",
   "command.penumbra.pyre_result_failed": "Construction failed. Details are in the game log.",
   "command.penumbra.pyre_reset": "The Pyre is forgotten: it will rebuild on the next approach.",
-  "command.penumbra.pyre_teleported": "You are on the site: [%s, %s, %s]."
+  "command.penumbra.pyre_teleported": "You are on the site: [%s, %s, %s].",
+  "item.penumbra.survey_compass.mode": "Destination: %s",
+  "item.penumbra.survey_compass.mode.camp": "Warrick’s camp",
+  "item.penumbra.survey_compass.mode.unexplored": "Unexplored sites",
+  "item.penumbra.survey_compass.mode.nearest": "The nearest site",
+  "item.penumbra.survey_compass.controls": "Right-click: change destination.",
+  "item.penumbra.survey_compass.no_new_site": "No new site known here. Explore further in the Overworld."
 }

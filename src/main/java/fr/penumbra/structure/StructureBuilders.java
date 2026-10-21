@@ -19,8 +19,8 @@ import net.minecraft.world.level.storage.loot.LootTable;
 
 /**
  * Helpers partagés des builders de structures : pose directe de blocs pendant
- * {@code ServerChunkEvents.CHUNK_GENERATE} avec le drapeau
- * {@link Block#UPDATE_NONE} (aucune mise à jour de voisinage, aucun pop-off,
+ * la construction différée des chunks publiés, avec le drapeau
+ * {@link Block#UPDATE_CLIENTS} (aucune mise à jour de voisinage, aucun pop-off,
  * aucun chargement de chunk forcé), coffres à loot table et panneaux à texte.
  * <p>
  * Vérifié par javap en 26.1.2 :
@@ -31,7 +31,7 @@ import net.minecraft.world.level.storage.loot.LootTable;
  *   <li>{@code SignBlockEntity.getFrontText()} / {@code SignText.setMessage(int, Component)}
  *       (renvoie un NOUVEAU SignText) / {@code SignBlockEntity.setText(SignText, boolean)} ;</li>
  *   <li>{@code StandingSignBlock.ROTATION}, {@code ChestBlock.FACING},
- *       {@code DoorBlock.FACING/HALF}, {@code Block.UPDATE_NONE}.</li>
+ *       {@code DoorBlock.FACING/HALF}, {@code Block.UPDATE_CLIENTS}.</li>
  * </ul>
  */
 abstract class StructureBuilders {
@@ -43,9 +43,9 @@ abstract class StructureBuilders {
     private StructureBuilders() {
     }
 
-    /** Pose un bloc sans aucune mise à jour (flags UPDATE_NONE, génération only). */
+    /** Informe les clients déjà présents sans déclencher les voisins pendant la construction. */
     static void set(ServerLevel level, BlockPos pos, BlockState state) {
-        level.setBlock(pos, state, Block.UPDATE_NONE);
+        level.setBlock(pos, state, Block.UPDATE_CLIENTS);
     }
 
     /** Pose un bloc aux coordonnées données (raccourci de {@link #set}). */
