@@ -4,11 +4,17 @@ import fr.penumbra.entity.absent.AbsentEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.function.Predicate;
 
 /** Small, grounded mirror steps. A blocked reflection stays visible in place. */
 final class ConfrontationPlacement {
@@ -24,6 +30,13 @@ final class ConfrontationPlacement {
                 : current.add(flat.scale(MAX_STEP / length));
     }
 
+    static Vec3 visibleStepToward(Vec3 current, Vec3 target, Vec3 currentEyes,
+                                 Predicate<Vec3> hasLineOfSight) {
+        Vec3 next = stepToward(current, target);
+        Vec3 nextEyes = currentEyes.add(next.subtract(current));
+        return hasLineOfSight.test(nextEyes) ? next : current;
+    }
+
     static boolean keepsSeparation(Vec3 current, Vec3 next, Vec3 player, double minimum) {
         double oldDistance = current.subtract(player).horizontalDistanceSqr();
         double newDistance = next.subtract(player).horizontalDistanceSqr();
@@ -35,24 +48,44 @@ final class ConfrontationPlacement {
         return box.minX >= minX && box.minZ >= minZ && box.maxX <= maxX && box.maxZ <= maxZ;
     }
 
-    static boolean safeInitialPlacement(ServerLevel level, AbsentEntity copy) {
+    static boolean safeInitialPlacement(ServerLevel level, Entity copy) {
         return isSafe(level, copy, copy.getBoundingBox(), copy.getBoundingBox());
     }
 
+    static boolean safeInitialPlacement(ServerLevel level, Entity actor, Vec3 position) {
+        AABB target = actor.getBoundingBox().move(position.subtract(actor.position()));
+        return isSafe(level, actor, target, target);
+    }
+
     static boolean tryMove(ServerLevel level, AbsentEntity copy, Vec3 desired,
-                           Vec3 player, double minimum) {
-        Vec3 next = stepToward(copy.position(), desired);
-        if (!keepsSeparation(copy.position(), next, player, minimum)) return false;
+                           ServerPlayer player, double minimum) {
+        Vec3 next = visibleStepToward(copy.position(), desired, copy.getEyePosition(),
+                eyes -> isVisible(level, player, eyes));
+        if (next.equals(copy.position())
+                || !keepsSeparation(copy.position(), next, player.position(), minimum)) return false;
         Vec3 offset = next.subtract(copy.position());
         AABB target = copy.getBoundingBox().move(offset);
         AABB swept = copy.getBoundingBox().minmax(target);
         if (!isSafe(level, copy, target, swept)) return false;
         copy.snapTo(next.x, next.y, next.z,
-                ConfrontationManager.yawTowards(next, player), 0.0f);
+                ConfrontationManager.yawTowards(next, player.position()), 0.0f);
         return true;
     }
 
-    private static boolean isSafe(ServerLevel level, AbsentEntity copy,
+    private static boolean isVisible(ServerLevel level, ServerPlayer player, Vec3 eyes) {
+        Vec3 viewerEyes = player.getEyePosition();
+        // Match the eyes-to-eyes COLLIDER ray used by the duel's hasLineOfSight check.
+        // Do not move the actor first: a rejected reflection keeps its last visible spot.
+        if (player.level() != level || viewerEyes.distanceToSqr(eyes) > 128.0 * 128.0
+                || !level.hasChunksAt(Mth.floor(Math.min(viewerEyes.x, eyes.x)) - 1,
+                        Mth.floor(Math.min(viewerEyes.z, eyes.z)) - 1,
+                        Mth.floor(Math.max(viewerEyes.x, eyes.x)) + 1,
+                        Mth.floor(Math.max(viewerEyes.z, eyes.z)) + 1)) return false;
+        return level.clip(new ClipContext(viewerEyes, eyes, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, player)).getType() == HitResult.Type.MISS;
+    }
+
+    private static boolean isSafe(ServerLevel level, Entity copy,
                                   AABB target, AABB swept) {
         // The whole swept hitbox (and collision-query margin) must already be loaded.
         int minX = Mth.floor(swept.minX) - 1;

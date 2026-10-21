@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.21.1] — Stabilisation du rituel et des photos
+
+### Un rituel réservé à son participant
+
+- La réservation commence dès l'activation du sanctuaire. Elle interrompt les
+  scènes liées et les apparitions temporaires proches appartenant au participant,
+  sans supprimer les créatures d'un autre joueur ni les créatures ordinaires.
+- Les suites déjà programmées des faux pas, de l'anticlimax et du retour au
+  refuge respectent aussi cette réservation, pour préserver l'écoute du rituel.
+- Chaque préambule appartient à une tentative précise. S'éloigner de plus de
+  40 blocs, changer de dimension, mourir, dormir, passer en spectateur ou se
+  déconnecter l'annule ; ses anciens effets différés ne reprennent pas au retour.
+- Le sanctuaire n'est validé qu'après le préambule, au démarrage du duel ou à
+  la conclusion normale du rituel. Une tentative interrompue reste rejouable
+  sur le même autel, sans attribuer une victoire ou une récompense de calme.
+- L'apparition de l'Hôte pendant le préambule vérifie l'espace nécessaire à
+  toute sa silhouette, le sol et les limites du monde. Si aucun emplacement
+  sûr n'est disponible, le préambule se poursuit sans cette apparition.
+- Pendant le duel, le reflet refuse un déplacement qui le cacherait derrière
+  le pilier ou un mur. Il garde sa dernière position visible pour permettre
+  l'observation et le flash, tout en respectant le sol et les collisions.
+- Chaque fragment gagné est aussi confirmé dans le chat : le message de
+  sortie d'une photo ne peut plus masquer la progression du duel.
+
+### Des captures liées à la bonne session
+
+- Une capture encore en traitement lors d'une déconnexion ne peut plus
+  terminer ou annuler une nouvelle prise de vue après reconnexion.
+- Les identifiants des prises restent distincts entre les connexions ; les
+  anciens retours du déclencheur et de la capture sont ignorés.
+
 ## [0.21.0] — Écouter, comprendre, confronter
 
 ### Ambiance sonore

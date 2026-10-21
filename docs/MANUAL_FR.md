@@ -7,6 +7,30 @@ d'ajouter un monstre : il observe votre façon de jouer, monte la tension progre
 manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et disparaît
 dès que vous la regardez.
 
+## Corrections en 0.21.1 — un rituel que l'on peut reprendre
+
+- **Dès l'activation de l'autel**, les scènes liées à votre personnage et ses
+  apparitions temporaires proches s'arrêtent pour laisser place au rituel.
+  Les apparitions appartenant aux autres joueurs et les créatures ordinaires
+  restent présentes : choisissez un endroit où vous pouvez vous concentrer.
+- **Pendant le préambule**, restez à moins de 40 blocs de l'autel, dans la même
+  dimension, vivant et éveillé. Un éloignement, une mort, le sommeil, le mode
+  spectateur ou une déconnexion annule cette tentative. Revenir ne relance pas
+  ses effets ; vous pouvez recommencer sur le même autel avec un Sceau de cendre.
+  Le Sceau consommé au lancement n'est pas rendu en cas d'abandon.
+- **La victoire vient du duel terminé.** Une interruption du préambule ou
+  l'absence de place sûre pour le double n'accorde ni victoire ni calme final.
+  Les victoires déjà enregistrées dans vos sauvegardes restent acquises.
+- **L'accalmie après le rituel dure seulement pendant la session en cours.**
+  Se déconnecter puis rejoindre le monde termine l'accalmie restante, même
+  si sa durée prévue n'est pas écoulée. Le marqueur de victoire, lui, reste
+  sauvegardé : vous ne perdez pas votre victoire en vous reconnectant.
+- **Pour déclencher la caméra**, tenez-la dans la main principale et faites
+  un **clic gauche** au signal d'ouverture. **C** règle le zoom ; il ne déclenche
+  pas le flash. Les flashs d'écran peuvent rester désactivés.
+- **Après une reconnexion**, une ancienne capture encore en traitement ne
+  remplace ni n'annule une nouvelle prise de vue.
+
 ## Nouveau en 0.21.0 — écouter et comprendre
 
 - **Dossier personnel :** ouvrez l'album avec la Caméra VHS, puis le bouton
@@ -481,7 +505,8 @@ dès que vous la regardez.
   laisse parfois des cairns sur votre chemin (`originelTracesEnabled`).
 - **Finale du rituel** : au Sanctuaire de cendre, le Sceau déclenche désormais
   une vraie séquence — silence, murmures convergents, l'unique face-à-face du
-  mod, libération. Deux jours de calme. Puis il réapprend.
+  mod, libération. Jusqu'à deux jours de calme dans la session en cours ;
+  se déconnecter puis rejoindre met fin à l'accalmie restante. Puis il réapprend.
 - **Personnages refondus** : l'Hôte est désormais calciné (fissures de braise,
   yeux asymétriques), il marche en boitillant, bras morts, et sa tête tourne
   toujours un peu trop loin ; l'Observateur s'incline si lentement qu'on ne

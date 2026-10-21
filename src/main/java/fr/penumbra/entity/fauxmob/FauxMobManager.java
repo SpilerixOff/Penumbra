@@ -452,6 +452,19 @@ public final class FauxMobManager {
         return state == null ? 0 : state.sessions.size();
     }
 
+    /** Remove only the ritual participant's spawned disguises, without a reveal scare. */
+    public static void clearForRitual(ServerPlayer player) {
+        ServerState state = STATES.get(player.level().getServer());
+        if (state == null) return;
+        Iterator<Session> iterator = state.sessions.iterator();
+        while (iterator.hasNext()) {
+            Session session = iterator.next();
+            if (!session.ownerId.equals(player.getUUID())) continue;
+            if (session.level.getEntity(session.mobId) instanceof Mob mob) mob.discard();
+            iterator.remove();
+        }
+    }
+
     /**
      * Créatures possédées vivantes de ce niveau — pour la preuve photo : le
      * détecteur s'exécute avant la dissolution du flash, le cliché garde donc

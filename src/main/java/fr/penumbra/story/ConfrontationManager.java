@@ -4,8 +4,19 @@ import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.data.PenumbraPersistentState;
 import fr.penumbra.director.HorrorDirector;
+import fr.penumbra.director.sequence.LinkedSceneManager;
+import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.absent.AbsentEntity;
 import fr.penumbra.entity.absent.AbsentManager;
+import fr.penumbra.entity.contrefait.ContrefaitEntity;
+import fr.penumbra.entity.fauxmob.FauxMobManager;
+import fr.penumbra.entity.listener.ListenerEntity;
+import fr.penumbra.entity.originel.OriginelEntity;
+import fr.penumbra.entity.projectionist.ProjectionistEntity;
+import fr.penumbra.entity.rampant.RampantEntity;
+import fr.penumbra.entity.scuttler.ScuttlerEntity;
+import fr.penumbra.entity.watcher.WatcherEntity;
+import fr.penumbra.perception.IndividualPerceptionManager;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraParticles;
 import fr.penumbra.registry.PenumbraSounds;
@@ -17,10 +28,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
@@ -78,6 +91,23 @@ public final class ConfrontationManager {
     }
 
     private static final Map<UUID, Duel> DUELS = new HashMap<>();
+    private static final Map<UUID, Prelude> PRELUDES = new HashMap<>();
+
+    /** Capability held by this attempt's delayed callbacks, never looked up by UUID alone. */
+    public static final class Prelude {
+        private final ServerLevel level;
+        private final UUID playerId;
+        private final BlockPos center;
+        private final RitualSession session;
+        private UUID actorId;
+
+        private Prelude(ServerLevel level, ServerPlayer player, BlockPos center) {
+            this.level = level;
+            this.playerId = player.getUUID();
+            this.center = center.immutable();
+            this.session = new RitualSession(player, level, level.getGameTime());
+        }
+    }
 
     private ConfrontationManager() {
     }
@@ -115,15 +145,92 @@ public final class ConfrontationManager {
         return true;
     }
 
+    /** Reserves the whole ritual, including its prelude, against unrelated scenes. */
     public static boolean isActive(UUID playerId) {
-        return DUELS.containsKey(playerId);
+        return PRELUDES.containsKey(playerId) || DUELS.containsKey(playerId);
+    }
+
+    public static Prelude beginPrelude(ServerLevel level, ServerPlayer player, BlockPos center) {
+        if (isActive(player.getUUID()) || !player.isAlive() || player.isRemoved()
+                || player.isSleeping() || player.isSpectator() || player.level() != level) return null;
+        Prelude prelude = new Prelude(level, player, center);
+        PRELUDES.put(player.getUUID(), prelude);
+        // Clear only this player's transient actors. No profiles, progression,
+        // shared world changes, vanilla mobs or other players' scenes are reset.
+        LinkedSceneManager.cancelForRitual(player);
+        IndividualPerceptionManager.clear(player);
+        FauxMobManager.clearForRitual(player);
+        for (Monster actor : level.getEntitiesOfClass(Monster.class,
+                player.getBoundingBox().inflate(112.0), entity -> isOwnedSceneActor(entity, player))) {
+            level.sendParticles(PenumbraParticles.ASH_MOTE, actor.getX(), actor.getY() + 1.2,
+                    actor.getZ(), 12, 0.3, 0.6, 0.3, 0.01);
+            actor.discard();
+        }
+        return prelude;
+    }
+
+    private static boolean isOwnedSceneActor(Monster actor, ServerPlayer player) {
+        return actor instanceof HostEntity host && host.isOwnedBy(player)
+                || actor instanceof WatcherEntity watcher && watcher.isOwnedBy(player)
+                || actor instanceof AbsentEntity absent && absent.isOwnedBy(player)
+                || actor instanceof ListenerEntity listener && listener.isOwnedBy(player)
+                || actor instanceof RampantEntity rampant && rampant.isOwnedBy(player)
+                || actor instanceof ContrefaitEntity contrefait && contrefait.isOwnedBy(player)
+                || actor instanceof OriginelEntity originel && originel.isOwnedBy(player)
+                || actor instanceof ScuttlerEntity scuttler && scuttler.isOwnedBy(player)
+                || actor instanceof ProjectionistEntity projectionist && projectionist.isOwnedBy(player);
+    }
+
+    public static boolean isPreludeValid(Prelude prelude) {
+        if (PRELUDES.get(prelude.playerId) != prelude) return false;
+        ServerPlayer player = prelude.level.getServer().getPlayerList().getPlayer(prelude.playerId);
+        boolean valid = prelude.session.validate(player, player == null ? null : player.level(),
+                player != null && player.isAlive() && !player.isRemoved()
+                        && !player.isSpectator() && !player.isSleeping(),
+                player == null ? Double.POSITIVE_INFINITY
+                        : player.distanceToSqr(Vec3.atCenterOf(prelude.center)),
+                prelude.level.getGameTime());
+        if (!valid) cancelPrelude(prelude);
+        return valid;
+    }
+
+    public static boolean trackPreludeActor(Prelude prelude, HostEntity actor) {
+        if (!isPreludeValid(prelude)) {
+            actor.discard();
+            return false;
+        }
+        prelude.actorId = actor.getUUID();
+        return true;
+    }
+
+    public static boolean safePreludePlacement(ServerLevel level, HostEntity host, BlockPos feet) {
+        return ConfrontationPlacement.safeInitialPlacement(level, host, Vec3.atBottomCenterOf(feet));
+    }
+
+    /** Consume this attempt exactly once before handing off to the actual duel. */
+    public static boolean finishPrelude(Prelude prelude) {
+        if (!isPreludeValid(prelude)) return false;
+        cancelPrelude(prelude);
+        return true;
+    }
+
+    private static void cancelPrelude(Prelude prelude) {
+        PRELUDES.remove(prelude.playerId, prelude);
+        prelude.session.cancel();
+        if (prelude.actorId != null && prelude.level.getEntity(prelude.actorId) instanceof HostEntity host) {
+            host.discard();
+        }
     }
 
     /** Boucle serveur (enregistrée dans {@code PenumbraMod}). */
     public static void onServerTick(MinecraftServer server) {
-        if (DUELS.isEmpty() || server.getTickCount() % TICK_INTERVAL != 0) {
+        if (server.getTickCount() % TICK_INTERVAL != 0) {
             return;
         }
+        for (Prelude prelude : new ArrayList<>(PRELUDES.values())) {
+            isPreludeValid(prelude);
+        }
+        if (DUELS.isEmpty()) return;
         Iterator<Map.Entry<UUID, Duel>> iterator = DUELS.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<UUID, Duel> entry = iterator.next();
@@ -160,7 +267,7 @@ public final class ConfrontationManager {
             Vec3 mirrored = mirrorPosition(Vec3.atCenterOf(duel.center),
                     player.position(), MIN_MIRROR_DISTANCE);
             ConfrontationPlacement.tryMove(duel.level, copy, mirrored,
-                    player.position(), MIN_MIRROR_DISTANCE);
+                    player, MIN_MIRROR_DISTANCE);
         }
         float yaw = yawTowards(copy.position(), player.position());
         copy.setYRot(yaw);
@@ -283,8 +390,11 @@ public final class ConfrontationManager {
             win(duel, player, copy);
             DUELS.remove(player.getUUID());
         } else {
-            player.sendOverlayMessage(Component.translatable("penumbra.confrontation.fragment",
-                    duel.sequence.flashes(), FLASHES_TO_WIN));
+            Component feedback = Component.translatable("penumbra.confrontation.fragment",
+                    duel.sequence.flashes(), FLASHES_TO_WIN);
+            player.sendOverlayMessage(feedback);
+            // The photo delivery overlay can immediately replace the fragment notice.
+            player.sendSystemMessage(feedback);
         }
     }
 
@@ -318,6 +428,8 @@ public final class ConfrontationManager {
     }
 
     public static void onPlayerDisconnect(UUID playerId) {
+        Prelude prelude = PRELUDES.get(playerId);
+        if (prelude != null) cancelPrelude(prelude);
         Duel duel = DUELS.remove(playerId);
         if (duel != null) {
             abort(duel);
@@ -325,6 +437,7 @@ public final class ConfrontationManager {
     }
 
     public static void onServerStopped(MinecraftServer server) {
+        for (Prelude prelude : new ArrayList<>(PRELUDES.values())) cancelPrelude(prelude);
         for (Duel duel : DUELS.values()) {
             abort(duel);
         }

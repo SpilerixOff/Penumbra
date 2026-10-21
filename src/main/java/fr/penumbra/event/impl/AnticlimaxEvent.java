@@ -7,6 +7,7 @@ import fr.penumbra.director.TensionState;
 import fr.penumbra.event.HorrorEvent;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraSounds;
+import fr.penumbra.story.ConfrontationManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -76,7 +77,7 @@ public final class AnticlimaxEvent implements HorrorEvent {
      * l'exécution, donc le battement le suit). Volume modéré, pitch 0.9–1.0.
      */
     private static void playBeat(ServerPlayer player) {
-        if (player.isRemoved()) {
+        if (player.isRemoved() || ConfrontationManager.isActive(player.getUUID())) {
             return;
         }
         float pitch = 0.9f + player.getRandom().nextFloat() * 0.1f; // 0.9..1.0

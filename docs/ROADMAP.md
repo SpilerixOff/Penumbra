@@ -1,8 +1,60 @@
 # Feuille de route de Penumbra
 
-## État actuel — 0.18.0
+## État actuel — 0.21.1, livraison locale
 
-Les incréments publiés sont intégrés :
+La version publique reste 0.19.0. Les versions 0.20.0, 0.21.0 et 0.21.1
+sont préparées localement. Les vérifications fonctionnelles ci-dessous ne
+valident pas une longue partie de survie ni les interactions multijoueurs.
+La compilation finale, les tests et la validation des ressources ont réussi.
+La victoire est conservée après rechargement avec cette compilation finale.
+
+| Version | Évolution locale |
+|---|---|
+| 0.19.0 | Première préversion publique et sélection terrestre du Bûcher |
+| 0.20.0 | Respiration du directeur, contre-jeu de l'Hôte et de l'Écouteur, boussole et lecture du Relevé |
+| 0.21.0 | Dossier d'enquête, nappes sonores suivies et variées, duel en trois étapes, éclairage regroupé |
+| 0.21.1 | Isolation et reprise du rituel, reflet gardé visible pendant son déplacement, confirmation durable des fragments, captures liées à la bonne connexion |
+
+## Étapes accomplies pour la 0.21.1
+
+- Le préambule et le duel suspendent les autres scènes du participant ; le
+  nettoyage reste limité à ses propres apparitions. Les tentatives sont liées
+  à la session, avec annulation définitive des effets différés après abandon.
+- Le cycle photographie → développement → album → dossier a été vérifié avec
+  L'Écouteur à 20 ticks par seconde. Le dossier est passé d'une à deux preuves
+  connues et son rechargement a été contrôlé.
+- Un éloignement pendant le préambule a interrompu la tentative ; le même
+  autel a accepté une nouvelle tentative au retour.
+- Le duel a été joué jusqu'à la victoire après le flash final. La sauvegarde
+  contient le marqueur de victoire et le compteur est passé de zéro à un.
+  Après rechargement, nouvelle sauvegarde et sortie avec la compilation
+  finale, le marqueur reste actif et le compteur reste à un.
+  Cet essai en créatif, à 5 puis 1 tick par seconde, valide le chemin
+  fonctionnel, pas son équilibrage à vitesse normale. Le badge était déjà
+  présent : cet essai ne prouve pas sa première attribution.
+- Trois essais de serveur dédié vide ont couvert démarrage, sauvegarde et
+  arrêt propre, dont un rechargement du même monde. Le dernier inclut la
+  correction de visibilité du reflet ; aucun client n'y était connecté.
+- La compilation finale, les tests et la validation des ressources ont
+  réussi avec le message de confirmation des fragments dans le chat.
+  Cet ajout a été relu et compilé, sans rejouer un nouveau duel après son ajout.
+- Les limites de session de l'accalmie et les contrôles encore nécessaires
+  sont explicités dans les problèmes connus et le protocole de test.
+
+## Prochaines vérifications
+
+- Rejouer le duel en survie à 20 ticks par seconde, vérifier l'attribution
+  initiale du badge et les autres causes d'interruption en conditions de jeu.
+- Éprouver les captures lors d'une reconnexion et les scènes de plusieurs
+  joueurs simultanés, avec latence et différentes combinaisons de mods.
+
+Ensuite : parties de survie longues, essais avec plusieurs clients, puis
+réglages d'accessibilité directement en jeu. Les nouveaux objectifs de terrain
+viendront après vérification de la progression actuelle.
+
+## Historique jusqu'à 0.18.0
+
+Les incréments historiques sont intégrés aux sources :
 
 | Version | Livré |
 |---|---|

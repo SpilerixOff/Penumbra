@@ -1668,6 +1668,7 @@ public final class HorrorDirector {
                         ServerPlayer target = level.getServer().getPlayerList().getPlayer(owner);
                         if (target != null && target.isAlive()
                                 && target.level() == level
+                                && !ConfrontationManager.isActive(target.getUUID())
                                 && target.blockPosition().distSqr(anchor) <= 24.0 * 24.0) {
                             PenumbraNetworking.sendJumpscare(target, "refuge_screamer", 0.92f);
                         }

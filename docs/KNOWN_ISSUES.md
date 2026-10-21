@@ -1,4 +1,36 @@
-# Problèmes connus — Penumbra 0.21.0
+# Problèmes connus — Penumbra 0.21.1
+
+## 0.21.1 — périmètre de validation
+
+- La photographie de L'Écouteur a été vérifiée en jeu à vitesse normale :
+  capture, développement, identification dans l'album et ajout au dossier,
+  passé d'une à deux preuves connues. Le rechargement du dossier a été vérifié.
+- Un serveur dédié vide a démarré, sauvegardé et arrêté proprement trois fois,
+  dont un rechargement du même monde. Le dernier essai inclut la correction
+  de visibilité du reflet. Cela ne valide pas les interactions entre
+  plusieurs clients, la latence ni une longue partie de survie.
+- Le préambule interrompu par un éloignement de plus de 40 blocs a pu être
+  relancé sur le même autel. Les autres interruptions ont des tests de
+  session ; elles restent à reproduire dans toutes les conditions de jeu.
+- Le duel a abouti à une victoire après le flash final, en créatif à 5 puis
+  1 tick par seconde. La sauvegarde quittée contient le marqueur de victoire
+  et un compteur passé de zéro à un. Après rechargement en jeu avec la
+  compilation finale, nouvelle sauvegarde et sortie, le marqueur reste actif
+  et le compteur reste à un. Le badge était préexistant : sa première
+  attribution n'est pas validée par cet essai. L'équilibrage en survie à
+  vitesse normale reste également à éprouver.
+- La compilation finale, les tests et la validation des ressources ont
+  réussi. Le dernier ajout du message de confirmation des fragments dans le
+  chat a été relu et compilé ; aucun nouveau duel n'a été joué après cet ajout.
+- **L'accalmie après le rituel est limitée à la session.** Se déconnecter puis
+  rejoindre le monde met fin à l'accalmie restante. Le marqueur de victoire
+  reste sauvegardé : la reconnexion n'efface pas une confrontation gagnée.
+- Les prises de vue tardives d'une ancienne connexion sont désormais ignorées.
+  Les conditions de reconnexion pendant une capture et les différences de
+  pilotes graphiques restent à éprouver sur plusieurs machines.
+- Installer la même version **0.21.1** côté serveur et sur tous les clients.
+  Aucun gain de FPS chiffré ni test subjectif complet du mixage sonore n'est
+  revendiqué pour cette mise à jour.
 
 ## 0.21.0 — limites des essais
 
@@ -12,7 +44,7 @@
   ne met pas le monde en pause. Une ancienne preuve déjà perdue par la limite
   du dossier ne peut pas être inventée à la mise à jour : elle devra être
   photographiée de nouveau si aucun cliché correspondant n'est conservé.
-- Le client et le serveur doivent tous deux utiliser 0.21.0 : le paquet
+- Depuis la 0.21.0, le client et le serveur doivent utiliser la même version : le paquet
   d'ouverture de l'album transporte désormais aussi le dossier personnel.
 - Le faux calme arrête les nappes et le cœur suivis par le client. Il ne coupe
   pas les sons normaux du monde ni les sons positionnels d'une scène déjà lancée.

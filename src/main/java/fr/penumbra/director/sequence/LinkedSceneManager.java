@@ -14,6 +14,7 @@ import fr.penumbra.network.PenumbraC2S;
 import fr.penumbra.photo.PhotoAlbumState;
 import fr.penumbra.photo.investigation.InvestigationRules;
 import fr.penumbra.story.StoryManager;
+import fr.penumbra.story.ConfrontationManager;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -192,6 +193,11 @@ public final class LinkedSceneManager {
         state.runtimeByOwner.remove(playerId);
     }
 
+    /** Cancel this owner's pending follow-up; keep other players and pacing history intact. */
+    public static void cancelForRitual(ServerPlayer player) {
+        onPlayerDisconnect(player.level().getServer(), player.getUUID());
+    }
+
     public static void onServerStopped(MinecraftServer server) {
         ServerState state = STATES.remove(server);
         if (state != null) {
@@ -234,6 +240,7 @@ public final class LinkedSceneManager {
 
     private static boolean tryStart(ServerState state, ServerPlayer player,
                                     LinkedSceneType type, long now, boolean forced) {
+        if (ConfrontationManager.isActive(player.getUUID())) return false;
         PenumbraConfig config = PenumbraConfig.get();
         boolean underground = AbstractUndergroundEvent.isUnderground(player);
         if (!forced && !LinkedSceneRules.eligible(type,
@@ -330,6 +337,7 @@ public final class LinkedSceneManager {
                 continue;
             }
             if (owner == null || !owner.isAlive() || owner.isSpectator()
+                    || ConfrontationManager.isActive(ownerId)
                     || !snapshot.get().dimension().equals(
                     owner.level().dimension().identifier().toString())) {
                 state.coordinator.signal(runtime.token,
@@ -383,6 +391,7 @@ public final class LinkedSceneManager {
         for (LinkedSceneCoordinator.SceneAction action : state.coordinator.pollDue(now)) {
             ServerPlayer owner = server.getPlayerList().getPlayer(action.owner());
             if (owner == null || !owner.isAlive() || owner.isSpectator()
+                    || ConfrontationManager.isActive(action.owner())
                     || !action.dimension().equals(
                     owner.level().dimension().identifier().toString())) {
                 state.coordinator.acknowledge(action.token(),

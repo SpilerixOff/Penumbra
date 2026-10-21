@@ -1704,8 +1704,71 @@ et JAR 0.19.0 chargeable sur client comme sur serveur dédié.
    débits de chuchotement.
 3. Vérifier qu'aucun son positionné n'est en stéréo (l'atténuation spatiale
    exige du mono) : tous les fichiers générés sont mono.
-4. Laisser tourner une nappe d'ambiance complète (~22 s) : la boucle ne doit
+4. Laisser tourner une nappe d'ambiance complète (8 s depuis la 0.21.0) : la boucle ne doit
    présenter aucun clic au raccord (fondu croisé intégré).
 5. Niveaux à l'oreille : cri nettement au-dessus du chuchotement, nappes en
    retrait. Ajustement éventuel dans `tools/generate_sounds.py` (constantes
    `normalize`) puis régénération.
+
+# Stabilisation 0.21.1
+
+Les procédures ci-dessous décrivent les résultats attendus. Leur présence
+ne signifie pas que chaque cas a été exécuté ; le rapport de livraison
+précise les contrôles réellement passés.
+
+## 117. Rituel, interruptions et victoire
+
+1. Dans un monde d'essai, préparer un sanctuaire, une Caméra VHS et un Sceau
+   de cendre. Passer au stade 6 avec `/penumbra story set 6`.
+2. Faire apparaître un Absent avec `/penumbra absent test`, puis activer le
+   pilier avec le sceau. Attendu : l'ancien acteur du joueur est retiré et
+   le préambule peut aboutir à une copie dédiée sur un terrain valide.
+3. Caméra en main, rester au sol, immobile, en regardant la copie. Au signal
+   d'ouverture, faire un **clic gauche**. **C ne déclenche pas le flash** :
+   c'est le viseur. Obtenir trois réussites séparées par les temps de repos.
+4. Attendu : les réussites apparaissent une à une ; trois réussites donnent
+   la victoire, le badge et l'accalmie. Une fenêtre manquée ne remet pas les
+   réussites à zéro. Recharger le monde conserve la victoire.
+5. Sur une tentative non gagnée, quitter le rayon de 40 blocs pendant le
+   préambule, puis revenir. Attendu : les anciens messages/apparitions ne
+   reprennent pas ; le même sanctuaire accepte une nouvelle tentative.
+6. Refaire l'interruption par mort/réapparition, changement de dimension et
+   déconnexion/reconnexion. Une nouvelle instance du joueur ne doit jamais
+   reprendre les tâches de sa session précédente.
+7. Avec deux joueurs, lancer une scène pour B et le rituel de A. Attendu :
+   le nettoyage de A conserve les acteurs de B et ne valide pas ses flashs.
+8. Garder le pilier central entre la position miroir théorique et le joueur.
+   Attendu : la copie s'arrête avant de se masquer derrière le pilier. Se
+   décaler peut lui permettre de reprendre un mouvement visible ; elle ne
+   traverse ni les murs ni les sols pour retrouver son point miroir.
+
+Un rythme réduit par `/tick rate 5` peut servir au diagnostic fonctionnel des
+fenêtres. Rétablir `/tick rate 20` ensuite ; ce test ne valide pas la difficulté
+ou le rythme ressenti à vitesse normale.
+
+## 118. Preuve de l'Écouteur et dossier personnel
+
+1. Dans un monde d'essai, faire apparaître L'Écouteur sur un terrain dégagé.
+   Le cadrer au centre avec la Caméra VHS et faire un clic gauche.
+2. Attendre 200 ticks de développement. Ouvrir l'album : le cliché doit
+   reconnaître L'Écouteur et le dossier doit gagner une catégorie distincte.
+3. Refaire un cliché identique : aucun second déblocage de la même catégorie.
+4. En multijoueur, montrer la photo publique à B : son dossier ne doit pas
+   hériter de la catégorie de A. Recharger la sauvegarde conserve les preuves
+   personnelles, y compris après suppression volontaire du tirage.
+5. Quitter pendant une capture puis reprendre une autre session : un ancien
+   retour de capture ne doit ni envoyer ses pixels ni annuler une nouvelle photo.
+
+## 119. Serveur dédié et arrêt propre
+
+1. Avec Java 25 et les dépendances du projet, démarrer un serveur dédié dans
+   un dossier d'essai distinct, lié seulement à `127.0.0.1`.
+2. Attendre `Done`, puis envoyer `list`, `save-all flush`, et `stop`, en
+   attendant la réponse de chaque commande.
+3. Attendu : le mod charge sans erreur de classe client, la console répond,
+   tous les mondes sont enregistrés et le processus se termine normalement.
+4. Relancer avec le même dossier pour vérifier le rechargement de ce monde.
+
+Un serveur vide ne valide pas une partie à plusieurs. Les tests de latence,
+de confidentialité des perceptions et de synchronisation sonore demandent
+encore des clients connectés.
