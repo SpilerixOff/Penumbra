@@ -24,7 +24,7 @@ bin/
 Thumbs.db
 
 # Local experiments, source references and generated Python caches
-ai/
+/ai/
 tmp/
 .zoomfix/
 buildnightcheck/
