@@ -329,8 +329,6 @@ public final class HorrorDirector {
     private static final Set<UUID> FALSE_CALM_SCHEDULED = new HashSet<>();
     /** Joueurs attendant l'unique rupture contrôlée après leur vrai silence. */
     private static final Set<UUID> FALSE_CALM_BREAK_PENDING = new HashSet<>();
-    /** Pause de TOUS les événements automatiques (finale post-rituel). */
-    private static final Map<UUID, Long> AUTOMATIC_EVENT_PAUSE_UNTIL = new HashMap<>();
     /** Dernier déclenchement de chaque événement, par joueur (cooldowns individuels). */
     private static final Map<UUID, Map<String, Long>> LAST_EVENT_RUNS = new HashMap<>();
     /** Nombre de scènes audio consécutives, remis à zéro par tout effet visuel/physique. */
@@ -434,6 +432,7 @@ public final class HorrorDirector {
                 continue;
             }
             PlayerHorrorProfile profile = data.profile(player.getUUID());
+            if (profilePhase) refreshPostRitualCalm(data, profile, gameTime);
             if (ConfrontationManager.isActive(player.getUUID())) {
                 // The finale has its own signals and recovery windows. Keep
                 // the client synchronized without starting unrelated scenes.
@@ -527,7 +526,6 @@ public final class HorrorDirector {
         FALSE_CALM_UNTIL.remove(playerId);
         FALSE_CALM_SCHEDULED.remove(playerId);
         FALSE_CALM_BREAK_PENDING.remove(playerId);
-        AUTOMATIC_EVENT_PAUSE_UNTIL.remove(playerId);
         LAST_EVENT_RUNS.remove(playerId);
         CONSECUTIVE_AUDIO_EVENTS.remove(playerId);
         GLOBAL_COOLDOWN_UNTIL.remove(playerId);
@@ -564,7 +562,6 @@ public final class HorrorDirector {
         FALSE_CALM_UNTIL.clear();
         FALSE_CALM_SCHEDULED.clear();
         FALSE_CALM_BREAK_PENDING.clear();
-        AUTOMATIC_EVENT_PAUSE_UNTIL.clear();
         LAST_EVENT_RUNS.clear();
         CONSECUTIVE_AUDIO_EVENTS.clear();
         GLOBAL_COOLDOWN_UNTIL.clear();
@@ -602,8 +599,11 @@ public final class HorrorDirector {
 
     /** État de tension d'un joueur, faux calme inclus. */
     public static TensionState getState(MinecraftServer server, UUID playerId) {
-        PlayerHorrorProfile profile = PenumbraPersistentState.get(server).profile(playerId);
-        return perceivedState(playerId, profile, server.overworld().getGameTime());
+        PenumbraPersistentState data = PenumbraPersistentState.get(server);
+        PlayerHorrorProfile profile = data.profile(playerId);
+        long now = server.overworld().getGameTime();
+        refreshPostRitualCalm(data, profile, now);
+        return perceivedState(playerId, profile, now);
     }
 
     /** Vrai si la grâce naturelle est écoulée ou a été terminée par une commande. */
@@ -684,11 +684,11 @@ public final class HorrorDirector {
      * Fixe la tension d'un joueur (bornée 0–100 par le profil). Comme cette
      * méthode est utilisée par la commande administrateur, atteindre UNEASE
      * termine la grâce pour rendre le test observable ; CRISIS annule aussi
-     * les silences/cooldowns transitoires déjà armés.
+     * les silences/cooldowns déjà armés, y compris l'accalmie persistante du rituel.
      */
     public static void setTension(ServerPlayer player, float value) {
-        PlayerHorrorProfile profile = PenumbraPersistentState.get(player.level().getServer())
-                .profile(player.getUUID());
+        PenumbraPersistentState data = PenumbraPersistentState.get(player.level().getServer());
+        PlayerHorrorProfile profile = data.profile(player.getUUID());
         profile.addTension(value - profile.tension());
         UUID playerId = player.getUUID();
         if (value >= TensionState.UNEASE.threshold) {
@@ -699,7 +699,7 @@ public final class HorrorDirector {
             FALSE_CALM_UNTIL.remove(playerId);
             FALSE_CALM_SCHEDULED.remove(playerId); // invalide aussi la tâche différée
             FALSE_CALM_BREAK_PENDING.remove(playerId);
-            AUTOMATIC_EVENT_PAUSE_UNTIL.remove(playerId);
+            profile.clearPostRitualCalm();
             GLOBAL_COOLDOWN_UNTIL.remove(playerId);
             CRISIS_MANIFESTATION_COUNTS.remove(playerId);
             long now = player.level().getGameTime();
@@ -708,6 +708,7 @@ public final class HorrorDirector {
             profile.directorMemory(ensureDirectorMemory(profile, now)
                     .withLastManifestation(now - Math.max(1L, deadline), now));
         }
+        data.setDirty();
     }
 
     /**
@@ -730,7 +731,6 @@ public final class HorrorDirector {
         FALSE_CALM_UNTIL.remove(playerId);
         FALSE_CALM_SCHEDULED.remove(playerId);
         FALSE_CALM_BREAK_PENDING.remove(playerId);
-        AUTOMATIC_EVENT_PAUSE_UNTIL.remove(playerId);
         LAST_EVENT_RUNS.remove(playerId);
         CONSECUTIVE_AUDIO_EVENTS.remove(playerId);
         // Phase 2 : purge de l'état transitoire.
@@ -1070,8 +1070,9 @@ public final class HorrorDirector {
         }
     }
 
-    /** Vrai tant que le cooldown global post-poursuite du joueur est actif. */
+    /** Cooldown post-poursuite ou récompense de calme persistante propre au joueur. */
     public static boolean isInGlobalCooldown(ServerPlayer player) {
+        if (isAutomaticEventPaused(player)) return true;
         Long until = GLOBAL_COOLDOWN_UNTIL.get(player.getUUID());
         return until != null && player.level().getGameTime() < until;
     }
@@ -1088,30 +1089,32 @@ public final class HorrorDirector {
 
     /** Vrai pendant une pause scénarisée bloquant tout événement automatique. */
     private static boolean isAutomaticEventPaused(ServerPlayer player) {
-        Long until = AUTOMATIC_EVENT_PAUSE_UNTIL.get(player.getUUID());
-        if (until == null) {
-            return false;
-        }
-        if (player.level().getGameTime() < until) {
-            return true;
-        }
-        AUTOMATIC_EVENT_PAUSE_UNTIL.remove(player.getUUID());
-        return false;
+        MinecraftServer server = player.level().getServer();
+        PenumbraPersistentState data = PenumbraPersistentState.get(server);
+        PlayerHorrorProfile profile = data.profile(player.getUUID());
+        refreshPostRitualCalm(data, profile, server.overworld().getGameTime());
+        return profile.postRitualCalm().active();
+    }
+
+    private static void refreshPostRitualCalm(PenumbraPersistentState data,
+                                             PlayerHorrorProfile profile, long overworldGameTime) {
+        if (profile.advancePostRitualCalm(overworldGameTime)) data.setDirty();
     }
 
     /**
      * 0.5.0 : accalmie scriptée post-rituel (finale du Sanctuaire de cendre) —
-     * tension remise à zéro et cooldown global armé pour {@code calmTicks}
-     * (aucun événement agressif pendant cette fenêtre). L'épilogue n'est pas
+     * tension remise à zéro et silence persisté, borné à 48 000 ticks de jeu
+     * de l'Overworld (aucun événement automatique pendant cette fenêtre). L'épilogue n'est pas
      * la fin de l'horreur : à l'issue de l'accalmie, il réapprend.
      */
     public static void applyPostRitualCalm(ServerPlayer player, long calmTicks) {
-        PlayerHorrorProfile profile = profile(player);
+        MinecraftServer server = player.level().getServer();
+        PenumbraPersistentState data = PenumbraPersistentState.get(server);
+        PlayerHorrorProfile profile = data.profile(player.getUUID());
         profile.addTension(-profile.tension());
         UUID playerId = player.getUUID();
-        long until = player.level().getGameTime() + Math.max(0L, calmTicks);
-        GLOBAL_COOLDOWN_UNTIL.put(playerId, until);
-        AUTOMATIC_EVENT_PAUSE_UNTIL.put(playerId, until);
+        profile.extendPostRitualCalm(server.overworld().getGameTime(), calmTicks);
+        data.setDirty();
         FALSE_CALM_UNTIL.remove(playerId);
         FALSE_CALM_SCHEDULED.remove(playerId);
         FALSE_CALM_BREAK_PENDING.remove(playerId);
@@ -2494,8 +2497,9 @@ public final class HorrorDirector {
     }
 
     /** Le calme persistant doit aussi calmer l'ambiance client et les consommateurs externes. */
-    private static TensionState perceivedState(UUID playerId, PlayerHorrorProfile profile, long gameTime) {
-        if (DirectorPacingRules.falseCalmActive(profile.directorMemory().arc(), gameTime)) {
+    static TensionState perceivedState(UUID playerId, PlayerHorrorProfile profile, long gameTime) {
+        if (profile.postRitualCalm().advanceTo(gameTime).active()
+                || DirectorPacingRules.falseCalmActive(profile.directorMemory().arc(), gameTime)) {
             return TensionState.FALSE_CALM;
         }
         return currentState(playerId, profile.tension(), gameTime);

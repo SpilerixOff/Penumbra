@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.22.0] — Votre façon de vivre l'horreur
+
+- **K** ouvre les réglages personnels en jeu, sans commande opérateur.
+  Trois préréglages et huit réglages permettent de réduire les mouvements,
+  masquer les visages plein écran, bloquer les flashs et régler séparément
+  le grain, les rémanences, les torches, les sursauts et les nappes sonores.
+- Les choix sont enregistrés dans `config/penumbra-client.json`. Appliquer
+  les active ; Annuler ou Échap laisse les anciens choix intacts. Ils ne
+  modifient pas la difficulté du serveur, les créatures ou le dossier.
+- Le mouvement réduit arrête les secousses, la respiration du viseur,
+  la dérive de champ de vision et les effets animés supplémentaires. Le
+  zoom volontaire de la caméra reste disponible. Masquer un flash visuel
+  n'empêche pas la caméra de fonctionner pendant une confrontation.
+- Les nappes et le cœur déjà en cours sont arrêtés à l'application des
+  réglages, puis reprennent au nouveau volume. Les sons du monde et les
+  indices positionnels restent distincts de ce réglage d'ambiance.
+- L'accalmie après le rituel est sauvegardée par joueur. Elle dure au plus
+  48 000 ticks du monde : le temps s'écoule sur un serveur actif, y compris
+  hors connexion, et s'arrête quand le serveur est arrêté. Rejoindre ou
+  changer de dimension n'accorde pas une nouvelle période de calme.
+- Le badge final récompense désormais une confrontation gagnée. Atteindre
+  le stade narratif 6 ne le débloque plus ; les anciens badges sont conservés.
+
 ## [0.21.1] — Stabilisation du rituel et des photos
 
 ### Un rituel réservé à son participant

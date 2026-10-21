@@ -2,7 +2,7 @@ package fr.penumbra.client.photo;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import fr.penumbra.PenumbraMod;
-import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.client.binoculars.BinocularsManager;
 import fr.penumbra.network.PhotoNetworking;
 import fr.penumbra.photo.PhotoAlbumState;
@@ -101,7 +101,7 @@ public final class PhotoClientManager {
                 }));
 
         HudElementRegistry.addLast(PenumbraMod.id("camera_flash"), (graphics, deltaTracker) -> {
-            if (flashTicks <= 0 || flashStrength <= 0.0f || !PenumbraConfig.get().flashesEnabled) {
+            if (flashTicks <= 0 || flashStrength <= 0.0f || !ClientComfort.flashesEnabled()) {
                 return;
             }
             Minecraft client = Minecraft.getInstance();
@@ -265,7 +265,7 @@ public final class PhotoClientManager {
 
     private static void triggerFlash(PhotoNetworking.PhotoFlashS2C packet) {
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || !PenumbraConfig.get().flashesEnabled) {
+        if (client.player == null || !ClientComfort.flashesEnabled()) {
             return;
         }
         double dx = client.player.getX() - packet.x();

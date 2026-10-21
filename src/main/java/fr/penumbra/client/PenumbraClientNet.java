@@ -3,6 +3,7 @@ package fr.penumbra.client;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.client.ambient.ClientTensionState;
 import fr.penumbra.client.jumpscare.JumpscareManager;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.network.PenumbraNetworking;
 import net.fabricmc.api.EnvType;
@@ -79,7 +80,8 @@ public final class PenumbraClientNet {
                 || packet.soundId().equals(PenumbraMod.id("chase_stinger"))
                 || packet.soundId().equals(PenumbraMod.id("screamer_shriek"))
                 || packet.soundId().equals(PenumbraMod.id("fake_creeper"))) {
-            volume = Math.min(1.0f, volume * PenumbraConfig.get().jumpscareVolume);
+            volume = ClientComfort.suddenVolume(
+                    Math.min(1.0f, volume * PenumbraConfig.get().jumpscareVolume));
         }
         SoundSource source = packet.soundId().equals(PenumbraMod.id("binoculars_on"))
                 || packet.soundId().equals(PenumbraMod.id("binoculars_off"))

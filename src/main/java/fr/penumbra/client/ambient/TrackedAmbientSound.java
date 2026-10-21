@@ -1,6 +1,7 @@
 package fr.penumbra.client.ambient;
 
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.director.TensionState;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -30,7 +31,7 @@ final class TrackedAmbientSound extends AbstractTickableSoundInstance implements
         this.player = client.player;
         this.envelope = new AmbientSoundEnvelope(volume, fadeTicks);
         this.maximumTicks = Math.max(1, maximumTicks);
-        this.volume = this.envelope.volume();
+        this.volume = ClientComfort.ambientVolume(this.envelope.volume());
         this.pitch = Float.isFinite(pitch) ? Math.clamp(pitch, 0.9f, 1.1f) : 1.0f;
         this.relative = true;
         this.attenuation = SoundInstance.Attenuation.NONE;
@@ -47,6 +48,7 @@ final class TrackedAmbientSound extends AbstractTickableSoundInstance implements
         return !isStopped() && this.level != null && this.player != null
                 && this.client.level == this.level && this.client.player == this.player
                 && this.player.isAlive() && PenumbraConfig.get().improvedSoundsEnabled
+                && ClientComfort.ambientVolume(1.0f) > 0.0f
                 && ClientTensionState.state() != TensionState.FALSE_CALM;
     }
 
@@ -57,7 +59,7 @@ final class TrackedAmbientSound extends AbstractTickableSoundInstance implements
             return;
         }
         this.envelope.tick();
-        this.volume = this.envelope.volume();
+        this.volume = ClientComfort.ambientVolume(this.envelope.volume());
         if (this.envelope.stopped() || ++this.age >= this.maximumTicks) {
             stop();
         }

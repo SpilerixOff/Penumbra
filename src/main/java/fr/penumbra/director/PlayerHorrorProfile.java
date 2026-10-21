@@ -75,7 +75,9 @@ public class PlayerHorrorProfile {
                     .forGetter(profile -> Map.copyOf(profile.eventSeenCounts)),
             // 0.12.0 : arcs, dette et cooldowns du directeur, optionnels pour les anciens mondes.
             DirectorMemory.CODEC.optionalFieldOf("directorV2")
-                    .forGetter(profile -> Optional.of(profile.directorMemory))
+                    .forGetter(profile -> Optional.of(profile.directorMemory)),
+            PostRitualCalm.CODEC.optionalFieldOf("postRitualCalm", PostRitualCalm.NONE)
+                    .forGetter(PlayerHorrorProfile::postRitualCalm)
     ).apply(instance, PlayerHorrorProfile::new));
 
     /** Tension maximale. */
@@ -129,6 +131,8 @@ public class PlayerHorrorProfile {
     private final Map<String, Integer> eventSeenCounts;
     /** 0.12.0 : pacing persistant, remplacé atomiquement par le moteur d'arcs. */
     private DirectorMemory directorMemory;
+    /** Reward quiet time is independent of adaptive arcs and survives reconnects. */
+    private PostRitualCalm postRitualCalm;
 
     /** 0.6.0 : borne du compteur de vécus par événement. */
     private static final int MAX_EVENT_SEEN = 50;
@@ -169,7 +173,7 @@ public class PlayerHorrorProfile {
     /** Profil vierge (nouveau joueur). */
     public PlayerHorrorProfile() {
         this(0f, 0L, List.of(), 0, 0L, 0, List.of(), List.of(), 0, 0L, -1L,
-                Map.of(), Optional.empty());
+                Map.of(), Optional.empty(), PostRitualCalm.NONE);
     }
 
     /** Constructeur utilisé par le Codec (valeurs déjà défautées par optionalFieldOf). */
@@ -178,7 +182,7 @@ public class PlayerHorrorProfile {
                                 List<BlockPos> homePoints, List<CellCount> frequentCells,
                                 int bedUses, long lastQuietEventTick, long graceStartTick,
                                 Map<String, Integer> eventSeenCounts,
-                                Optional<DirectorMemory> directorMemory) {
+                                Optional<DirectorMemory> directorMemory, PostRitualCalm postRitualCalm) {
         this.tension = Mth.clamp(tension, 0f, MAX_TENSION);
         this.lastEventTick = lastEventTick;
         this.recentEvents = new ArrayDeque<>();
@@ -222,6 +226,27 @@ public class PlayerHorrorProfile {
         }
         this.directorMemory = directorMemory.orElseGet(
                 () -> DirectorMemory.fresh(0L, this.lastEventTick));
+        this.postRitualCalm = postRitualCalm;
+    }
+
+    public PostRitualCalm postRitualCalm() {
+        return this.postRitualCalm;
+    }
+
+    /** Returns whether the persisted clock snapshot changed. */
+    public boolean advancePostRitualCalm(long overworldGameTime) {
+        PostRitualCalm next = this.postRitualCalm.advanceTo(overworldGameTime);
+        if (next.equals(this.postRitualCalm)) return false;
+        this.postRitualCalm = next;
+        return true;
+    }
+
+    public void extendPostRitualCalm(long overworldGameTime, long durationTicks) {
+        this.postRitualCalm = this.postRitualCalm.extendAt(overworldGameTime, durationTicks);
+    }
+
+    public void clearPostRitualCalm() {
+        this.postRitualCalm = PostRitualCalm.NONE;
     }
 
     /** Mémoire persistante du directeur adaptatif. */

@@ -1,6 +1,7 @@
 package fr.penumbra.client.jumpscare;
 
 import fr.penumbra.PenumbraMod;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.registry.PenumbraSounds;
 import net.fabricmc.api.EnvType;
@@ -106,7 +107,7 @@ public final class JumpscareManager {
 
     static {
         HudElementRegistry.addLast(PenumbraMod.id("jumpscare_flash"), (extractor, deltaTracker) -> {
-            if (flashTicks <= 0 || !PenumbraConfig.get().flashesEnabled) {
+            if (flashTicks <= 0 || !ClientComfort.flashesEnabled()) {
                 return;
             }
             Minecraft client = Minecraft.getInstance();
@@ -117,7 +118,7 @@ public final class JumpscareManager {
         });
 
         HudElementRegistry.addLast(PenumbraMod.id("screamer_face"), (extractor, deltaTracker) -> {
-            if (faceTicks <= 0 || !PenumbraConfig.get().screamersEnabled) {
+            if (faceTicks <= 0 || !ClientComfort.facesEnabled()) {
                 return;
             }
             int total = Math.max(1, faceDurationTotal);
@@ -207,7 +208,7 @@ public final class JumpscareManager {
             case "sting" -> {
                 playLocal(PenumbraSounds.HOST_STINGER, volume, 1.0f);
                 startShake(12, clamped, config);
-                if (config.flashesEnabled) {
+                if (ClientComfort.flashesEnabled()) {
                     flashTicks = 3;
                 }
             }
@@ -215,7 +216,7 @@ public final class JumpscareManager {
             case "apparition" -> {
                 playLocal(PenumbraSounds.HOST_WHISPER, volume * 0.7f, 0.9f);
                 startShake(6, clamped * 0.5f, config);
-                if (config.screamersEnabled) {
+                if (ClientComfort.facesEnabled()) {
                     // Les indices 3, 4 et 5 correspondent aux fichiers 4, 5 et 6.
                     startFace(3 + APPARITION_VARIANTS.next(),
                             APPARITION_FACE_DURATION_TICKS,
@@ -227,10 +228,10 @@ public final class JumpscareManager {
             case "screamer", "lunge_screamer", "rampant_screamer",
                     "absent_screamer", "chorus_screamer", "refuge_screamer",
                     "mimic_screamer", "listener_screamer" -> {
-                if (config.screamersEnabled) {
+                if (ClientComfort.facesEnabled()) {
                     // 0.14.0 : chaque screamer tire une mise en scène différente
                     // (cadrage, zoom, coupes, son) pour casser l'habituation.
-                    int style = config.screamerVarietyEnabled
+                    int style = config.screamerVarietyEnabled && ClientComfort.motionAllowed()
                             ? PRESENTATION_STYLES.next() : ScreamerPresentation.CLASSIC;
                     if (lungeFinal) {
                         style = ScreamerPresentation.finalizeForContact(style);
@@ -245,7 +246,7 @@ public final class JumpscareManager {
                     }
                     startShake(ScreamerPresentation.shakeDurationTicks(style, lungeFinal ? 24 : 16),
                             whisper ? clamped * 0.5f : clamped, config);
-                    if (lungeFinal && config.flashesEnabled) {
+                    if (lungeFinal && ClientComfort.flashesEnabled()) {
                         flashTicks = 2;
                     }
                     int variant = switch (scareType) {
@@ -301,7 +302,7 @@ public final class JumpscareManager {
         if (shakeTicks <= 0) {
             return;
         }
-        if (!PenumbraConfig.get().cameraShakeEnabled) {
+        if (!PenumbraConfig.get().cameraShakeEnabled || !ClientComfort.motionAllowed()) {
             shakeTicks = 0;
             return;
         }
@@ -340,6 +341,28 @@ public final class JumpscareManager {
         lastShownVariant = -1;
     }
 
+    /** Clear presentation only; keep gameplay-independent anti-spam cooldowns intact. */
+    public static void onComfortChanged() {
+        Minecraft client = Minecraft.getInstance();
+        if (!ClientComfort.motionAllowed()) {
+            LocalPlayer player = client.player;
+            if (player != null) {
+                player.setYRot(player.getYRot() - lastYawOffset);
+                player.setXRot(player.getXRot() - lastPitchOffset);
+            }
+            lastYawOffset = lastPitchOffset = 0.0f;
+            shakeTicks = 0;
+            faceStyle = ScreamerPresentation.CLASSIC;
+        }
+        if (!ClientComfort.facesEnabled()) faceTicks = 0;
+        if (!ClientComfort.flashesEnabled()) flashTicks = 0;
+        // Applying a lower gain must not leave an already-playing sting at its old volume.
+        for (String id : new String[]{"host_stinger", "chase_stinger", "screamer_shriek",
+                "fake_creeper", "host_whisper"}) {
+            client.getSoundManager().stop(PenumbraMod.id(id), SoundSource.HOSTILE);
+        }
+    }
+
     private static void startFace(int variant, int durationTicks, int fadeTicks,
                                   int maxAlpha, int style) {
         faceVariant = variant;
@@ -367,7 +390,7 @@ public final class JumpscareManager {
 
     /** Démarre un shake seulement lorsque l'option d'accessibilité l'autorise. */
     private static void startShake(int durationTicks, float intensity, PenumbraConfig config) {
-        if (!config.cameraShakeEnabled) {
+        if (!config.cameraShakeEnabled || !ClientComfort.motionAllowed()) {
             return;
         }
         shakeDuration = durationTicks;
@@ -377,8 +400,9 @@ public final class JumpscareManager {
 
     /** Joue un son local à la position du joueur, avec le canal hostile. */
     private static void playLocal(SoundEvent sound, float volume, float pitch) {
+        volume = ClientComfort.suddenVolume(volume);
         Minecraft client = Minecraft.getInstance();
-        if (client.level == null || client.player == null) {
+        if (client.level == null || client.player == null || volume <= 0.0f) {
             return;
         }
         client.level.playLocalSound(client.player.getX(), client.player.getY(), client.player.getZ(),

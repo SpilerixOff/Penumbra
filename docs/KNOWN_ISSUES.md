@@ -1,6 +1,54 @@
-# Problèmes connus — Penumbra 0.21.1
+# Problèmes connus — Penumbra 0.22.0
 
-## 0.21.1 — périmètre de validation
+## 0.22.0 — résultats et limites de validation
+
+- **305 tests dans 59 suites ont réussi**, sans échec ; compilation et
+  validation des ressources réussies. Cela ne remplace pas les contrôles en jeu.
+- Sur un client A connecté à un serveur dédié local **sans permission
+  opérateur**, K ouvre le menu. Choisir Doux puis Annuler conserve les valeurs
+  Immersion à la réouverture et ne crée pas de fichier. Appliquer Doux conserve
+  ensuite les valeurs à la réouverture et écrit le bon fichier personnel.
+  Les empreintes des configurations de base de A et du serveur restent identiques.
+  Après arrêt et redémarrage du serveur et de A, K conserve aussi Doux, sans OP.
+- L'interface française a été vérifiée et capturée en fenêtre 960×540.
+  L'interface anglaise et les plus petites dimensions GUI restent à vérifier.
+- Le passage au stade 6 par commande serveur n'a pas accordé le badge à un
+  joueur qui ne le possédait pas, sans révocation préalable. Un rituel normal
+  déclenché par un vrai clic a ensuite accordé l'accalmie : 47 668 ticks après
+  sauvegarde forcée, 47 403 après arrêt propre. Le badge de confrontation
+  restait absent. Après redémarrage et reconnexion, l'horloge est passée de
+  10 104 à 10 576 ticks et l'accalmie de 47 403 à 46 931 : exactement 472 ticks
+  consommés, sans réarmement. Le badge reste absent.
+- Un avertissement serveur de retard de 2 056 ms (41 ticks) a été relevé à
+  la connexion. Ces contrôles ne prouvent pas un maintien constant à 20 TPS.
+- Dans cet environnement d'essai, le client B a échoué deux fois avant
+  connexion, y compris après une relance contrôlée : violation d'accès native
+  dans GLFW (`glfw.dll+0x10fa1`, `pollEvents` ; dernier rapport
+  `hs_err_pid20052.log`). La trace observée ne contient aucune frame Penumbra ;
+  l'origine n'est pas établie. **Aucun second joueur n'a rejoint le serveur :
+  l'essai à deux clients simultanés n'est pas validé.**
+- Aucun duel complet de la 0.22.0, équilibrage en longue survie ou essai de
+  latence Internet n'est revendiqué. La première attribution du badge après
+  victoire reste à vérifier en jeu.
+- Le menu ne change que la présentation locale. Il ne réduit ni les dégâts
+  ni la fréquence des scènes. Il met le solo en pause, mais pas le multijoueur.
+  Le mode mouvement réduit prime sur les options visuelles qu'il coupe ; les
+  valeurs individuelles restent mémorisées. La configuration de base conserve
+  ses interdictions, même avec le préréglage Immersion.
+- Les deux volumes ne constituent pas un volume général du mod : Ambiances
+  couvre les nappes et le cœur suivis, Sons soudains les sons de sursaut
+  couverts. Les pas, indices et sons Minecraft gardent leurs réglages propres.
+- **La limite d'accalmie de session de la 0.21.1 est corrigée.** Les 48 000
+  ticks sont sauvegardés et décomptés avec l'horloge du monde principal, commune
+  aux dimensions. Ils s'écoulent pendant l'absence du joueur si le serveur
+  avance, mais pas quand il est arrêté. Forcer une tension de 90 ou plus annule
+  volontairement ce calme pour les diagnostics.
+- Le badge de confrontation demande désormais la victoire. Les badges déjà
+  obtenus restent acquis ; une sauvegarde où il existait déjà ne permet pas
+  de valider sa première attribution selon la nouvelle règle.
+- Installer la même version **0.22.0** côté serveur et sur tous les clients.
+
+## 0.21.1 — résultats historiques
 
 - La photographie de L'Écouteur a été vérifiée en jeu à vitesse normale :
   capture, développement, identification dans l'album et ajout au dossier,
@@ -22,14 +70,12 @@
 - La compilation finale, les tests et la validation des ressources ont
   réussi. Le dernier ajout du message de confirmation des fragments dans le
   chat a été relu et compilé ; aucun nouveau duel n'a été joué après cet ajout.
-- **L'accalmie après le rituel est limitée à la session.** Se déconnecter puis
-  rejoindre le monde met fin à l'accalmie restante. Le marqueur de victoire
-  reste sauvegardé : la reconnexion n'efface pas une confrontation gagnée.
+- **Limite historique corrigée en 0.22.0 :** en 0.21.1, la reconnexion
+  terminait l'accalmie restante, tandis que le marqueur de victoire persistait.
 - Les prises de vue tardives d'une ancienne connexion sont désormais ignorées.
   Les conditions de reconnexion pendant une capture et les différences de
   pilotes graphiques restent à éprouver sur plusieurs machines.
-- Installer la même version **0.21.1** côté serveur et sur tous les clients.
-  Aucun gain de FPS chiffré ni test subjectif complet du mixage sonore n'est
+- Aucun gain de FPS chiffré ni test subjectif complet du mixage sonore n'est
   revendiqué pour cette mise à jour.
 
 ## 0.21.0 — limites des essais

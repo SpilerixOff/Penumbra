@@ -7,6 +7,48 @@ d'ajouter un monstre : il observe votre façon de jouer, monte la tension progre
 manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et disparaît
 dès que vous la regardez.
 
+## Nouveau en 0.22.0 — confort personnel et accalmie sauvegardée
+
+En jeu, appuyez sur **K** pour ouvrir les réglages de confort, sans objet ni
+permission opérateur. La touche se réassigne dans les contrôles Minecraft.
+Elle n'ouvre pas le menu pendant la saisie dans le chat ou un autre écran.
+Le menu met le solo en pause ; **le multijoueur continue de tourner**.
+
+| Réglage personnel | Effet local |
+|---|---|
+| Mouvements réduits | Coupe secousses, dérive du champ de vision, respiration du zoom, animations VHS, grain, rémanences, flashs et vacillement ; le zoom reste utilisable |
+| Masquer les visages | Retire les visages soudains plein écran, sans masquer les créatures ni changer leurs dégâts |
+| Bloquer les flashs | Retire les éclairs visuels ; photographie et contre-mesures au flash restent utilisables |
+| Grain VHS | Autorise ou coupe le grain et les lignes de balayage de l'ambiance |
+| Rémanences | Autorise ou coupe les silhouettes périphériques |
+| Lumière variable | Autorise ou coupe le vacillement de l'éclairage dynamique de Penumbra |
+| Sons soudains | Multiplie le volume des sons de sursaut couverts, de 0 à 100 % du volume de base |
+| Ambiances | Multiplie le volume des nappes et du cœur suivis, sans modifier les pas, indices ou sons Minecraft |
+
+Ces choix peuvent **réduire** ce que permet `config/penumbra.json`, jamais
+réactiver un effet que cette configuration coupe. Le mode mouvement réduit
+prime sur les options concernées sans effacer leurs valeurs mémorisées.
+Il ne change ni la fréquence des événements ni les règles du serveur.
+
+Les préréglages **Immersion**, **Mouvement réduit** et **Doux** préparent un
+brouillon. Immersion retire les réductions locales supplémentaires ; Doux
+masque aussi les visages et règle les sons soudains à 45 %, les ambiances à
+60 %. **Appliquer** enregistre dans `config/penumbra-client.json` et prend
+effet ; **Annuler** ou Échap abandonne le brouillon. Une erreur d'écriture
+laisse les réglages actifs inchangés et affiche un message.
+
+L'accalmie du rituel et de la victoire est désormais sauvegardée : **48 000
+ticks de monde**, soit 40 minutes à 20 ticks par seconde. Elle survit à une
+reconnexion et à un redémarrage. Elle continue à s'écouler pendant votre
+absence si le monde avance, mais pas quand le serveur est arrêté ou le monde
+réellement en pause. Toutes les dimensions utilisent la même horloge du monde
+principal. Elle ne se recharge donc pas en changeant de dimension.
+
+Le badge **« Il connaît votre nom »** récompense désormais uniquement la
+victoire du duel, pas le simple passage au stade 6. Les badges et victoires
+déjà sauvegardés restent acquis. Pour les diagnostics, la commande opérateur
+`/penumbra tension 90` (ou davantage) annule volontairement l'accalmie restante.
+
 ## Corrections en 0.21.1 — un rituel que l'on peut reprendre
 
 - **Dès l'activation de l'autel**, les scènes liées à votre personnage et ses
@@ -21,10 +63,9 @@ dès que vous la regardez.
 - **La victoire vient du duel terminé.** Une interruption du préambule ou
   l'absence de place sûre pour le double n'accorde ni victoire ni calme final.
   Les victoires déjà enregistrées dans vos sauvegardes restent acquises.
-- **L'accalmie après le rituel dure seulement pendant la session en cours.**
-  Se déconnecter puis rejoindre le monde termine l'accalmie restante, même
-  si sa durée prévue n'est pas écoulée. Le marqueur de victoire, lui, reste
-  sauvegardé : vous ne perdez pas votre victoire en vous reconnectant.
+- **Limite historique corrigée en 0.22.0 :** en 0.21.1, une reconnexion
+  terminait l'accalmie restante. La 0.22.0 la sauvegarde désormais ; les
+  victoires enregistrées restent également acquises.
 - **Pour déclencher la caméra**, tenez-la dans la main principale et faites
   un **clic gauche** au signal d'ouverture. **C** règle le zoom ; il ne déclenche
   pas le flash. Les flashs d'écran peuvent rester désactivés.
@@ -505,8 +546,8 @@ dès que vous la regardez.
   laisse parfois des cairns sur votre chemin (`originelTracesEnabled`).
 - **Finale du rituel** : au Sanctuaire de cendre, le Sceau déclenche désormais
   une vraie séquence — silence, murmures convergents, l'unique face-à-face du
-  mod, libération. Jusqu'à deux jours de calme dans la session en cours ;
-  se déconnecter puis rejoindre met fin à l'accalmie restante. Puis il réapprend.
+  mod, libération. Deux jours de jeu de calme, soit 48 000 ticks ; depuis la
+  0.22.0, le temps restant survit à une reconnexion. Puis il réapprend.
 - **Personnages refondus** : l'Hôte est désormais calciné (fissures de braise,
   yeux asymétriques), il marche en boitillant, bras morts, et sa tête tourne
   toujours un peu trop loin ; l'Observateur s'incline si lentement qu'on ne
@@ -625,7 +666,8 @@ dès que vous la regardez.
   exclusivement par code (critère `minecraft:impossible`, toast et son vanilla
   automatiques) — *Première fissure* (première anomalie), *Traces de pas*
   (première structure), *Encore là* (poursuite survécue), *Cendre et serment*
-  (rituel du sanctuaire), *Il connaît votre nom* (stade 6, défi), *Vous me
+  (rituel du sanctuaire), *Il connaît votre nom* (victoire du duel depuis
+  la 0.22.0, défi ; les anciennes attributions sont conservées), *Vous me
   voyez* (regard soutenu de l'Observateur, défi), sous la racine *Penumbra*.
 - **Protections multijoueur** (audit complet : `docs/fragments/multiplayer_audit.md`) :
   - **plafond d'entités d'horreur** par joueur (`maxHostEntitiesPerPlayer`,

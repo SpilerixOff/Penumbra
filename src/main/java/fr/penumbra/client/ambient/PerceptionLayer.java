@@ -1,6 +1,7 @@
 package fr.penumbra.client.ambient;
 
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.director.TensionState;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -102,7 +103,7 @@ public final class PerceptionLayer {
         PenumbraConfig config = PenumbraConfig.get();
         float strength = Math.max(0.0f, config.perceptionIntensity);
 
-        grainIntensity = config.perceptionGrainEnabled
+        grainIntensity = ClientComfort.grainEnabled()
                 ? Math.min(1.6f, grainTarget(state) * strength) : 0.0f;
         if (--grainCountdown <= 0) {
             grainCountdown = GRAIN_REFRESH_TICKS;
@@ -110,7 +111,7 @@ public final class PerceptionLayer {
         }
 
         // Pulsation du voile calée sur le battement (40 ticks) en CRISIS seulement.
-        if (state == TensionState.CRISIS && config.fogEnabled) {
+        if (state == TensionState.CRISIS && config.fogEnabled && ClientComfort.motionAllowed()) {
             pulsePhase += Mth.TWO_PI / 40.0f;
             veilPulse = 1.0f + Mth.sin(pulsePhase) * 0.15f * Math.min(1.0f, strength);
         } else {
@@ -124,9 +125,13 @@ public final class PerceptionLayer {
         if (afterimageCooldown > 0) {
             afterimageCooldown--;
         }
-        if (config.peripheralAfterimagesEnabled && strength > 0.0f
+        if (state == TensionState.CALM || state == TensionState.FALSE_CALM) {
+            afterimageTicks = 0;
+        }
+        if (ClientComfort.afterimagesEnabled() && strength > 0.0f
                 && afterimageTicks <= 0 && afterimageCooldown <= 0
-                && state != TensionState.CALM && !client.isPaused()) {
+                && state != TensionState.CALM && state != TensionState.FALSE_CALM
+                && !client.isPaused()) {
             tryAfterimage(client, player);
         }
     }
@@ -268,7 +273,7 @@ public final class PerceptionLayer {
     }
 
     static boolean afterimageVisible() {
-        return afterimageTicks > 0;
+        return afterimageTicks > 0 && ClientComfort.afterimagesEnabled();
     }
 
     static int afterimageSide() {

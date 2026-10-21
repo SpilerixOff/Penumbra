@@ -1,12 +1,13 @@
 # Feuille de route de Penumbra
 
-## État actuel — 0.21.1, livraison locale
+## État actuel — 0.22.0, livraison locale
 
 La version publique reste 0.19.0. Les versions 0.20.0, 0.21.0 et 0.21.1
-sont préparées localement. Les vérifications fonctionnelles ci-dessous ne
-valident pas une longue partie de survie ni les interactions multijoueurs.
-La compilation finale, les tests et la validation des ressources ont réussi.
-La victoire est conservée après rechargement avec cette compilation finale.
+sont préparées localement. La 0.22.0 ajoute le confort personnel et corrige la
+persistance de l'accalmie. Sa compilation, la validation des ressources et
+305 tests dans 59 suites ont réussi. Les essais en jeu restent limités aux
+cas ci-dessous ; ils ne valident pas une longue survie, deux clients simultanés
+ou la latence Internet.
 
 | Version | Évolution locale |
 |---|---|
@@ -14,6 +15,31 @@ La victoire est conservée après rechargement avec cette compilation finale.
 | 0.20.0 | Respiration du directeur, contre-jeu de l'Hôte et de l'Écouteur, boussole et lecture du Relevé |
 | 0.21.0 | Dossier d'enquête, nappes sonores suivies et variées, duel en trois étapes, éclairage regroupé |
 | 0.21.1 | Isolation et reprise du rituel, reflet gardé visible pendant son déplacement, confirmation durable des fragments, captures liées à la bonne connexion |
+| 0.22.0 | Menu personnel K, huit réglages et trois préréglages locaux ; accalmie sauvegardée ; badge de confrontation réservé à la victoire — validation ciblée, limites documentées |
+
+## 0.22.0 — implémentation et validation partielle
+
+- Écran de confort sans permission opérateur, brouillon Appliquer/Annuler,
+  préréglages et fichier distinct `penumbra-client.json`. Les limites de la
+  configuration de base restent prioritaires ; aucune règle serveur ne change.
+- Réductions visuelles applicables immédiatement et volumes séparés des sons
+  soudains et des nappes/cœur. Le mouvement réduit coupe les effets concernés
+  sans effacer les choix individuels.
+- Accalmie de 48 000 ticks sauvegardée, avec une horloge commune aux dimensions :
+  elle continue hors présence du joueur si le monde avance, mais pas pendant
+  l'arrêt du serveur. Une tension forcée à 90 ou plus l'annule pour le diagnostic.
+- Badge de confrontation accordé à la victoire, sans retirer les anciennes
+  attributions. Les sections 120 à 122 du protocole couvrent les contrôles attendus.
+
+Déjà vérifié : K sans permission opérateur sur un client connecté au serveur
+dédié local ; Annuler Doux conserve Immersion sans créer de fichier ; Appliquer
+Doux écrit les préférences et les conserve à la réouverture. Les configurations
+de base du client et du serveur gardent leurs empreintes. Le menu français a
+été capturé en fenêtre 960×540. Le stade 6 n'accorde pas le badge à un joueur
+qui ne l'avait pas. Un vrai rituel normal a accordé une accalmie sauvegardée.
+Après arrêt puis redémarrage du serveur et du client A, Doux reste actif ;
+l'accalmie passe de 47 403 à 46 931 ticks pour 472 ticks de monde écoulés,
+sans réarmement ni attribution du badge.
 
 ## Étapes accomplies pour la 0.21.1
 
@@ -38,18 +64,23 @@ La victoire est conservée après rechargement avec cette compilation finale.
 - La compilation finale, les tests et la validation des ressources ont
   réussi avec le message de confirmation des fragments dans le chat.
   Cet ajout a été relu et compilé, sans rejouer un nouveau duel après son ajout.
-- Les limites de session de l'accalmie et les contrôles encore nécessaires
-  sont explicités dans les problèmes connus et le protocole de test.
+- La limite de session de l'accalmie constatée alors est corrigée dans la
+  0.22.0 ; sa nouvelle persistance a été vérifiée après redémarrage du serveur.
 
 ## Prochaines vérifications
 
+- Terminer les contrôles 0.22.0 : menu anglais et petites dimensions GUI,
+  effets immédiats et première attribution du badge.
+  Diagnostiquer le crash natif GLFW du client B, reproduit avant connexion
+  lors de deux lancements, puis vérifier l'isolation entre deux clients
+  simultanés. Ce contrôle n'a pas pu être réalisé.
 - Rejouer le duel en survie à 20 ticks par seconde, vérifier l'attribution
   initiale du badge et les autres causes d'interruption en conditions de jeu.
 - Éprouver les captures lors d'une reconnexion et les scènes de plusieurs
   joueurs simultanés, avec latence et différentes combinaisons de mods.
 
-Ensuite : parties de survie longues, essais avec plusieurs clients, puis
-réglages d'accessibilité directement en jeu. Les nouveaux objectifs de terrain
+Ensuite : parties de survie longues, essais avec plusieurs clients et
+évaluation du confort directement en jeu. Les nouveaux objectifs de terrain
 viendront après vérification de la progression actuelle.
 
 ## Historique jusqu'à 0.18.0
@@ -152,8 +183,9 @@ tirage et applique ses arcs, cooldowns et quotas au nouveau contenu.
   **Partiellement livré en 0.17.0** : `perceptionGrainEnabled`,
   `peripheralAfterimagesEnabled` et `perceptionIntensity` sont indépendants du
   voile et de la dérive de FOV.
-- Interface de configuration client optionnelle, rechargement sûr et indication
-  claire des options locales ou serveur.
+- Interface locale de confort : livrée en 0.22.0, avec validation ciblée et
+  limites documentées dans les problèmes connus.
+  L'interface complète des règles serveur et des autres options reste à étudier.
 - Mode mouvement réduit, variante sans visage photoréaliste, contrôle séparé
   des sons brusques et rappel de contenu au premier lancement.
 - Sous-titres testés en contexte, pas seulement présents dans les fichiers de

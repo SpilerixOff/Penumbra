@@ -2,6 +2,7 @@ package fr.penumbra.client.light;
 
 import fr.penumbra.client.ambient.ClientTensionState;
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -98,7 +99,9 @@ public final class DynamicLights {
         if (client.isPaused()) {
             return;
         }
-        if (++tickCounter % FLICKER_PERIOD_TICKS == 0) {
+        if (!ClientComfort.lightFlickerEnabled()) {
+            flickerOffset = 0;
+        } else if (++tickCounter % FLICKER_PERIOD_TICKS == 0) {
             flickerOffset = computeFlicker();
         }
 
@@ -214,7 +217,7 @@ public final class DynamicLights {
      */
     private static int computeFlicker() {
         float tension = ClientTensionState.tension();
-        if (!PenumbraConfig.get().dynamicLightFlicker || tension < 25.0f) {
+        if (!ClientComfort.lightFlickerEnabled() || tension < 25.0f) {
             return 0;
         }
         double severity = Math.min(1.0, (tension - 25.0) / 65.0);

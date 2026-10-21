@@ -1,6 +1,7 @@
 package fr.penumbra.client.ambient;
 
 import fr.penumbra.PenumbraMod;
+import fr.penumbra.client.config.ClientComfort;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -32,7 +33,7 @@ public final class PerceptionOverlayRenderer {
     public static void register() {
         HudElementRegistry.addLast(PenumbraMod.id("perception_grain"),
                 (extractor, deltaTracker) -> {
-                    if (PerceptionLayer.grainIntensity() <= 0.01f) {
+                    if (!ClientComfort.grainEnabled() || PerceptionLayer.grainIntensity() <= 0.01f) {
                         return;
                     }
                     Minecraft client = Minecraft.getInstance();

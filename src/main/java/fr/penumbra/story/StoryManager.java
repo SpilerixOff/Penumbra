@@ -3,7 +3,6 @@ package fr.penumbra.story;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import fr.penumbra.PenumbraMod;
-import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -197,10 +196,7 @@ public class StoryManager extends SavedData {
                     .translatable("penumbra.story.stage." + StoryStage.byIndex(clamped).id())
                     .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
         }
-        // Phase 4 : badge « Il connaît votre nom » à l'atteinte du stade final.
-        if (clamped == StoryStage.MAX_INDEX) {
-            PenumbraBadges.grant(player, "confrontation");
-        }
+        // Reaching the final stage unlocks the duel; its badge belongs to a real victory.
         return true;
     }
 

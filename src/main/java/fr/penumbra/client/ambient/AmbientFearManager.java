@@ -1,6 +1,7 @@
 package fr.penumbra.client.ambient;
 
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.director.TensionState;
 import fr.penumbra.registry.PenumbraSounds;
 import net.fabricmc.api.EnvType;
@@ -85,7 +86,8 @@ public final class AmbientFearManager {
             activeLevel = client.level;
             activePlayer = player;
         }
-        boolean audioEnabled = PenumbraConfig.get().improvedSoundsEnabled && player.isAlive();
+        boolean audioEnabled = PenumbraConfig.get().improvedSoundsEnabled && player.isAlive()
+                && ClientComfort.ambientVolume(1.0f) > 0.0f;
         if (client.isPaused()) {
             AUDIO.tick(ClientTensionState.state(), audioEnabled, true);
             return; // Ni expiration de synchro, ni variation visuelle durant une vraie pause.
@@ -112,6 +114,14 @@ public final class AmbientFearManager {
         fovDriftPhase = 0.0f;
         fovDriftFactor = 1.0f;
         lastMusicState = TensionState.CALM;
+        PerceptionLayer.reset();
+    }
+
+    /** Recreate only Penumbra's tracked voices at the new gain, without clearing server tension. */
+    public static void onComfortChanged() {
+        AUDIO.reset();
+        fovDriftPhase = 0.0f;
+        fovDriftFactor = 1.0f;
         PerceptionLayer.reset();
     }
 
@@ -167,7 +177,8 @@ public final class AmbientFearManager {
             case CRISIS -> 0.008f;
             default -> 0f;
         };
-        if (amplitude <= 0f || !PenumbraConfig.get().distortionEnabled) {
+        if (amplitude <= 0f || !PenumbraConfig.get().distortionEnabled
+                || !ClientComfort.motionAllowed()) {
             fovDriftFactor = 1.0f;
             return;
         }
@@ -181,7 +192,7 @@ public final class AmbientFearManager {
      * {@code distortionEnabled} est faux.
      */
     public static float getFovDriftFactor() {
-        return fovDriftFactor;
+        return ClientComfort.motionAllowed() ? fovDriftFactor : 1.0f;
     }
 
     private static AmbientAudioController.Voice startVoice(AmbientAudioController.Cue cue,

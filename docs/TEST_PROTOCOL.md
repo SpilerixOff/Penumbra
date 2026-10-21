@@ -1,20 +1,26 @@
-# Protocole de test — Penumbra 0.1.0 à 0.19.0
+# Protocole de test — Penumbra 0.1.0 à 0.22.0
 
 Chaque étape indique le résultat attendu. Toute commande `/penumbra` requiert le niveau
 d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
 `/penumbra tension 80`.
 
+Les sections 120 à 122 couvrent la 0.22.0 ; leur validation en jeu est partielle,
+avec les résultats observés consignés avant la section 120.
+Le menu de confort **K** ne requiert aucune permission opérateur. Pendant
+les tests d'accalmie, ne pas forcer une tension de 90 ou plus : cette commande
+de diagnostic annule volontairement la récompense de calme.
+
 ## 1. Démarrage sans crash
 
 1. Lancez le client (ou `./gradlew runClient` en dev) avec Fabric Loader 0.19.3,
-   Fabric API 0.155.2+26.1.2 et `penumbra-0.19.0.jar`.
+   Fabric API 0.155.2+26.1.2 et `penumbra-0.22.0.jar`.
 2. **Attendu** : le jeu atteint l'écran titre sans crash ; les journaux contiennent une ligne
    `[Penumbra]` d'initialisation, sans stack trace.
 
 ## 2. Présence dans la liste des mods
 
 1. Ouvrez l'écran **Mods** depuis le menu principal.
-2. **Attendu** : « Penumbra » version `0.19.0` apparaît, avec icône et description.
+2. **Attendu** : « Penumbra » version `0.22.0` apparaît, avec icône et description.
 
 ## 3. Commande de statut
 
@@ -541,8 +547,11 @@ liés à la tension : `/penumbra tension 80`.
 4. **sanctum_ritual** : `/penumbra structure spawn ash_sanctum`,
    `/penumbra item give ash_sigil`, clic droit du sceau sur le pilier central.
    **Attendu** : rituel consommé + avancement **« Cendre et serment »**.
-5. **confrontation** : `/penumbra story set 6`. **Attendu** : avancement défi
-   **« Il connaît votre nom »** toasté à l'atteinte du stade final.
+5. **confrontation** : sur un joueur sans ce badge, `/penumbra story set 6`.
+   **Attendu depuis 0.22.0** : aucun octroi au simple passage au stade final.
+   Gagner ensuite le duel (section 117) : **« Il connaît votre nom »** est
+   accordé une seule fois si les badges sont activés. Les anciennes
+   attributions restent conservées ; ne pas les utiliser comme preuve de ce test.
 6. Passez `badgesEnabled: false`, recommencez le test 1 sur un autre joueur.
    **Attendu** : aucun toast, aucune erreur dans les journaux (sortie silencieuse).
 
@@ -1772,3 +1781,85 @@ ou le rythme ressenti à vitesse normale.
 Un serveur vide ne valide pas une partie à plusieurs. Les tests de latence,
 de confidentialité des perceptions et de synchronisation sonore demandent
 encore des clients connectés.
+
+# Confort et persistance 0.22.0 — validation partielle
+
+Les procédures suivantes décrivent les résultats attendus ; seuls les
+contrôles listés ici ont été observés. La compilation, les ressources et
+**305 tests dans 59 suites** ont réussi, sans échec.
+
+| Contrôle observé | Résultat |
+|---|---|
+| Client A sans OP, connecté au serveur dédié local | K ouvre le menu |
+| Doux puis Annuler, réouverture | Valeurs Immersion conservées, aucun fichier personnel créé |
+| Doux puis Appliquer, réouverture | Valeurs Doux conservées, fichier personnel correct |
+| Configurations de base client A et serveur | Empreintes inchangées après ces manipulations |
+| Interface française | Vérifiée et capturée en fenêtre 960×540 |
+| Passage au stade 6, badge initialement absent | Aucun octroi, sans révocation préalable |
+| Rituel normal déclenché par un vrai clic | Accalmie à 47 668 ticks après sauvegarde forcée, puis 47 403 après arrêt propre ; badge de confrontation toujours absent |
+| Redémarrage du serveur et du client A, reconnexion sans OP | Doux conservé ; horloge 10 104→10 576, accalmie 47 403→46 931 : exactement 472 ticks consommés, sans réarmement ; badge toujours absent |
+
+Le serveur a signalé un retard de 2 056 ms (41 ticks) à la connexion ; ce
+contrôle ne démontre pas un maintien constant à 20 TPS. Le client B a échoué
+deux fois avant connexion, y compris après une relance contrôlée, avec une
+violation d'accès native dans GLFW (`glfw.dll+0x10fa1`, `pollEvents` ; dernier
+rapport `hs_err_pid20052.log`). Aucune frame Penumbra n'apparaît dans la trace
+observée ; l'origine reste indéterminée. Aucun second joueur n'a rejoint :
+**l'essai simultané à deux clients n'est pas validé**.
+L'interface anglaise, les petites dimensions GUI, le duel complet en 0.22.0,
+la survie longue et la latence Internet ne sont pas déclarés validés.
+
+## 120. Menu personnel, application et limites
+
+1. Sans permission opérateur, ouvrir **K** en jeu. Vérifier les huit réglages,
+   les infobulles, les trois préréglages, puis le clavier et la souris en
+   français et en anglais à 320×180 GUI et à une taille supérieure.
+2. Réassigner K dans les contrôles. Le chat et les écrans ouverts doivent
+   consommer leurs saisies sans ouvrir le menu, même après leur fermeture.
+3. Modifier plusieurs valeurs et choisir Doux, puis Annuler ou Échap.
+   Attendu : aucun changement actif ni fichier écrit. Refaire puis Appliquer :
+   effet immédiat et valeurs conservées à la réouverture et après redémarrage.
+   `penumbra-client.json` change ; `penumbra.json` reste inchangé.
+4. Tester un fichier client incomplet, invalide et une écriture impossible.
+   Attendu : défauts neutres pour les clés absentes, erreur lisible pour les
+   échecs, pas de publication des changements si la sauvegarde échoue.
+5. Couper un effet dans la configuration de base : aucun réglage local ni
+   préréglage Immersion ne doit le réactiver. Activer mouvement réduit avec
+   grain/rémanences/lumière variable autorisés individuellement : ces effets
+   restent coupés, mais leurs choix restent mémorisés à la désactivation du mode.
+6. Vérifier secousses, FOV et respiration du zoom, animations VHS et flashs.
+   Photos et contre-mesures du duel restent utilisables avec les flashs bloqués.
+   Masquer les visages ne masque pas les créatures ni ne change leurs dégâts.
+7. Tester chaque volume à 0 %, 50 % et 100 %, y compris une nappe déjà lancée.
+   Attendu : aucune amplification de base ; ambiances limitées aux nappes/cœur,
+   sons soudains limités aux sons de sursaut couverts. Pas, indices et sons
+   Minecraft restent indépendants. Aucun son de démonstration n'est joué par le menu.
+8. Vérifier la vraie pause solo, puis le même menu sur un serveur à deux
+   clients : le serveur continue, les choix de A ne modifient pas ceux de B
+   ni le comportement des créatures ou la fréquence des événements.
+
+## 121. Accalmie persistante et horloge commune
+
+1. Obtenir réellement l'accalmie d'un rituel ou d'une victoire sur un monde
+   d'essai. Attendu : durée initiale de 48 000 ticks, puis consommation selon
+   les ticks du monde principal, pas le temps mural.
+2. Quitter puis rejoindre avant expiration. Le temps restant doit être
+   conservé, sans repartir à 48 000 ; aucun badge ou victoire n'est réattribué.
+3. Arrêter le serveur, attendre, puis relancer : le temps hors ligne avec le
+   serveur arrêté n'est pas décompté. Sur un serveur qui continue à avancer
+   pendant l'absence du joueur, les ticks écoulés sont au contraire décomptés.
+4. Changer de dimension : la même horloge est utilisée, sans prolongation ni
+   expiration artificielle. Vérifier aussi l'expiration normale et la reprise
+   des événements. Les sons vanilla ne sont pas censés être supprimés.
+5. Sur une copie d'essai, `/penumbra tension 90` doit annuler le calme restant,
+   y compris après reconnexion. Réserver cette commande à la fin du contrôle.
+
+## 122. Badge de victoire et anciennes sauvegardes
+
+1. Sur un joueur sans badge `confrontation`, atteindre le stade 6 : aucun
+   octroi. Interrompre un préambule ou un duel : toujours aucun octroi.
+2. Gagner le duel avec les badges activés : attribution du badge, marqueur de
+   victoire et compteur enregistrés. Recharger conserve ces données sans
+   seconde attribution. Refaire avec les badges coupés sur un autre joueur.
+3. Charger une sauvegarde où le badge a déjà été obtenu selon l'ancienne règle :
+   il reste acquis. Ce cas ne valide pas l'attribution initiale de la nouvelle règle.
