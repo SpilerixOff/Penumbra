@@ -7,6 +7,27 @@ d'ajouter un monstre : il observe votre façon de jouer, monte la tension progre
 manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et disparaît
 dès que vous la regardez.
 
+## Nouveau en 0.21.0 — écouter et comprendre
+
+- **Dossier personnel :** ouvrez l'album avec la Caméra VHS, puis le bouton
+  **Dossier**. Il rassemble la méthode de prise de vue, vos observations,
+  les pistes encore incomplètes et les liens confirmés entre deux preuves.
+  La molette fait défiler un texte long ; les flèches changent de fiche.
+- **L'Écouteur** laisse désormais une preuve sur les photos développées où il
+  est réellement cadré. Le dossier conserve toutes les catégories reconnues,
+  même si une photo individuelle reste limitée à huit preuves.
+- **Final du sanctuaire :** au dernier stade de l'histoire, le double ne cède
+  plus à trois flashs précipités. Restez silencieux et observez-le jusqu'au
+  signal d'ouverture ; déclenchez alors votre caméra. Trois réussites, séparées
+  par un repos, dissipent le reflet. Si une ouverture est ratée, vos réussites
+  restent acquises pendant cette confrontation. Les flashs d'écran peuvent
+  rester désactivés dans les options de confort.
+- **Ambiance :** les nappes possèdent plusieurs variations, se fondent entre
+  elles et s'arrêtent lors du faux calme. Les pas reçoivent aussi des variantes.
+  Le curseur Minecraft « Ambiance » et `improvedSoundsEnabled` restent respectés.
+- **Torches :** ouvrir une pause solo conserve leur lumière. Les sources
+  proches ne demandent plus plusieurs fois la même mise à jour du terrain.
+
 ## Nouveau en 0.20.0 — apprendre à s'en sortir
 
 - **Échapper à l'Hôte :** cachez-vous derrière un vrai obstacle et gardez sa

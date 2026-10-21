@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -341,6 +342,74 @@ class PhotoAlbumStateTest {
         assertEquals(List.of(PhotoEvidence.HOST, PhotoEvidence.WATCHER,
                 PhotoEvidence.ORIGINEL), stored.evidence());
         assertThrowsUnsupported(stored.evidence());
+    }
+
+    @Test
+    void allDossierCategoriesPersistBeyondASinglePhotoLimit() {
+        UUID owner = new UUID(0L, 101L);
+        PhotoAlbumState album = new PhotoAlbumState();
+        List<PhotoEvidence> all = Arrays.stream(PhotoEvidence.values())
+                .filter(PhotoEvidence::discoverable).toList();
+        assertTrue(all.size() > PhotoEvidence.MAX_PER_PHOTO);
+        for (PhotoEvidence evidence : all) {
+            assertTrue(album.recordEvidence(owner, evidence).changed());
+        }
+
+        JsonElement encoded = PhotoAlbumState.CODEC.encodeStart(JsonOps.INSTANCE, album).getOrThrow();
+        PhotoAlbumState restored = PhotoAlbumState.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow();
+        assertEquals(all, restored.dossier(owner).discovered());
+        assertFalse(restored.recordEvidence(owner, all).changed());
+        assertEquals(PhotoEvidence.discoverableCount(), restored.dossier(owner).count());
+    }
+
+    @Test
+    void reconciliationCollectsEveryDevelopedCategoryOnlyForItsOwner() {
+        UUID owner = new UUID(0L, 102L);
+        UUID other = new UUID(0L, 103L);
+        PhotoAlbumState album = new PhotoAlbumState();
+        List<PhotoEvidence> all = Arrays.stream(PhotoEvidence.values())
+                .filter(PhotoEvidence::discoverable).toList();
+        for (PhotoEvidence evidence : all) {
+            UUID photo = album.add(owner, 0L, new byte[PhotoAlbumState.RGB_BYTES], false,
+                    List.of(evidence)).orElseThrow().id();
+            album.setPublic(owner, photo, true);
+        }
+        assertFalse(album.revealDeveloped(owner, 199L, 200).changed());
+        assertFalse(album.revealDeveloped(other, 200L, 200).changed());
+        assertEquals(all, album.revealDeveloped(owner, 200L, 200).newlyDiscovered());
+        assertFalse(album.revealDeveloped(owner, 201L, 200).changed());
+        assertEquals(0, album.dossier(other).count());
+    }
+
+    @Test
+    void legacyTruncatedDossierRecoversFromOwnedPhotosWithoutInventingUnknownEvidence() {
+        UUID owner = new UUID(0L, 104L);
+        PhotoAlbumState album = new PhotoAlbumState();
+        album.recordEvidence(owner, PhotoEvidence.HOST);
+        album.add(owner, 0L, new byte[PhotoAlbumState.RGB_BYTES], false,
+                List.of(PhotoEvidence.FAUX_SEMBLANT, PhotoEvidence.LISTENER)).orElseThrow();
+        JsonElement legacy = PhotoAlbumState.CODEC.encodeStart(JsonOps.INSTANCE, album).getOrThrow();
+        var evidence = legacy.getAsJsonObject().getAsJsonObject("dossiers")
+                .getAsJsonObject(owner.toString()).getAsJsonArray("evidence");
+        evidence.add("future_creature");
+        evidence.add("HOST");
+        evidence.add("none");
+        PhotoAlbumState restored = PhotoAlbumState.CODEC.parse(JsonOps.INSTANCE, legacy).getOrThrow();
+
+        assertEquals(List.of(PhotoEvidence.HOST), restored.dossier(owner).discovered());
+        assertEquals(List.of(PhotoEvidence.FAUX_SEMBLANT, PhotoEvidence.LISTENER),
+                restored.revealDeveloped(owner, 200L, 200).newlyDiscovered());
+        assertEquals(3, restored.dossier(owner).count());
+    }
+
+    @Test
+    void expandingTheDossierDoesNotExpandASinglePhotograph() {
+        List<PhotoEvidence> all = Arrays.stream(PhotoEvidence.values())
+                .filter(PhotoEvidence::discoverable).toList();
+        PhotoAlbumState.StoredPhoto stored = new PhotoAlbumState().add(new UUID(0L, 105L),
+                0L, new byte[PhotoAlbumState.RGB_BYTES], false, all).orElseThrow();
+        assertEquals(PhotoEvidence.MAX_PER_PHOTO, stored.evidence().size());
+        assertEquals(all, new PhotoAlbumState.DossierProgress(all).discovered());
     }
 
     private static void assertThrowsUnsupported(List<PhotoEvidence> evidence) {

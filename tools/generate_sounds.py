@@ -3,7 +3,10 @@
 
 Remplace les placeholders par un sound design en couches et produit des
 VARIANTES par événement (le tirage aléatoire est fait par sounds.json côté
-vanilla) : le même cri ne se produit jamais deux fois de suite.
+vanilla) : plusieurs variantes réduisent la répétition sans l'interdire.
+
+Après ce script historique, exécuter gen_sounds_021.py pour restaurer les
+nappes de huit secondes attendues par le client actuel.
 
 Tout est mono 44,1 kHz (l'atténuation spatiale de Minecraft exige du mono
 pour les sons positionnés). Sortie WAV → ffmpeg (libvorbis, q4).

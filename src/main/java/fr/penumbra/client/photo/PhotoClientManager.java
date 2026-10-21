@@ -59,7 +59,9 @@ public final class PhotoClientManager {
             return InteractionResult.PASS;
         });
         ClientTickEvents.END_CLIENT_TICK.register(PhotoClientManager::tick);
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
+        // Fabric may deliver disconnect on Netty; photo textures belong to the render thread.
+        ClientPlayConnectionEvents.DISCONNECT.register(
+                (handler, client) -> client.execute(PhotoClientManager::reset));
 
         ClientPlayNetworking.registerGlobalReceiver(PhotoNetworking.PhotoDataS2C.TYPE,
                 (packet, context) -> context.client().execute(() -> PhotoClientStore.receive(packet)));

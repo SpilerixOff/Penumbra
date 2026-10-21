@@ -154,6 +154,50 @@ public final class AbsentManager {
         return spawnFor(player, null) != null;
     }
 
+    /** The finale owns this exact copy; ordinary sightings never borrow it. */
+    public static AbsentEntity createConfrontationDouble(ServerPlayer player,
+            java.util.function.Predicate<AbsentEntity> safePlacement) {
+        if (!PenumbraConfig.get().absentEnabled
+                || !player.isAlive() || player.isSpectator() || player.isSleeping()
+                || player.level().getDifficulty() == Difficulty.PEACEFUL) {
+            return null;
+        }
+        ServerLevel level = player.level();
+        if (hasAbsentNearby(level, player.blockPosition(), EXCLUSION_RADIUS, player)
+                || countAbsentsNearby(level, player.blockPosition(), EXCLUSION_RADIUS)
+                >= MAX_LOCAL_ABSENTS) {
+            return null;
+        }
+        AbsentEntity copy = new AbsentEntity(AbsentEntities.ABSENT, level);
+        copy.bindTo(player, player);
+        Vec3 look = player.getLookAngle();
+        double facing = Math.atan2(look.z, look.x);
+        // Prefer the player's view, then search the other sides. The finale
+        // does not scan refuge blocks or summon a hidden copy beyond flash range.
+        for (int attempt = 0; attempt < 32; attempt++) {
+            double angle = facing + (attempt / 4) * Math.PI / 4.0;
+            double distance = 8.0 + (attempt % 4) * 2.0;
+            int x = Mth.floor(player.getX() + Math.cos(angle) * distance);
+            int z = Mth.floor(player.getZ() + Math.sin(angle) * distance);
+            if (!level.hasChunksAt(Math.min(x, player.blockPosition().getX()) - 1,
+                    Math.min(z, player.blockPosition().getZ()) - 1,
+                    Math.max(x, player.blockPosition().getX()) + 1,
+                    Math.max(z, player.blockPosition().getZ()) + 1)) continue;
+            BlockPos feet = findStandingSpot(level, x, player.blockPosition().getY(), z, 4, 6);
+            if (feet == null) continue;
+            float yaw = (float) (Math.atan2(player.getZ() - (feet.getZ() + 0.5),
+                    player.getX() - (feet.getX() + 0.5)) * Mth.RAD_TO_DEG) - 90.0f;
+            copy.snapTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, yaw, 0.0f);
+            if (!safePlacement.test(copy) || !player.hasLineOfSight(copy)) continue;
+            copy.setYBodyRot(yaw);
+            copy.setYHeadRot(yaw);
+            copy.finalizeSpawn(level, level.getCurrentDifficultyAt(feet), EntitySpawnReason.EVENT, null);
+            copy.configureConfrontation();
+            return level.addFreshEntity(copy) ? copy : null;
+        }
+        return null;
+    }
+
     /**
      * Crée un faux compagnon privé. Le profil copié est choisi parmi les joueurs
      * réels cachés au regard ; sans personne d'autre en ligne, il vient du

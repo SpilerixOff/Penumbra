@@ -130,6 +130,7 @@ public final class AbsentEntity extends Monster {
     private int perceptionLifetimeTicks = PerceptionRules.MAX_LIFETIME_TICKS;
     private int perceptionFocusTicks;
     private boolean perceptionTurned;
+    private boolean confrontationDouble;
 
     public AbsentEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -332,6 +333,32 @@ public final class AbsentEntity extends Monster {
         return this.ownerUuid != null && this.ownerUuid.equals(player.getUUID());
     }
 
+    /** Transient finale actor: the story manager owns movement and its lifetime. */
+    public void configureConfrontation() {
+        this.confrontationDouble = true;
+        this.setNoAi(true);
+        this.setInvulnerable(true);
+        this.setSilent(true);
+        this.setTarget(null);
+        this.getNavigation().stop();
+        this.setDeltaMovement(Vec3.ZERO);
+        this.setConfrontationExposure(false, 0);
+    }
+
+    public boolean isConfrontationDouble() {
+        return this.confrontationDouble;
+    }
+
+    /** Uses existing synchronized visual channels; no screen flash is required. */
+    public void setConfrontationExposure(boolean exposed, int fragments) {
+        if (!this.confrontationDouble) return;
+        int phase = exposed ? PHASE_REVEAL : PHASE_IMITATE;
+        if (this.getAbsentPhase() != phase) this.setPhase(phase);
+        this.entityData.set(DATA_LUNGING, false);
+        this.entityData.set(DATA_REVEAL_PROGRESS, exposed ? 0.9f : 0.10f * fragments);
+        this.entityData.set(DATA_IMITATION_ERROR, exposed ? 0.85f : 0.08f + 0.14f * fragments);
+    }
+
     @Override
     public boolean broadcastToPlayer(ServerPlayer player) {
         return PerceptionRules.mayObserve(this.ownerUuid, player.getUUID(),
@@ -340,7 +367,7 @@ public final class AbsentEntity extends Monster {
 
     @Override
     public boolean isPushable() {
-        return !this.isFalseCompanion() && super.isPushable();
+        return !this.confrontationDouble && !this.isFalseCompanion() && super.isPushable();
     }
 
     @Override
@@ -375,7 +402,8 @@ public final class AbsentEntity extends Monster {
 
     @Override
     public boolean isPreventingPlayerRest(ServerLevel level, Player player) {
-        return !this.isFalseCompanion() && super.isPreventingPlayerRest(level, player);
+        return !this.confrontationDouble && !this.isFalseCompanion()
+                && super.isPreventingPlayerRest(level, player);
     }
 
     @Override
@@ -505,7 +533,9 @@ public final class AbsentEntity extends Monster {
         boolean featureEnabled = this.isFalseCompanion()
                 ? config.individualPerceptionsEnabled && config.falseCompanionsEnabled
                 : config.absentEnabled;
-        int lifetimeLimit = this.isFalseCompanion()
+        // The finale lasts up to 120 s; the ordinary 85 s TTL must not cut it off.
+        // Keep a separate fail-safe in case its manager is ever interrupted.
+        int lifetimeLimit = this.confrontationDouble ? 2600 : this.isFalseCompanion()
                 ? this.perceptionLifetimeTicks : MAX_LIFETIME_TICKS;
         if (!featureEnabled
                 || level.getDifficulty() == Difficulty.PEACEFUL
@@ -524,6 +554,13 @@ public final class AbsentEntity extends Monster {
                 || owner.isRemoved() || owner.isSleeping()
                 || this.distanceToSqr(owner) > VANISH_DISTANCE * VANISH_DISTANCE) {
             this.vanish(level, false);
+            return;
+        }
+
+        if (this.confrontationDouble) {
+            this.getNavigation().stop();
+            this.setTarget(null);
+            this.setDeltaMovement(Vec3.ZERO);
             return;
         }
 
@@ -562,6 +599,7 @@ public final class AbsentEntity extends Monster {
 
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.confrontationDouble) return false;
         if (this.isFalseCompanion()) {
             // Une explosion, une flèche ou un témoin qui ne voit pas la scène ne
             // doit ni la révéler ni la faire réagir.
@@ -1018,6 +1056,7 @@ public final class AbsentEntity extends Monster {
      * desactive ou si cette entite n'est plus reactive.
      */
     public boolean onCameraFlash(ServerPlayer photographer, boolean photographed) {
+        if (this.confrontationDouble) return false;
         if (!(this.level() instanceof ServerLevel level)
                 || photographer == null || !photographer.isAlive()) {
             return false;
@@ -1068,6 +1107,7 @@ public final class AbsentEntity extends Monster {
      * pendant quatorze ticks avant de tomber en cendres.
      */
     public boolean beginAshBanishment(ServerPlayer caster) {
+        if (this.confrontationDouble) return false;
         if (!(this.level() instanceof ServerLevel) || !this.isAlive()
                 || caster == null || !caster.isAlive() || this.ashBanishTicks > 0) {
             return false;

@@ -344,7 +344,8 @@ public final class ListenerEntity extends Monster {
         double angle = random.nextDouble() * Math.PI * 2.0;
         double radius = 4.0 + random.nextDouble() * 6.0;
         this.heardPoint = base.add(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius);
-        emptySweeps++;
+        // Count only when tickSeeking finishes or fails this search. Counting
+        // its start too made two blocked paths exhaust the three-search budget.
         setBehavior(ListenerBehavior.SEEKING);
     }
 

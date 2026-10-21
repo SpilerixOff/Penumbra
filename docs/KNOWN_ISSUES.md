@@ -1,4 +1,21 @@
-# Problèmes connus — Penumbra 0.20.0
+# Problèmes connus — Penumbra 0.21.0
+
+## 0.21.0 — limites des essais
+
+- Le duel, l'enquête et la gestion sonore ont des tests automatisés. Les
+  longues parties de survie, la latence multijoueur et les mélanges de mods
+  restent à éprouver ; les tests de règles ne mesurent pas l'équilibrage réel.
+- La confrontation exige un terrain où le reflet peut se tenir. Si aucun
+  emplacement chargé avec sol et espace ne convient, elle ne force ni les
+  chunks ni le passage dans un mur.
+- Le dossier est personnel, même dans la vue des photos publiques. Le lire
+  ne met pas le monde en pause. Une ancienne preuve déjà perdue par la limite
+  du dossier ne peut pas être inventée à la mise à jour : elle devra être
+  photographiée de nouveau si aucun cliché correspondant n'est conservé.
+- Le client et le serveur doivent tous deux utiliser 0.21.0 : le paquet
+  d'ouverture de l'album transporte désormais aussi le dossier personnel.
+- Le faux calme arrête les nappes et le cœur suivis par le client. Il ne coupe
+  pas les sons normaux du monde ni les sons positionnels d'une scène déjà lancée.
 
 ## 0.20.0 — points à vérifier pendant les essais
 

@@ -1,33 +1,43 @@
-# SOUNDS.md — Penumbra — Inventaire et specs des sons
+# Sons de Penumbra
 
-> Phase 1 : 10 sons. Phase 2 : +7 sons (SPEC2 §2). Phase 5 (0.5.0) : +6 sons.
-> Phase 6 (0.6.0) : +2 sons. 0.16.0 : +1 (`memoire_disc`).
-> **0.17.0 : +6** (`listener_click`, `listener_inhale`, `listener_lock`,
-> `listener_leave`, `held_breath`, `extra_step`, générés par
-> `tools/gen_sounds_017.py`). Soit **32 événements sonores** déclarés,
-> générés par `tools/gen_sounds.py`
-> (numpy + soundfile, seed fixe, reproductible).
->
-> **Nouveaux en 0.5.0** : `ambient_bed_low` / `ambient_bed_mid` /
-> `ambient_bed_high` (nappes de 8 s à fondus de 1,5 s intégrés, jouées toutes
-> les ~5 s en crossfade par recouvrement — pics -20 / -17 / -14 dBFS),
-> `host_whisper_2` (variante de murmure, -3 dBFS), `originel_hum` (bourdon
-> 40 Hz + formants fantômes, -18 dBFS), `ritual_release` (descente 120→38 Hz
-> + souffle de cendre, -4 dBFS). Prompts de remplacement : mêmes contraintes
-> que les fiches ci-dessous (OGG mono 44,1 kHz, mêmes noms) ; pour les nappes,
-> CONSERVER les fondus d'1,5 s en tête et queue — le crossfade du client en
-> dépend.
-> Ce sont des **placeholders fonctionnels** : le jeu les charge et les joue,
-> mais ils doivent être remplacés par un sound design final.
->
-> Format livré : OGG Vorbis, mono, 44,1 kHz. Normalisation : pics ≤ **-3 dBFS**
-> pour tous les sons, sauf `silence_drone` à **-18 dBFS** (nappe subliminale)
-> et `distant_hum` à **-20 dBFS** (nappe très grave SPEC2 §2).
->
-> Repli documenté : si `soundfile` est indisponible, `gen_sounds.py` écrit des
-> `.wav` 16 bits à la place ; conversion attendue avant livraison :
-> `ffmpeg -i in.wav -c:a libvorbis out.ogg` (sounds.json reste inchangé, le jeu
-> loguerait sinon un son manquant et le mod resterait fonctionnel).
+## Banque 0.21.0
+
+La banque utilise des synthèses originales, sans prélèvements dans Minecraft
+ni enregistrements tiers. `generate_sounds.py` contient la passe 0.15 ; les
+scripts `gen_sounds_017.py` et `gen_sounds_018.py` ajoutent leurs sons respectifs.
+Les fiches historiques ci-dessous décrivent des intentions et ne remplacent
+pas les mesures des fichiers livrés.
+
+La passe **0.21** (`tools/gen_sounds_021.py`) remplace les trois nappes par des
+phrases de **8 secondes**, avec **1,5 seconde de fondu** à chaque extrémité.
+Chaque état possède trois variantes ; les pas de l'Hôte et les pas imités
+reçoivent deux variantes supplémentaires. Minecraft choisit aléatoirement la
+variante : une répétition reste possible.
+
+Les nappes précédentes de 22–24 secondes étaient relancées toutes les cinq
+secondes. Le client suit maintenant ses instances, limite leur nombre et
+arrête sa couche d'ambiance lors du faux calme, d'une désactivation ou d'une
+sortie du monde. Les sons positionnels des créatures gardent leurs repères.
+
+| Fichiers 0.21 | Durée | Plafond du pic décodé |
+| --- | ---: | ---: |
+| `ambient_bed_low{,_2,_3}.ogg` | 8 s | -20 dBFS |
+| `ambient_bed_mid{,_2,_3}.ogg` | 8 s | -17 dBFS |
+| `ambient_bed_high{,_2,_3}.ogg` | 8 s | -14 dBFS |
+| `host_step_{2,3}.ogg`, `footstep_mimic_{3,4}.ogg` | ~0,55 s | -8 dBFS |
+
+La normalisation conserve 1 dB de marge pour l'encodage Vorbis. Le générateur
+redécode chaque fichier et refuse un dépassement de niveau, une durée de nappe
+incorrecte ou des fondus absents. Sortie : OGG Vorbis, mono, 44,1 kHz.
+
+```sh
+# Python + numpy et ffmpeg disponibles ; à exécuter APRÈS les scripts historiques.
+python tools/gen_sounds_021.py --report build/audio-021-validation.json
+# Un chemin explicite est possible : --ffmpeg /chemin/vers/ffmpeg
+./gradlew validatePenumbraResources
+```
+
+## Fiches historiques et remplacement
 
 ## Comment remplacer un placeholder
 
@@ -36,7 +46,7 @@
 3. Normaliser le pic à **≤ -3 dBFS** (-18 dBFS pour `silence_drone`).
 4. Déposer le fichier dans `src/main/resources/assets/penumbra/sounds/` sous
    **exactement le même nom** (`<id>.ogg`). Aucune autre modification n'est
-   nécessaire : `sounds.json` référence les 25 ids. La tâche
+   nécessaire : `sounds.json` référence les événements. La tâche
    `validatePenumbraResources` refuse tout fichier manquant ou non déclaré.
 
 ---

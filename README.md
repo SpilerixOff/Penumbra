@@ -29,9 +29,10 @@ These are implemented systems to explore and test, not a promise that every comb
 
 ## Build from source
 
-This branch prepares **0.20.0**: more deliberate horror pacing, escapable Host
-pursuits, silence-based Listener counterplay, a readable field journal and
-selectable compass destinations. The public download above remains **0.19.0**
+This branch prepares **0.21.0**: tracked and varied ambient audio, a personal
+investigation dossier, a staged final confrontation, and fewer redundant
+terrain updates for dynamic lights. It includes the pacing, counterplay and
+journal improvements from 0.20.0. The public download above remains **0.19.0**
 until a new release is published. See [the changelog](CHANGELOG.md).
 
 The version pins in [gradle.properties](gradle.properties) are the source of truth:

@@ -198,11 +198,15 @@ public final class PhotoNetworking {
 
     public record AlbumPageS2C(byte scope, int page, int totalEntries,
                                int dossierStage, int dossierDiscovered,
+                               List<String> dossierEvidenceIds,
                                List<AlbumEntry> entries) implements CustomPacketPayload {
         public static final Type<AlbumPageS2C> TYPE =
                 new Type<>(PenumbraMod.id("photo_album_page"));
         private static final StreamCodec<RegistryFriendlyByteBuf, List<AlbumEntry>> ENTRIES_CODEC =
                 AlbumEntry.CODEC.apply(ByteBufCodecs.list(PhotoAlbumState.MAX_PAGE_SIZE));
+        private static final StreamCodec<? super RegistryFriendlyByteBuf, List<String>> DOSSIER_CODEC =
+                ByteBufCodecs.stringUtf8(PhotoEvidence.MAX_ID_LENGTH)
+                        .apply(ByteBufCodecs.list(PhotoEvidence.discoverableCount()));
         public static final StreamCodec<? super RegistryFriendlyByteBuf, AlbumPageS2C> CODEC =
                 StreamCodec.composite(
                         ByteBufCodecs.BYTE, AlbumPageS2C::scope,
@@ -210,16 +214,19 @@ public final class PhotoNetworking {
                         ByteBufCodecs.VAR_INT, AlbumPageS2C::totalEntries,
                         ByteBufCodecs.VAR_INT, AlbumPageS2C::dossierStage,
                         ByteBufCodecs.VAR_INT, AlbumPageS2C::dossierDiscovered,
+                        DOSSIER_CODEC, AlbumPageS2C::dossierEvidenceIds,
                         ENTRIES_CODEC, AlbumPageS2C::entries,
                         AlbumPageS2C::new);
 
         public AlbumPageS2C {
             page = Math.max(0, page);
             totalEntries = Math.max(0, totalEntries);
-            dossierStage = Math.max(0, Math.min(4, dossierStage));
-            dossierDiscovered = Math.max(0, Math.min(
-                    PhotoEvidence.discoverableCount(), dossierDiscovered));
-            entries = List.copyOf(entries);
+            dossierEvidenceIds = PhotoEvidence.dossierFromIds(dossierEvidenceIds).stream()
+                    .map(PhotoEvidence::id).toList();
+            dossierDiscovered = dossierEvidenceIds.size();
+            dossierStage = PhotoEvidence.dossierStage(dossierDiscovered);
+            entries = List.copyOf(entries.subList(0,
+                    Math.min(entries.size(), PhotoAlbumState.MAX_PAGE_SIZE)));
         }
 
         @Override
@@ -608,7 +615,8 @@ public final class PhotoNetworking {
                 .toList();
         ServerPlayNetworking.send(player,
                 new AlbumPageS2C(payload.scope(), page.page(), page.totalEntries(),
-                        dossier.stage(), dossier.count(), entries));
+                        dossier.stage(), dossier.count(),
+                        dossier.discovered().stream().map(PhotoEvidence::id).toList(), entries));
     }
 
     private static void acceptAlbumMutation(ServerPlayer player, AlbumMutationC2S payload) {

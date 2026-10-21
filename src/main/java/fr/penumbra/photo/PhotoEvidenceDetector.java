@@ -4,6 +4,7 @@ import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.absent.AbsentEntity;
 import fr.penumbra.entity.fauxmob.FauxMobManager;
 import fr.penumbra.entity.contrefait.ContrefaitEntity;
+import fr.penumbra.entity.listener.ListenerEntity;
 import fr.penumbra.entity.originel.OriginelEntity;
 import fr.penumbra.entity.projectionist.ProjectionistEntity;
 import fr.penumbra.entity.rampant.RampantEntity;
@@ -68,7 +69,8 @@ public final class PhotoEvidenceDetector {
         // filtre Monster ci-dessus. Le détecteur passe avant la dissolution du
         // flash : le cliché prouve que ce qui vient de disparaître n'était pas réel.
         for (Mob possessed : FauxMobManager.possessedMobsIn(level)) {
-            if (!possessed.broadcastToPlayer(photographer)
+            if (!possessed.isAlive() || possessed.isRemoved()
+                    || !possessed.broadcastToPlayer(photographer)
                     || possessed.isInvisibleTo(photographer)) {
                 continue;
             }
@@ -163,6 +165,9 @@ public final class PhotoEvidenceDetector {
         if (entity instanceof ScuttlerEntity) {
             return PhotoEvidence.SCUTTLER;
         }
+        if (entity instanceof ListenerEntity) {
+            return PhotoEvidence.LISTENER;
+        }
         return PhotoEvidence.NONE;
     }
 
@@ -182,6 +187,11 @@ public final class PhotoEvidenceDetector {
             double distance = delta.length();
             double alignment = distance <= 1.0E-6
                     ? 1.0 : look.dot(delta.scale(1.0 / distance));
+            // Un échantillon hors cadre ne peut devenir une preuve, même sans obstacle.
+            // Évite le parcours des blocs pour les sujets derrière le photographe.
+            if (!PhotoEvidenceRules.isFramed(distance, alignment, true, zoomFactor)) {
+                continue;
+            }
             boolean visible = level.clip(new ClipContext(eye, target,
                     ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, photographer))
                     .getType() == HitResult.Type.MISS;
@@ -204,6 +214,9 @@ public final class PhotoEvidenceDetector {
             double distance = delta.length();
             double alignment = distance <= 1.0E-6
                     ? 1.0 : look.dot(delta.scale(1.0 / distance));
+            if (!CameraFlashRules.isExposed(distance, alignment, true)) {
+                continue;
+            }
             boolean visible = level.clip(new ClipContext(eye, target,
                     ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, photographer))
                     .getType() == HitResult.Type.MISS;

@@ -34,6 +34,7 @@ public final class PhotoAlbumScreen extends Screen {
     private int totalEntries;
     private int dossierStage;
     private int dossierDiscovered;
+    private List<PhotoEvidence> dossierEvidence = List.of();
     private List<PhotoNetworking.AlbumEntry> entries = List.of();
     private UUID selectedId;
     private boolean loading = true;
@@ -46,6 +47,7 @@ public final class PhotoAlbumScreen extends Screen {
 
     private Button ownedTab;
     private Button publicTab;
+    private Button dossierButton;
     private Button previousButton;
     private Button nextButton;
     private Button viewButton;
@@ -62,20 +64,29 @@ public final class PhotoAlbumScreen extends Screen {
     @Override
     protected void init() {
         int center = width / 2;
+        int tabWidth = Math.max(42, (Math.min(420, width - 12) - 86) / 3);
+        int toolbarLeft = center - (tabWidth * 3 + 86) / 2;
         ownedTab = addRenderableWidget(Button.builder(
                 Component.translatable("screen.penumbra.album.mine"), button -> switchScope(
                         PhotoNetworking.ALBUM_SCOPE_OWNED))
-                .bounds(center - 154, 14, 100, 20).build());
+                .bounds(toolbarLeft, 14, tabWidth, 20).build());
         publicTab = addRenderableWidget(Button.builder(
                 Component.translatable("screen.penumbra.album.public"), button -> switchScope(
                         PhotoNetworking.ALBUM_SCOPE_PUBLIC))
-                .bounds(center - 50, 14, 100, 20).build());
+                .bounds(toolbarLeft + tabWidth + 4, 14, tabWidth, 20).build());
+        dossierButton = addRenderableWidget(Button.builder(
+                Component.translatable("screen.penumbra.dossier.tab"), button -> {
+                    if (minecraft != null && !loading) {
+                        minecraft.setScreen(new PhotoInvestigationScreen(this, dossierEvidence));
+                    }
+                }).bounds(toolbarLeft + (tabWidth + 4) * 2, 14, tabWidth, 20).build());
+        int navigationLeft = toolbarLeft + (tabWidth + 4) * 3;
         previousButton = addRenderableWidget(Button.builder(Component.literal("‹"),
-                button -> changePage(-1)).bounds(center + 56, 14, 24, 20).build());
+                button -> changePage(-1)).bounds(navigationLeft, 14, 22, 20).build());
         nextButton = addRenderableWidget(Button.builder(Component.literal("›"),
-                button -> changePage(1)).bounds(center + 84, 14, 24, 20).build());
+                button -> changePage(1)).bounds(navigationLeft + 26, 14, 22, 20).build());
         addRenderableWidget(Button.builder(Component.literal("×"), button -> onClose())
-                .bounds(center + 112, 14, 24, 20).build());
+                .bounds(navigationLeft + 52, 14, 22, 20).build());
 
         int editY = Math.max(36, height - 50);
         int editWidth = Math.max(80, Math.min(190, width - 112));
@@ -168,8 +179,9 @@ public final class PhotoAlbumScreen extends Screen {
             drawEntry(graphics, entries.get(index), index, grid);
         }
         if (!status.getString().isEmpty()) {
-            graphics.text(font, status, 104 + Math.max(80, Math.min(190, width - 112)),
-                    Math.max(36, height - 44), 0xFFC6BDA9);
+            graphics.centeredText(font, Component.literal(font.plainSubstrByWidth(
+                            status.getString(), Math.max(20, width - 20))),
+                    width / 2, Math.max(36, height - 63), 0xFFC6BDA9);
         }
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
@@ -183,10 +195,10 @@ public final class PhotoAlbumScreen extends Screen {
         graphics.outline(card.left, card.top, card.width, card.height,
                 selected ? 0xFFE3C98E : 0xFF6D665C);
 
-        int availableImageHeight = Math.max(14, card.height - 24);
-        int imageWidth = Math.max(24, Math.min(card.width - 8,
+        int availableImageHeight = Math.max(1, card.height - font.lineHeight - 9);
+        int imageWidth = Math.max(1, Math.min(card.width - 8,
                 availableImageHeight * PhotoAlbumState.WIDTH / PhotoAlbumState.HEIGHT));
-        int imageHeight = Math.max(14,
+        int imageHeight = Math.max(1,
                 imageWidth * PhotoAlbumState.HEIGHT / PhotoAlbumState.WIDTH);
         int imageLeft = card.left + (card.width - imageWidth) / 2;
         int imageTop = card.top + 4;
@@ -194,15 +206,17 @@ public final class PhotoAlbumScreen extends Screen {
         if (texture == null) {
             graphics.fill(imageLeft, imageTop, imageLeft + imageWidth, imageTop + imageHeight,
                     0xFF020304);
-            graphics.centeredText(font, Component.literal("…"),
-                    imageLeft + imageWidth / 2,
-                    imageTop + imageHeight / 2 - font.lineHeight / 2, 0xFF8F8B83);
+            if (imageHeight >= font.lineHeight) {
+                graphics.centeredText(font, Component.literal("…"),
+                        imageLeft + imageWidth / 2,
+                        imageTop + imageHeight / 2 - font.lineHeight / 2, 0xFF8F8B83);
+            }
         } else {
             graphics.blit(texture, imageLeft, imageTop,
                     imageLeft + imageWidth, imageTop + imageHeight,
                     0.0f, 1.0f, 0.0f, 1.0f);
         }
-        if (texture != null) {
+        if (texture != null && imageHeight >= font.lineHeight + 3) {
             Component analysis = analysisLabel(entry);
             String clippedAnalysis = font.plainSubstrByWidth(
                     analysis.getString(), Math.max(10, imageWidth - 4));
@@ -277,6 +291,7 @@ public final class PhotoAlbumScreen extends Screen {
         totalEntries = Math.max(0, packet.totalEntries());
         dossierStage = packet.dossierStage();
         dossierDiscovered = packet.dossierDiscovered();
+        dossierEvidence = PhotoEvidence.dossierFromIds(packet.dossierEvidenceIds());
         entries = packet.entries();
         loading = false;
         lastPageRequestMillis = Long.MIN_VALUE;
@@ -334,6 +349,7 @@ public final class PhotoAlbumScreen extends Screen {
         loading = true;
         lastPageRequestMillis = now;
         pageRequestAttempts++;
+        updateWidgets();
         if (!ClientPlayNetworking.canSend(PhotoNetworking.AlbumPageRequestC2S.TYPE)) {
             return;
         }
@@ -428,6 +444,7 @@ public final class PhotoAlbumScreen extends Screen {
         }
         ownedTab.active = scope != PhotoNetworking.ALBUM_SCOPE_OWNED;
         publicTab.active = scope != PhotoNetworking.ALBUM_SCOPE_PUBLIC;
+        dossierButton.active = !loading && !pageTimedOut;
         previousButton.active = !loading && page > 0;
         nextButton.active = !loading && (page + 1) * PAGE_SIZE < totalEntries;
         PhotoNetworking.AlbumEntry selected = selected();
@@ -488,7 +505,7 @@ public final class PhotoAlbumScreen extends Screen {
         int left = Math.max(6, (width - Math.min(620, width - 12)) / 2);
         int gridWidth = Math.max(120, Math.min(620, width - 12));
         int top = 49;
-        int bottom = Math.max(top + 56, height - 58);
+        int bottom = Math.max(top + 56, height - (status.getString().isEmpty() ? 58 : 72));
         return new Grid(left, top, gridWidth, Math.max(56, bottom - top));
     }
 

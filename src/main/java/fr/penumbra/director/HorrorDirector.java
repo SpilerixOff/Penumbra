@@ -18,6 +18,7 @@ import fr.penumbra.registry.PenumbraSounds;
 import fr.penumbra.refuge.RefugeContaminationManager;
 import fr.penumbra.refuge.RefugeContaminationModel;
 import fr.penumbra.story.StoryManager;
+import fr.penumbra.story.ConfrontationManager;
 import fr.penumbra.story.StoryStage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -433,6 +434,14 @@ public final class HorrorDirector {
                 continue;
             }
             PlayerHorrorProfile profile = data.profile(player.getUUID());
+            if (ConfrontationManager.isActive(player.getUUID())) {
+                // The finale has its own signals and recovery windows. Keep
+                // the client synchronized without starting unrelated scenes.
+                if (profilePhase || selectionPhase) {
+                    syncTensionIfNeeded(player, profile, gameTime, selectionPhase);
+                }
+                continue;
+            }
             profile.tickBehavior(player);
             if (profilePhase) {
                 profile.decayTension(TENSION_DECAY_PER_SECOND);
@@ -2345,6 +2354,7 @@ public final class HorrorDirector {
      */
     public static boolean automaticSceneAvailable(ServerPlayer player) {
         if (!player.isAlive() || player.isSpectator() || !isGraceComplete(player)
+                || ConfrontationManager.isActive(player.getUUID())
                 || PenumbraConfig.get().horrorIntensity <= 0f
                 || PenumbraConfig.get().eventFrequency <= 0f
                 || isInFalseCalm(player) || isAutomaticEventPaused(player)

@@ -67,7 +67,7 @@ public final class PhotoAlbumState extends SavedData {
                 ).apply(instance, DossierProgress::new));
 
         public DossierProgress {
-            discovered = normalizeEvidence(discovered);
+            discovered = PhotoEvidence.normalizeDossier(discovered);
         }
 
         public int count() {
@@ -361,7 +361,7 @@ public final class PhotoAlbumState extends SavedData {
         }
         LinkedHashSet<PhotoEvidence> merged = new LinkedHashSet<>(before.discovered());
         List<PhotoEvidence> added = new ArrayList<>();
-        for (PhotoEvidence value : normalizeEvidence(evidence)) {
+        for (PhotoEvidence value : PhotoEvidence.normalizeDossier(evidence)) {
             if (merged.add(value)) {
                 added.add(value);
             }

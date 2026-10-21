@@ -84,6 +84,7 @@ public final class PenumbraStructures {
      */
     private static final Queue<PendingStructure> PENDING_GENERATION = new ConcurrentLinkedQueue<>();
     private static final Set<Long> PENDING_CHUNKS = ConcurrentHashMap.newKeySet();
+    private static final Set<java.util.UUID> PENDING_RITUALS = new java.util.HashSet<>();
 
     private static int tickCounter;
 
@@ -105,6 +106,7 @@ public final class PenumbraStructures {
         tickCounter = 0;
         PENDING_GENERATION.clear();
         PENDING_CHUNKS.clear();
+        PENDING_RITUALS.clear();
     }
 
     // ---------------------------------------------------------------------
@@ -353,9 +355,18 @@ public final class PenumbraStructures {
         if (!stack.is(PenumbraItems.ASH_SIGIL)) {
             return InteractionResult.PASS;
         }
+        if (PENDING_RITUALS.contains(player.getUUID())
+                || ConfrontationManager.isActive(player.getUUID())) {
+            serverPlayer.sendOverlayMessage(Component.translatable("penumbra.ritual.busy"));
+            return InteractionResult.SUCCESS;
+        }
+        boolean retryFinale = StoryManager.getStage(serverPlayer)
+                >= fr.penumbra.story.StoryStage.CONFRONTATION.index()
+                && !ConfrontationManager.isWon(serverPlayer);
         StructureTracker tracker = StructureTracker.get(serverLevel.getServer());
         Optional<StructureTracker.Entry> sanctum =
-                tracker.findSanctumAt(serverPlayer.getUUID(), serverLevel.dimension(), hitResult.getBlockPos());
+                tracker.findSanctumAt(serverPlayer.getUUID(), serverLevel.dimension(),
+                        hitResult.getBlockPos(), retryFinale);
         if (sanctum.isEmpty()) {
             return InteractionResult.PASS;
         }
@@ -364,6 +375,10 @@ public final class PenumbraStructures {
         }
         BlockPos pos = hitResult.getBlockPos();
         tracker.markSanctumActivated(serverPlayer.getUUID(), sanctum.get());
+        PENDING_RITUALS.add(player.getUUID());
+        // Covers the 13-second prelude; also expires on an interrupted sequence.
+        java.util.UUID ritualPlayer = player.getUUID();
+        HorrorDirector.runLater(serverLevel, 300, () -> PENDING_RITUALS.remove(ritualPlayer));
         runRitualFinale(serverLevel, serverPlayer, pos);
         return InteractionResult.SUCCESS;
     }
@@ -519,6 +534,11 @@ public final class PenumbraStructures {
         // 1.0 — au stade final, le rituel ne libère plus : il convoque.
         if (ConfrontationManager.tryBegin(level, player, pos)) {
             return;
+        }
+        if (StoryManager.getStage(player) >= fr.penumbra.story.StoryStage.CONFRONTATION.index()
+                && !ConfrontationManager.isWon(player)) {
+            player.sendSystemMessage(Component.translatable("penumbra.confrontation.no_space"));
+            return; // A failed summon is retryable, not a completed ritual reward.
         }
         PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.RITUAL_RELEASE,
                 Vec3.atCenterOf(pos), 1.0f, 1.0f);

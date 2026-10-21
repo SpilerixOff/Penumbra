@@ -39,6 +39,14 @@
       {
         "name": "penumbra:host_step",
         "stream": false
+      },
+      {
+        "name": "penumbra:host_step_2",
+        "stream": false
+      },
+      {
+        "name": "penumbra:host_step_3",
+        "stream": false
       }
     ]
   },
@@ -48,6 +56,14 @@
     "sounds": [
       {
         "name": "penumbra:footstep_mimic",
+        "stream": false
+      },
+      {
+        "name": "penumbra:footstep_mimic_3",
+        "stream": false
+      },
+      {
+        "name": "penumbra:footstep_mimic_4",
         "stream": false
       }
     ]
@@ -192,7 +208,15 @@
     "sounds": [
       {
         "name": "penumbra:ambient_bed_low",
-        "stream": true
+        "stream": false
+      },
+      {
+        "name": "penumbra:ambient_bed_low_2",
+        "stream": false
+      },
+      {
+        "name": "penumbra:ambient_bed_low_3",
+        "stream": false
       }
     ]
   },
@@ -202,7 +226,15 @@
     "sounds": [
       {
         "name": "penumbra:ambient_bed_mid",
-        "stream": true
+        "stream": false
+      },
+      {
+        "name": "penumbra:ambient_bed_mid_2",
+        "stream": false
+      },
+      {
+        "name": "penumbra:ambient_bed_mid_3",
+        "stream": false
       }
     ]
   },
@@ -212,7 +244,15 @@
     "sounds": [
       {
         "name": "penumbra:ambient_bed_high",
-        "stream": true
+        "stream": false
+      },
+      {
+        "name": "penumbra:ambient_bed_high_2",
+        "stream": false
+      },
+      {
+        "name": "penumbra:ambient_bed_high_3",
+        "stream": false
       }
     ]
   },

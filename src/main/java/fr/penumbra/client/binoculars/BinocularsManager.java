@@ -153,9 +153,10 @@ public final class BinocularsManager {
             });
         });
 
-        // Déconnexion : purge immédiate des états locaux. Aucun FOV à restaurer :
+        // Déconnexion : purge sur le thread client. Aucun FOV à restaurer :
         // le mixin Camera ne persiste jamais rien.
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> resetAll(client));
+        ClientPlayConnectionEvents.DISCONNECT.register(
+                (handler, client) -> client.execute(() -> resetAll(client)));
     }
 
     private BinocularsManager() {

@@ -6,7 +6,6 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -52,8 +51,6 @@ public final class DynamicLights {
     private static final int MAX_LUMINANCE = 15;
     /** Le vacillement ne se recalcule qu'à cette cadence (voir en-tête). */
     private static final int FLICKER_PERIOD_TICKS = 5;
-    /** Rayon de reconstruction, en sections, autour d'une source qui bouge. */
-    private static final int REBUILD_SECTIONS = 1;
 
     private static final List<Source> SOURCES = new ArrayList<>();
     private static final List<Source> PREVIOUS = new ArrayList<>();
@@ -79,25 +76,28 @@ public final class DynamicLights {
     /** Une source lumineuse mobile : une position et une intensité. */
     private record Source(double x, double y, double z, int luminance) {
 
-        boolean sameCell(Source other) {
-            return other != null
-                    && Math.floor(x) == Math.floor(other.x)
-                    && Math.floor(y) == Math.floor(other.y)
-                    && Math.floor(z) == Math.floor(other.z)
-                    && luminance == other.luminance;
+        LightSectionUpdates.Cell cell() {
+            return new LightSectionUpdates.Cell((int) Math.floor(x), (int) Math.floor(y),
+                    (int) Math.floor(z), luminance);
         }
+
     }
 
     /** À brancher sur {@code ClientTickEvents.END_CLIENT_TICK}. */
     public static void onClientTick(Minecraft client) {
         if (!PenumbraConfig.get().dynamicLightsEnabled
-                || client.level == null || client.isPaused()) {
+                || client.level == null) {
             if (!SOURCES.isEmpty()) {
                 clear(client);
             }
             return;
         }
 
+        // A paused solo world keeps its lighting; reopening a menu must not
+        // extinguish every torch and schedule all nearby terrain for rebuilding.
+        if (client.isPaused()) {
+            return;
+        }
         if (++tickCounter % FLICKER_PERIOD_TICKS == 0) {
             flickerOffset = computeFlicker();
         }
@@ -115,8 +115,9 @@ public final class DynamicLights {
             }
         }
 
-        invalidateChanged(client);
+        // Publish before workers can rebuild the invalidated sections.
         published = SOURCES.toArray(new Source[0]);
+        invalidateChanged(client);
     }
 
     /**
@@ -234,41 +235,13 @@ public final class DynamicLights {
      * précédente plutôt qu'une reconstruction systématique.
      */
     private static void invalidateChanged(Minecraft client) {
-        for (Source source : SOURCES) {
-            if (!matched(source, PREVIOUS)) {
-                rebuildAround(client, source);
-            }
-        }
-        for (Source source : PREVIOUS) {
-            if (!matched(source, SOURCES)) {
-                rebuildAround(client, source);
-            }
-        }
-    }
-
-    private static boolean matched(Source source, List<Source> others) {
-        for (Source other : others) {
-            if (source.sameCell(other)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static void rebuildAround(Minecraft client, Source source) {
         if (client.levelRenderer == null) {
             return;
         }
-        int sectionX = SectionPos.blockToSectionCoord((int) Math.floor(source.x));
-        int sectionY = SectionPos.blockToSectionCoord((int) Math.floor(source.y));
-        int sectionZ = SectionPos.blockToSectionCoord((int) Math.floor(source.z));
-        for (int x = -REBUILD_SECTIONS; x <= REBUILD_SECTIONS; x++) {
-            for (int y = -REBUILD_SECTIONS; y <= REBUILD_SECTIONS; y++) {
-                for (int z = -REBUILD_SECTIONS; z <= REBUILD_SECTIONS; z++) {
-                    client.levelRenderer.setSectionDirty(
-                            sectionX + x, sectionY + y, sectionZ + z);
-                }
-            }
+        var previous = PREVIOUS.stream().map(Source::cell).collect(java.util.stream.Collectors.toSet());
+        var current = SOURCES.stream().map(Source::cell).collect(java.util.stream.Collectors.toSet());
+        for (var section : LightSectionUpdates.changed(previous, current)) {
+            client.levelRenderer.setSectionDirty(section.x(), section.y(), section.z());
         }
     }
 
@@ -278,9 +251,7 @@ public final class DynamicLights {
         PREVIOUS.addAll(SOURCES);
         SOURCES.clear();
         published = new Source[0];
-        for (Source source : PREVIOUS) {
-            rebuildAround(client, source);
-        }
+        invalidateChanged(client);
         PREVIOUS.clear();
         flickerOffset = 0;
     }

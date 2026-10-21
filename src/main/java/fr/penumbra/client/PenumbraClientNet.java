@@ -47,10 +47,10 @@ public final class PenumbraClientNet {
                             }
                         }));
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
             JumpscareManager.reset();
             ClientTensionState.reset();
-        });
+        }));
     }
 
     /**

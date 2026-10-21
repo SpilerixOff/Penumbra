@@ -1,6 +1,7 @@
 package fr.penumbra.story;
 
 import fr.penumbra.badge.PenumbraBadges;
+import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.data.PenumbraPersistentState;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.entity.absent.AbsentEntity;
@@ -8,6 +9,7 @@ import fr.penumbra.entity.absent.AbsentManager;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraParticles;
 import fr.penumbra.registry.PenumbraSounds;
+import fr.penumbra.registry.PenumbraItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -15,6 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
@@ -28,10 +31,10 @@ import java.util.UUID;
  * <p>Au stade final, accomplir le rituel du Sanctuaire de cendre ne libère
  * plus : cela <b>convoque</b>. Votre propre copie — l'Absent portant votre
  * skin — se dresse de l'autre côté du cercle et reflète chacun de vos
- * déplacements par symétrie autour du centre. Elle ne peut pas être frappée :
- * s'approcher échange les côtés. La seule arme est celle de tout le mod —
- * <b>la Caméra VHS</b> : trois flashs correctement cadrés la dissolvent.
- * Chaque flash réussi rapproche son murmure.</p>
+ * déplacements par petits pas sûrs autour du centre. Observer sans bruit
+ * ouvre une brèche de trois secondes ; un flash cadré l'entame, puis elle
+ * reprend son souffle. Trois brèches gagnées la dissolvent. Une brèche
+ * manquée ne retire pas les fragments déjà obtenus.</p>
  *
  * <p>Victoire : cendres, libération, badge {@code confrontation}, longue
  * accalmie réelle — et l'épilogue honnête du mod : il réapprendra.
@@ -44,17 +47,13 @@ import java.util.UUID;
  */
 public final class ConfrontationManager {
 
-    /** Ticks de silence avant que la copie ne commence à refléter. */
-    private static final int SILENCE_TICKS = 60;
-    /** Durée maximale du duel (2 min) avant qu'elle ne se lasse. */
-    private static final int DUEL_TIMEOUT_TICKS = 2400;
     /** Cadence de pilotage du reflet. */
     private static final int TICK_INTERVAL = 2;
     /** Flashs cadrés requis pour dissoudre la copie. */
-    public static final int FLASHES_TO_WIN = 3;
+    public static final int FLASHES_TO_WIN = ConfrontationSequence.FLASHES_TO_WIN;
     /** Distance d'abandon du duel. */
     private static final double ABORT_DISTANCE = 40.0;
-    /** Distance minimale reflet-joueur (elle échange les côtés en dessous). */
+    /** Le reflet s'arrête plutôt que de traverser le joueur. */
     private static final double MIN_MIRROR_DISTANCE = 5.0;
     /** Portée et cône du flash pendant le duel. */
     private static final double FLASH_RANGE = 24.0;
@@ -62,20 +61,19 @@ public final class ConfrontationManager {
     /** Accalmie réelle offerte par la victoire (40 min). */
     private static final long VICTORY_CALM_TICKS = 48000L;
 
-    private enum Phase { SILENCE, MIRROR }
-
     private static final class Duel {
         final ServerLevel level;
         final BlockPos center;
         final UUID doubleId;
-        Phase phase = Phase.SILENCE;
-        int phaseTicks;
-        int flashes;
+        final ConfrontationSequence sequence = new ConfrontationSequence();
+        Vec3 lastPlayerPosition;
+        long nextFeedbackTick;
 
-        Duel(ServerLevel level, BlockPos center, UUID doubleId) {
+        Duel(ServerLevel level, BlockPos center, UUID doubleId, Vec3 playerPosition) {
             this.level = level;
             this.center = center;
             this.doubleId = doubleId;
+            this.lastPlayerPosition = playerPosition;
         }
     }
 
@@ -100,18 +98,16 @@ public final class ConfrontationManager {
      * cours ou si la copie ne peut pas apparaître.
      */
     public static boolean tryBegin(ServerLevel level, ServerPlayer player, BlockPos center) {
-        if (StoryManager.getStage(player) < StoryStage.CONFRONTATION.index()
+        if (player.level() != level || StoryManager.getStage(player) < StoryStage.CONFRONTATION.index()
                 || isWon(player) || DUELS.containsKey(player.getUUID())) {
             return false;
         }
-        if (!AbsentManager.forceSoloSighting(player)) {
-            return false;
-        }
-        AbsentEntity copy = nearestOwnCopy(level, player);
+        AbsentEntity copy = AbsentManager.createConfrontationDouble(player,
+                candidate -> ConfrontationPlacement.safeInitialPlacement(level, candidate));
         if (copy == null) {
             return false;
         }
-        DUELS.put(player.getUUID(), new Duel(level, center, copy.getUUID()));
+        DUELS.put(player.getUUID(), new Duel(level, center.immutable(), copy.getUUID(), player.position()));
         PenumbraNetworking.sendSound(player, PenumbraSounds.SILENCE_DRONE,
                 Vec3.atCenterOf(center), 0.8f, 0.7f);
         player.sendSystemMessage(Component.translatable("penumbra.confrontation.begins")
@@ -119,19 +115,8 @@ public final class ConfrontationManager {
         return true;
     }
 
-    private static AbsentEntity nearestOwnCopy(ServerLevel level, ServerPlayer player) {
-        AbsentEntity nearest = null;
-        double best = Double.MAX_VALUE;
-        for (AbsentEntity absent : level.getEntitiesOfClass(AbsentEntity.class,
-                player.getBoundingBox().inflate(64.0),
-                entity -> entity.isAlive() && !entity.isFalseCompanion())) {
-            double distSq = absent.distanceToSqr(player);
-            if (distSq < best) {
-                best = distSq;
-                nearest = absent;
-            }
-        }
-        return nearest;
+    public static boolean isActive(UUID playerId) {
+        return DUELS.containsKey(playerId);
     }
 
     /** Boucle serveur (enregistrée dans {@code PenumbraMod}). */
@@ -146,44 +131,88 @@ public final class ConfrontationManager {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             Entity entity = duel.level.getEntity(duel.doubleId);
             if (player == null || !player.isAlive() || player.level() != duel.level
+                    || player.isSpectator() || player.isSleeping() || player.isRemoved()
+                    || !PenumbraConfig.get().absentEnabled
+                    || duel.level.getDifficulty() == Difficulty.PEACEFUL
                     || !(entity instanceof AbsentEntity copy) || !copy.isAlive()
+                    || !copy.isOwnedBy(player) || !copy.isConfrontationDouble()
                     || player.distanceToSqr(Vec3.atCenterOf(duel.center))
                             > ABORT_DISTANCE * ABORT_DISTANCE) {
                 abort(duel);
                 iterator.remove();
                 continue;
             }
-            duel.phaseTicks += TICK_INTERVAL;
-            if (duel.phase == Phase.SILENCE) {
-                tickSilence(duel, player);
-            } else if (tickMirror(duel, player, copy)) {
+            if (tickDuel(duel, player, copy)) {
                 iterator.remove();
             }
         }
     }
 
-    private static void tickSilence(Duel duel, ServerPlayer player) {
-        Vec3 center = Vec3.atCenterOf(duel.center);
-        duel.level.sendParticles(PenumbraParticles.ASH_MOTE,
-                center.x, center.y + 1.0, center.z, 4, 1.6, 0.4, 1.6, 0.004);
-        if (duel.phaseTicks >= SILENCE_TICKS) {
-            duel.phase = Phase.MIRROR;
-            duel.phaseTicks = 0;
-        }
-    }
-
-    /** @return true si le duel est terminé (temps écoulé). */
-    private static boolean tickMirror(Duel duel, ServerPlayer player, AbsentEntity copy) {
-        Vec3 center = Vec3.atCenterOf(duel.center);
-        Vec3 mirrored = mirrorPosition(center, player.position(), MIN_MIRROR_DISTANCE);
+    private static boolean tickDuel(Duel duel, ServerPlayer player, AbsentEntity copy) {
+        ConfrontationSequence.Phase before = duel.sequence.phase();
+        boolean quiet = player.position().distanceToSqr(duel.lastPlayerPosition) <= 0.0025
+                && player.onGround() && !player.swinging && player.hurtTime == 0
+                && !player.isInWater() && !player.isPassenger();
+        duel.lastPlayerPosition = player.position();
         copy.getNavigation().stop();
-        float yaw = yawTowards(mirrored, player.position());
-        copy.snapTo(mirrored.x, duel.center.getY(), mirrored.z, yaw, 0.0f);
-        if (duel.phaseTicks >= DUEL_TIMEOUT_TICKS) {
+        copy.setDeltaMovement(Vec3.ZERO);
+        if (before == ConfrontationSequence.Phase.MIRROR) {
+            Vec3 mirrored = mirrorPosition(Vec3.atCenterOf(duel.center),
+                    player.position(), MIN_MIRROR_DISTANCE);
+            ConfrontationPlacement.tryMove(duel.level, copy, mirrored,
+                    player.position(), MIN_MIRROR_DISTANCE);
+        }
+        float yaw = yawTowards(copy.position(), player.position());
+        copy.setYRot(yaw);
+        copy.setYBodyRot(yaw);
+        copy.setYHeadRot(yaw);
+        boolean holdingCamera = player.getMainHandItem().is(PenumbraItems.BINOCULARS);
+        duel.sequence.advance(TICK_INTERVAL, quiet && holdingCamera && isFramed(player, copy));
+        ConfrontationSequence.Phase after = duel.sequence.phase();
+        if (after == ConfrontationSequence.Phase.EXPIRED) {
             abort(duel);
+            player.sendOverlayMessage(Component.translatable("penumbra.confrontation.retry"));
             return true;
         }
+        if (after != before) {
+            copy.setConfrontationExposure(after == ConfrontationSequence.Phase.EXPOSED,
+                    duel.sequence.flashes());
+            String key = switch (after) {
+                case MIRROR -> "observe";
+                case EXPOSED -> "ready";
+                case RECOVERY -> "window_closed";
+                default -> null;
+            };
+            if (key != null) player.sendOverlayMessage(Component.translatable(
+                    "penumbra.confrontation." + key));
+            if (after == ConfrontationSequence.Phase.EXPOSED) {
+                PenumbraNetworking.sendSound(player, PenumbraSounds.HOST_WHISPER,
+                        copy.position(), 0.5f, 0.8f - 0.1f * duel.sequence.flashes());
+            }
+        }
+        if (duel.level.getGameTime() % 10 == 0) {
+            if (after == ConfrontationSequence.Phase.MIRROR) {
+                player.sendOverlayMessage(Component.translatable(
+                        "penumbra.confrontation.focus", duel.sequence.focusTicks() / 2,
+                        duel.sequence.requiredFocusTicks() / 2));
+            } else if (after == ConfrontationSequence.Phase.EXPOSED) {
+                player.sendOverlayMessage(Component.translatable("penumbra.confrontation.ready"));
+                duel.level.sendParticles(PenumbraParticles.ASH_MOTE,
+                        copy.getX(), copy.getY() + 1.2, copy.getZ(), 3, 0.3, 0.5, 0.3, 0.004);
+            } else if (after == ConfrontationSequence.Phase.ARRIVAL) {
+                Vec3 center = Vec3.atCenterOf(duel.center);
+                duel.level.sendParticles(PenumbraParticles.ASH_MOTE,
+                        center.x, center.y + 1, center.z, 4, 1.6, 0.4, 1.6, 0.004);
+            }
+        }
         return false;
+    }
+
+    private static boolean isFramed(ServerPlayer player, AbsentEntity copy) {
+        Vec3 toCopy = copy.getEyePosition().subtract(player.getEyePosition());
+        return toCopy.lengthSqr() > 1.0E-6 && toCopy.lengthSqr() <= FLASH_RANGE * FLASH_RANGE
+                && player.getViewVector(1.0f).dot(toCopy.normalize()) >= FLASH_CONE_DOT
+                && player.hasLineOfSight(copy);
     }
 
     /**
@@ -224,30 +253,38 @@ public final class ConfrontationManager {
     /** Flash de la Caméra VHS pendant un duel : la seule arme qui compte. */
     public static void onCameraFlash(ServerPlayer player) {
         Duel duel = DUELS.get(player.getUUID());
-        if (duel == null || duel.phase != Phase.MIRROR
-                || player.level() != duel.level) {
+        if (duel == null || player.level() != duel.level
+                || !player.isAlive() || player.isSpectator() || player.isSleeping()) {
             return;
         }
         if (!(duel.level.getEntity(duel.doubleId) instanceof AbsentEntity copy)
-                || !copy.isAlive()) {
+                || !copy.isAlive() || !copy.isOwnedBy(player) || !copy.isConfrontationDouble()) {
             return;
         }
-        Vec3 toCopy = copy.getEyePosition().subtract(player.getEyePosition());
-        if (toCopy.lengthSqr() > FLASH_RANGE * FLASH_RANGE
-                || player.getViewVector(1.0f).dot(toCopy.normalize()) < FLASH_CONE_DOT
-                || !player.hasLineOfSight(copy)) {
+        boolean framed = isFramed(player, copy);
+        boolean exposed = duel.sequence.phase() == ConfrontationSequence.Phase.EXPOSED;
+        if (!duel.sequence.flash(framed)) {
+            long now = duel.level.getGameTime();
+            if (now >= duel.nextFeedbackTick) {
+                player.sendOverlayMessage(Component.translatable(exposed
+                        ? "penumbra.confrontation.bad_frame" : "penumbra.confrontation.wait"));
+                duel.nextFeedbackTick = now + 40;
+            }
             return;
         }
-        duel.flashes++;
+        copy.setConfrontationExposure(false, duel.sequence.flashes());
         Vec3 pos = copy.position();
         duel.level.sendParticles(PenumbraParticles.ASH_MOTE,
                 pos.x, pos.y + 1.2, pos.z, 10, 0.3, 0.5, 0.3, 0.01);
         // Son murmure descend d'un ton à chaque flash : elle perd sa voix.
         PenumbraNetworking.sendSound(player, PenumbraSounds.HOST_WHISPER,
-                pos, 0.6f, 0.92f - 0.14f * duel.flashes);
-        if (duel.flashes >= FLASHES_TO_WIN) {
+                pos, 0.6f, 0.92f - 0.14f * duel.sequence.flashes());
+        if (duel.sequence.phase() == ConfrontationSequence.Phase.COMPLETE) {
             win(duel, player, copy);
             DUELS.remove(player.getUUID());
+        } else {
+            player.sendOverlayMessage(Component.translatable("penumbra.confrontation.fragment",
+                    duel.sequence.flashes(), FLASHES_TO_WIN));
         }
     }
 

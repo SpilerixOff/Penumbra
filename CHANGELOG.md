@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.21.0] — Écouter, comprendre, confronter
+
+### Ambiance sonore
+
+- Trois variantes pour chaque nappe de tension, plus de nouveaux pas lourds
+  et imités : 13 fichiers produits ou remplacés, dont 10 variantes ajoutées.
+- Les nappes durent huit secondes et leurs instances sont suivies : deux au
+  maximum pendant le fondu, un seul battement cardiaque. Le faux calme et la
+  désactivation du son amélioré arrêtent aussi les pistes déjà lancées.
+- Pause, changement de monde, réapparition et déconnexion nettoient ou figent
+  correctement la couche sonore et ses minuteurs.
+- Les fichiers sont redécodés après encodage pour contrôler pics, durée et
+  fondus. Le générateur original et ses graines sont livrés dans les sources.
+
+### Un dossier pour mener l'enquête
+
+- L'album donne accès à un dossier personnel : méthode, observations, pistes
+  partielles et déductions. Une piste décrit une action possible sans nommer
+  une créature encore inconnue ; une paire complète devient une déduction.
+- L'Écouteur devient une catégorie de preuve photographique.
+- L'Écouteur effectue trois recherches infructueuses avant de repartir. Un
+  chemin bloqué n'est plus compté deux fois, évitant des rencontres trop courtes
+  en terrain accidenté.
+- La limite de huit preuves par photo ne tronque plus le dossier global :
+  toutes les catégories connues persistent, sans notification répétée à chaque
+  redécouverte. Le dossier affiché vient du serveur, pas des photos publiques.
+- Les vérifications de cadrage précèdent les rayons de visibilité dans le
+  détecteur photographique, pour éviter les recherches inutiles.
+- À la déconnexion, les textures photographiques et la couche sonore sont
+  nettoyées sur le thread client, évitant une erreur OpenGL à la sortie du monde.
+
+### Une confrontation qui se prépare
+
+- Le rituel final convoque une copie dédiée au bon joueur. Elle ne conserve
+  plus l'IA de chasse ni la durée de vie d'une apparition ordinaire.
+- Trois séquences demandent silence et observation avant une fenêtre de
+  flash, avec une respiration entre les réussites. Rater une fenêtre ne
+  retire pas les réussites acquises ; le flash visuel reste facultatif.
+- Le reflet cherche des emplacements chargés, avec sol et espace suffisants,
+  sans déplacer le joueur. Les nouvelles scènes automatiques du directeur
+  attendent la fin du duel.
+- Le même sanctuaire permet de retenter après un abandon ; le préambule ne
+  peut pas être déclenché plusieurs fois en parallèle. Un échec d'apparition
+  ne donne pas la récompense de victoire.
+- Les victoires déjà sauvegardées et la récompense de calme sont conservées.
+
+### Éclairage
+
+- Les sources proches partagent les mises à jour de terrain : chaque section
+  touchée n'est invalidée qu'une fois par tick, même avec plusieurs torches.
+- L'instantané de lumière est publié avant de demander les reconstructions.
+  Une pause en solo conserve la lumière au lieu de tout éteindre et reconstruire.
+
 ## [0.20.0] — Tension, fuite et enquête
 
 ### Une peur qui laisse le temps de comprendre
