@@ -95,6 +95,14 @@ public final class WatcherModel extends EntityModel<WatcherRenderState> {
         this.head.yRot = state.yRot * Mth.DEG_TO_RAD;
         this.head.xRot = state.xRot * Mth.DEG_TO_RAD;
 
+        if (state.recovering) {
+            applyRecovery(state.recoveryProgress);
+            return;
+        }
+        if (state.windingUp) {
+            applyWindup(state.windupProgress);
+            return;
+        }
         if (state.lunging) {
             applyLunge(state.lungeProgress, time);
             return;
@@ -120,6 +128,29 @@ public final class WatcherModel extends EntityModel<WatcherRenderState> {
         this.leftForearm.xRot = -0.018f - proximity * 0.38f;
         this.rightLeg.xRot = proximity * 0.035f;
         this.leftLeg.xRot = -proximity * 0.025f;
+    }
+
+    private void applyWindup(float progress) {
+        this.head.zRot = 0.12f + 0.46f * progress;
+        this.head.xRot -= 0.22f * progress;
+        this.body.xRot = -0.16f * progress;
+        this.rightArm.xRot = -0.32f * progress;
+        this.leftArm.xRot = -0.40f * progress;
+        this.rightForearm.xRot = -0.70f * progress;
+        this.leftForearm.xRot = -0.64f * progress;
+    }
+
+    private void applyRecovery(float progress) {
+        float recoil = 1.0f - progress * 0.65f;
+        this.body.xRot = -0.34f * recoil;
+        this.head.xRot -= 0.26f * recoil;
+        this.head.zRot = -0.34f * recoil;
+        this.rightArm.xRot = -1.05f * recoil;
+        this.leftArm.xRot = -0.86f * recoil;
+        this.rightForearm.xRot = -0.92f * recoil;
+        this.leftForearm.xRot = -1.12f * recoil;
+        this.rightLeg.xRot = Mth.sin(progress * 18.0f) * 0.34f;
+        this.leftLeg.xRot = -this.rightLeg.xRot;
     }
 
     private void applyLunge(float progress, float time) {

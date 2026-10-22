@@ -1,6 +1,27 @@
 # Feuille de route de Penumbra
 
-## État actuel — 0.23.0, livraison locale et validation ciblée
+## État actuel — 0.24.0, livraison locale et validation ciblée
+
+La version publique reste **0.19.0**. La branche locale prépare la **0.24.0** :
+suppression des images de screamer et rémanences, charges et recul en 3D,
+scènes personnelles après fermeture d'un lecteur ou retour au refuge,
+embuscades du Rampant et contre-jeu par la caméra. Le menu K présente six
+réglages, après retrait des boutons Visages et Rémanences.
+
+Le build final `test validatePenumbraResources build` a réussi avec **390 tests
+dans 76 suites**, sans échec, erreur ni test ignoré. Les essais ciblés ont confirmé
+le recul caméra, le déclenchement du Rampant et une esquive de charge de l’Hôte.
+Ce résultat ne garantit pas un effet de surprise chez tous les joueurs.
+Voir le [guide de l'horreur physique](PHYSICAL_HORROR_FR.md), les sections
+129 à 134 du [protocole](TEST_PROTOCOL.md) et les [limites](KNOWN_ISSUES.md).
+
+Restent prioritaires : jeu naturel Hôte/Observateur, couverts et verre,
+flash avec tête masquée et torse visible, scènes privées avec deux clients,
+transitions de menus, sons soudains désactivés et tenue des délais sous latence.
+La caméra ne repousse pas L'Écouteur et ne remplace pas les trois ouvertures
+du duel final ; ses règles propres restent distinctes.
+
+## Livraison historique — 0.23.0, validation ciblée
 
 La version publique reste 0.19.0. Les versions 0.20.0 à 0.23.0 sont préparées
 localement. La 0.23.0 rend l'enquête accessible à un nouveau joueur sur un
@@ -25,6 +46,7 @@ duel complet en 0.23.0, deux clients simultanés ou la latence Internet.
 | 0.21.1 | Isolation et reprise du rituel, reflet gardé visible pendant son déplacement, confirmation durable des fragments, captures liées à la bonne connexion |
 | 0.22.0 | Menu personnel K, huit réglages et trois préréglages locaux ; accalmie sauvegardée ; badge de confrontation réservé à la victoire — validation ciblée, limites documentées |
 | 0.23.0 | Relevé remis individuellement et refabricable, suivi personnel de l'histoire, pages récupérables dans les coffres déjà pillés, alternative Maison décalée, finale en une offrande éligible, historique préservé au-delà des anciennes limites — validation ciblée et rechargement contrôlé |
+| 0.24.0 | Surprises physiques sans visage HUD, scènes personnelles, charges esquivables et recul, embuscades du Rampant, flash défensif, poursuites bornées, six réglages de confort — validation ciblée, limites documentées |
 
 ## 0.23.0 — implémentation et validation ciblée
 
@@ -229,18 +251,20 @@ tirage et applique ses arcs, cooldowns et quotas au nouveau contenu.
   `peripheralAfterimagesEnabled` et `perceptionIntensity` sont indépendants du
   voile et de la dérive de FOV.
 - Interface locale de confort : livrée en 0.22.0, avec validation ciblée et
-  limites documentées dans les problèmes connus.
+  limites documentées dans les problèmes connus ; six réglages en 0.24.0 après
+  suppression des images de visages et des rémanences.
   L'interface complète des règles serveur et des autres options reste à étudier.
-- Mode mouvement réduit, variante sans visage photoréaliste, contrôle séparé
-  des sons brusques et rappel de contenu au premier lancement.
+- Mouvement réduit et volumes séparés : implémentés dans le menu personnel.
+  Retrait des images de visages : implémenté en 0.24.0. Le rappel de contenu
+  au premier lancement reste à étudier.
 - Sous-titres testés en contexte, pas seulement présents dans les fichiers de
   langue.
 
 ## Après 0.13.0 — multijoueur individualisé
 
-- Étendre prudemment le filtre de perception validé par le faux compagnon à une
-  variante de l'Hôte ou de l'Observateur, avec un budget distinct et des tests de
-  fuite réseau avant toute généralisation.
+- Variante personnelle de l'Hôte : implémentée pour les nouvelles scènes de
+  la 0.24.0 avec budget distinct ; les essais de fuite réseau à deux clients
+  restent nécessaires. Une variante personnelle de l'Observateur reste à étudier.
 - Évaluer des scènes où deux témoins reçoivent des versions contradictoires d'un
   même événement sans créer deux entités physiques concurrentes.
 - Clarifier tension individuelle, tension partagée et contenu coopératif via

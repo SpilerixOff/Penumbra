@@ -62,6 +62,7 @@ public final class AmbientFearManager {
     private static volatile float fovDriftFactor = 1.0f;
     /** 0.6.0 : dernier état vu par la coupure de musique (détection de transition). */
     private static TensionState lastMusicState = TensionState.CALM;
+    private static final SceneHush HUSH = new SceneHush();
 
     private AmbientFearManager() {
     }
@@ -87,7 +88,7 @@ public final class AmbientFearManager {
             activePlayer = player;
         }
         boolean audioEnabled = PenumbraConfig.get().improvedSoundsEnabled && player.isAlive()
-                && ClientComfort.ambientVolume(1.0f) > 0.0f;
+                && ClientComfort.ambientVolume(1.0f) > 0.0f && !HUSH.active();
         if (client.isPaused()) {
             AUDIO.tick(ClientTensionState.state(), audioEnabled, true);
             return; // Ni expiration de synchro, ni variation visuelle durant une vraie pause.
@@ -95,16 +96,18 @@ public final class AmbientFearManager {
         ClientTensionState.tick();
         TensionState state = ClientTensionState.state();
         AUDIO.tick(state, audioEnabled, false);
+        HUSH.tick();
         tickVeil(state);
         tickFovDrift(state);
         tickMusicCut(client, state);
-        // 0.17.0 : grain, lignes de balayage, rémanence et pulsation du voile.
+        // Grain, lignes de balayage et pulsation du voile ; aucune silhouette HUD.
         // Branché ici plutôt que sur un second abonné END_CLIENT_TICK.
         PerceptionLayer.tick(client, player, state);
     }
 
     private static void reset(boolean resetTension) {
         AUDIO.reset();
+        HUSH.reset();
         activeLevel = null;
         activePlayer = null;
         if (resetTension) {
@@ -123,6 +126,12 @@ public final class AmbientFearManager {
         fovDriftPhase = 0.0f;
         fovDriftFactor = 1.0f;
         PerceptionLayer.reset();
+    }
+
+    /** Preserve steps and cries: only our owned ambient loops are interrupted. */
+    public static void hush(int ticks) {
+        HUSH.begin(ticks);
+        if (HUSH.active()) AUDIO.reset();
     }
 
     /**

@@ -3,8 +3,11 @@ package fr.penumbra.entity.watcher;
 import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.entity.HostEntity;
+import fr.penumbra.entity.StareLunge;
 import fr.penumbra.network.PenumbraNetworking;
+import fr.penumbra.photo.PhotoEvidenceDetector;
 import fr.penumbra.registry.PenumbraParticles;
+import fr.penumbra.registry.PenumbraSounds;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -65,6 +68,11 @@ public class WatcherEntity extends Monster {
     /** Duree et tick de lunge encodes par {@link WatcherLunge}; 0 hors lunge. */
     private static final EntityDataAccessor<Integer> DATA_LUNGE_STATE =
             SynchedEntityData.defineId(WatcherEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_WINDUP =
+            SynchedEntityData.defineId(WatcherEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_RECOVERY =
+            SynchedEntityData.defineId(WatcherEntity.class, EntityDataSerializers.INT);
+    private static final int WINDUP_TICKS = 14;
 
     /** Rayon de suivi du joueur le plus proche (blocs). */
     private static final double TRACK_RADIUS = 48.0;
@@ -103,6 +111,7 @@ public class WatcherEntity extends Monster {
     private final Set<UUID> badgesGranted = new HashSet<>();
     /** Point de depart serveur de la trajectoire 3D (la cible finale suit le visage). */
     private Vec3 lungeStartPosition;
+    private Vec3 lungeTargetPosition;
 
     public WatcherEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -115,6 +124,8 @@ public class WatcherEntity extends Monster {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_LUNGE_STATE, 0);
+        builder.define(DATA_WINDUP, 0);
+        builder.define(DATA_RECOVERY, 0);
     }
 
     /** Vrai sur les deux cotes pendant la lunge synchronisee. */
@@ -125,6 +136,21 @@ public class WatcherEntity extends Monster {
     /** Progression 0-1 interpolee pour le render state client. */
     public float getLungeProgress(float partialTick) {
         return WatcherLunge.progress(this.entityData.get(DATA_LUNGE_STATE), partialTick);
+    }
+
+    public boolean isWindingUp() { return this.entityData.get(DATA_WINDUP) > 0; }
+    public boolean isRecovering() { return this.entityData.get(DATA_RECOVERY) > 0; }
+
+    public float getWindupProgress(float partialTick) {
+        int left = this.entityData.get(DATA_WINDUP);
+        return left <= 0 ? 0.0f : Mth.clamp((WINDUP_TICKS - left + partialTick)
+                / WINDUP_TICKS, 0.0f, 1.0f);
+    }
+
+    public float getRecoveryProgress(float partialTick) {
+        int elapsed = this.entityData.get(DATA_RECOVERY);
+        return elapsed <= 0 ? 0.0f : Mth.clamp((elapsed - 1 + partialTick)
+                / StareLunge.RECOVERY_TICKS, 0.0f, 1.0f);
     }
 
     /**
@@ -212,6 +238,11 @@ public class WatcherEntity extends Monster {
         if (!(this.level() instanceof ServerLevel level)) {
             return;
         }
+        // Death animation is not an active manifestation: cancel pending contact.
+        if (!this.isAlive() || this.isRemoved()) {
+            this.discard();
+            return;
+        }
         // Immobile : toute vélocité résiduelle est annulée chaque tick.
         this.setDeltaMovement(Vec3.ZERO);
 
@@ -234,6 +265,12 @@ public class WatcherEntity extends Monster {
 
         // La lunge est terminale et prioritaire : ni le timeout ni surtout la
         // regle de proximite ne doivent la couper lorsqu'elle arrive au visage.
+        if (this.isRecovering()) {
+            ServerPlayer owner = this.ownerPlayer(level);
+            if (owner == null) this.vanishInAsh(level);
+            else this.tickRecovery(level, owner);
+            return;
+        }
         if (this.isLunging()) {
             this.tickLunge(level);
             return;
@@ -351,28 +388,47 @@ public class WatcherEntity extends Monster {
                 + this.random.nextInt(WatcherLunge.MAX_DURATION_TICKS
                 - WatcherLunge.MIN_DURATION_TICKS + 1);
         this.lungeStartPosition = this.position();
+        Vec3 targetEye = owner.getEyePosition();
+        Vec3 fromFace = this.getEyePosition().subtract(targetEye);
+        if (fromFace.lengthSqr() < 1.0E-6) fromFace = owner.getLookAngle();
+        Vec3 endEye = targetEye.add(fromFace.normalize().scale(0.80));
+        // Commit at the beginning: stepping sideways must evade the final contact.
+        this.lungeTargetPosition = new Vec3(endEye.x, owner.getY(), endEye.z);
         // Un Observateur invoque sans proprietaire se lie au premier joueur qui
         // soutient son regard ; les apparitions normales conservent leur owner.
         this.setOwner(owner);
         this.stareProgress.clear();
         this.setNoGravity(true);
         this.setInvulnerable(true);
-        this.noPhysics = true;
+        this.noPhysics = false;
+        this.entityData.set(DATA_WINDUP, WINDUP_TICKS);
         this.entityData.set(DATA_LUNGE_STATE, WatcherLunge.pack(0, duration));
+        PenumbraNetworking.sendSceneHush(owner, WINDUP_TICKS + duration);
+        PenumbraNetworking.sendSoundPrioritySpatial(owner, PenumbraSounds.HOST_WHISPER,
+                this.getEyePosition(), 0.36f, 0.74f);
     }
 
     /**
-     * Avance d'un tick selon une smoothstep 3D vers un point a 70 cm du visage.
-     * La position finale suit le proprietaire s'il bouge, mais la direction reste
-     * issue du point de depart pour eviter les oscillations. Aucun goal, attaque ou
-     * collision n'est invoque pendant cette trajectoire.
+     * A short visible windup precedes a committed charge. The full swept body
+     * is checked at each step; a wall or a dodge prevents contact.
      */
     private void tickLunge(ServerLevel level) {
         ServerPlayer owner = this.ownerPlayer(level);
         if (owner == null || !owner.isAlive() || owner.isSpectator()
-                || owner.isRemoved() || owner.isSleeping()
-                || !this.hasLineOfSight(owner)) {
+                || owner.isRemoved() || owner.isSleeping()) {
             this.vanishInAsh(level);
+            return;
+        }
+
+        if (!this.hasLineOfSight(owner) || this.lungeStartPosition == null
+                || this.lungeTargetPosition == null) {
+            this.beginRecovery(owner);
+            return;
+        }
+        int windup = this.entityData.get(DATA_WINDUP);
+        if (windup > 0) {
+            this.entityData.set(DATA_WINDUP, windup - 1);
+            this.faceTowards(owner);
             return;
         }
 
@@ -381,29 +437,68 @@ public class WatcherEntity extends Monster {
         int elapsed = Math.min(duration, WatcherLunge.elapsedTicks(state) + 1);
         this.entityData.set(DATA_LUNGE_STATE, WatcherLunge.pack(elapsed, duration));
 
-        if (this.lungeStartPosition == null) {
-            this.lungeStartPosition = this.position();
-        }
-        Vec3 targetEye = owner.getEyePosition();
-        Vec3 startEye = this.lungeStartPosition.add(0.0, this.getEyeHeight(), 0.0);
-        Vec3 faceToStart = startEye.subtract(targetEye);
-        if (faceToStart.lengthSqr() < 1.0E-6) {
-            faceToStart = owner.getLookAngle();
-        }
-        Vec3 endEye = targetEye.add(faceToStart.normalize().scale(0.70));
-        Vec3 endFeet = endEye.subtract(0.0, this.getEyeHeight(), 0.0);
         double eased = WatcherLunge.easedProgress(elapsed, duration);
-        this.setPos(this.lungeStartPosition.lerp(endFeet, eased));
+        Vec3 next = this.lungeStartPosition.lerp(this.lungeTargetPosition, eased);
+        AABB swept = this.getBoundingBox().expandTowards(next.subtract(this.position()));
+        if (!level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ)) || !level.noCollision(this, swept)) {
+            this.beginRecovery(owner);
+            return;
+        }
+        this.setPos(next);
         this.setDeltaMovement(Vec3.ZERO);
         this.faceTowards(owner);
 
         if (elapsed >= duration) {
-            this.doHurtTarget(level, owner);
-            String type = PenumbraConfig.get().screamersEnabled
-                    ? "lunge_screamer" : "apparition";
-            PenumbraNetworking.sendJumpscare(owner, type, 1.0f);
-            this.vanishInAsh(level);
+            if (StareLunge.canContact(this.distanceToSqr(owner), this.hasLineOfSight(owner))) {
+                this.doHurtTarget(level, owner);
+                if (PenumbraConfig.get().jumpscareFrequency > 0.0f) {
+                    PenumbraNetworking.sendSoundPrioritySpatial(owner, PenumbraConfig.get().screamersEnabled
+                                    ? PenumbraSounds.SCREAMER_SHRIEK : PenumbraSounds.HOST_STINGER,
+                            this.getEyePosition(), 1.0f, 0.88f);
+                    PenumbraNetworking.sendJumpscare(owner, "impact", 1.0f);
+                }
+            }
+            this.beginRecovery(owner);
         }
+    }
+
+    /** The flash interrupts windup or charge and leaves a visible way out. */
+    public boolean repelByCamera(ServerPlayer photographer) {
+        if (photographer == null || !this.isAlive() || this.isRecovering()
+                || !this.isOwnedBy(photographer) || this.level() != photographer.level()
+                || !PhotoEvidenceDetector.canFlashReach(photographer, this)) return false;
+        this.beginRecovery(photographer);
+        return true;
+    }
+
+    private void beginRecovery(ServerPlayer owner) {
+        this.entityData.set(DATA_LUNGE_STATE, 0);
+        this.entityData.set(DATA_WINDUP, 0);
+        this.entityData.set(DATA_RECOVERY, 1);
+        this.stareProgress.clear();
+        this.setNoGravity(false);
+        this.noPhysics = false;
+        this.setInvulnerable(true);
+        this.setDeltaMovement(Vec3.ZERO);
+        this.faceTowards(owner);
+    }
+
+    private void tickRecovery(ServerLevel level, ServerPlayer owner) {
+        int elapsed = this.entityData.get(DATA_RECOVERY);
+        this.faceTowards(owner);
+        Vec3 step = StareLunge.retreatStep(this.position(), owner.position(), owner.getLookAngle(), elapsed);
+        Vec3 next = this.position().add(step);
+        AABB swept = this.getBoundingBox().expandTowards(step);
+        BlockPos ground = BlockPos.containing(next).below();
+        if (level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ)) && level.getBlockState(ground).isSolidRender()
+                && level.noCollision(this, swept) && level.getFluidState(BlockPos.containing(next)).isEmpty()) {
+            this.setPos(next);
+        }
+        this.setDeltaMovement(Vec3.ZERO);
+        if (elapsed >= StareLunge.RECOVERY_TICKS) this.vanishInAsh(level);
+        else this.entityData.set(DATA_RECOVERY, elapsed + 1);
     }
 
     /** Proprietaire present dans la dimension de cette manifestation, ou null. */

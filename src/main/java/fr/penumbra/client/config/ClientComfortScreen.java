@@ -60,7 +60,7 @@ public final class ClientComfortScreen extends Screen {
     protected void init() {
         panelWidth = Math.min(440, width - 16);
         panelLeft = (width - panelWidth) / 2;
-        panelTop = Math.max(0, (height - 180) / 2);
+        panelTop = Math.max(0, (height - 158) / 2);
         int presetWidth = (panelWidth - 8) / 3;
         addPreset("immersion", 0, presetWidth);
         addPreset("motion", 1, presetWidth);
@@ -68,20 +68,18 @@ public final class ClientComfortScreen extends Screen {
 
         int columnWidth = (panelWidth - 8) / 2;
         toggle("motion", 0, 0, columnWidth, draft.reduceMotion, value -> draft.reduceMotion = value);
-        toggle("faces", 1, 0, columnWidth, draft.hideFaces, value -> draft.hideFaces = value);
-        toggle("flashes", 0, 1, columnWidth, draft.blockFlashes, value -> draft.blockFlashes = value);
-        toggle("grain", 1, 1, columnWidth, draft.grainEnabled, value -> draft.grainEnabled = value);
-        toggle("afterimages", 0, 2, columnWidth, draft.afterimagesEnabled, value -> draft.afterimagesEnabled = value);
-        toggle("flicker", 1, 2, columnWidth, draft.lightFlickerEnabled, value -> draft.lightFlickerEnabled = value);
-        addRenderableWidget(new VolumeSlider(panelLeft, panelTop + 124, columnWidth, "sudden",
+        toggle("flashes", 1, 0, columnWidth, draft.blockFlashes, value -> draft.blockFlashes = value);
+        toggle("grain", 0, 1, columnWidth, draft.grainEnabled, value -> draft.grainEnabled = value);
+        toggle("flicker", 1, 1, columnWidth, draft.lightFlickerEnabled, value -> draft.lightFlickerEnabled = value);
+        addRenderableWidget(new VolumeSlider(panelLeft, panelTop + 102, columnWidth, "sudden",
                 draft.suddenSoundVolume, value -> draft.suddenSoundVolume = value));
-        addRenderableWidget(new VolumeSlider(panelLeft + columnWidth + 8, panelTop + 124, columnWidth, "ambient",
+        addRenderableWidget(new VolumeSlider(panelLeft + columnWidth + 8, panelTop + 102, columnWidth, "ambient",
                 draft.ambientSoundVolume, value -> draft.ambientSoundVolume = value));
 
         addRenderableWidget(Button.builder(text("apply"), button -> apply())
-                .bounds(panelLeft, panelTop + 158, columnWidth, 20).build());
+                .bounds(panelLeft, panelTop + 136, columnWidth, 20).build());
         addRenderableWidget(Button.builder(text("cancel"), button -> onClose())
-                .bounds(panelLeft + columnWidth + 8, panelTop + 158, columnWidth, 20).build());
+                .bounds(panelLeft + columnWidth + 8, panelTop + 136, columnWidth, 20).build());
     }
 
     private void addPreset(String preset, int column, int buttonWidth) {
@@ -130,8 +128,8 @@ public final class ClientComfortScreen extends Screen {
         graphics.centeredText(font, title, width / 2, panelTop + 8, 0xFFF1E8D8);
         graphics.centeredText(font, text("local"), width / 2, panelTop + 21, 0xFFB7B7B7);
         if (!error.getString().isEmpty()) {
-            graphics.centeredText(font, error, width / 2, panelTop + 146, 0xFFFFA5A5);
-            if (mouseY >= panelTop + 144 && mouseY < panelTop + 158 && errorDetail != null) {
+            graphics.centeredText(font, error, width / 2, panelTop + 124, 0xFFFFA5A5);
+            if (mouseY >= panelTop + 122 && mouseY < panelTop + 136 && errorDetail != null) {
                 graphics.setTooltipForNextFrame(error.copy().append("\n").append(errorDetail), mouseX, mouseY);
             }
         }

@@ -125,11 +125,25 @@ public final class PenumbraNetworking {
         }
     }
 
-    /** Enregistre les trois payloads en phase play, sens serveur → client. */
+    /** Briefly ducks only Penumbra's ambient bed; entity audio remains spatial. */
+    public record SceneHushS2CPacket(int ticks) implements CustomPacketPayload {
+        public SceneHushS2CPacket { ticks = Math.max(0, Math.min(60, ticks)); }
+        public static final Type<SceneHushS2CPacket> TYPE = new Type<>(PenumbraMod.id("scene_hush"));
+        public static final StreamCodec<? super RegistryFriendlyByteBuf, SceneHushS2CPacket> CODEC =
+                StreamCodec.composite(ByteBufCodecs.VAR_INT, SceneHushS2CPacket::ticks, SceneHushS2CPacket::new);
+        @Override public Type<SceneHushS2CPacket> type() { return TYPE; }
+    }
+
+    public static void sendSceneHush(ServerPlayer player, int ticks) {
+        ServerPlayNetworking.send(player, new SceneHushS2CPacket(ticks));
+    }
+
+    /** Enregistre les payloads en phase play, sens serveur → client. */
     public static void registerPayloads() {
         PayloadTypeRegistry.clientboundPlay().register(HorrorSoundS2CPacket.TYPE, HorrorSoundS2CPacket.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(JumpscareS2CPacket.TYPE, JumpscareS2CPacket.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(TensionSyncS2CPacket.TYPE, TensionSyncS2CPacket.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SceneHushS2CPacket.TYPE, SceneHushS2CPacket.CODEC);
     }
 
     /** Envoie l'état de tension courant à un joueur (couche ambiante client, 0.5.0). */
@@ -201,6 +215,18 @@ public final class PenumbraNetworking {
     public static void sendSoundDirect(ServerPlayer listener, SoundEvent sound, Vec3 pos,
                                        float volume, float pitch) {
         sendSoundDirect(listener, listener, sound, pos, volume, pitch);
+    }
+
+    /** An individual physical impact keeps its origin and bypasses the ambient budget. */
+    public static void sendSoundDirectPriority(ServerPlayer listener, SoundEvent sound, Vec3 pos,
+                                               float volume, float pitch) {
+        SoundParameters parameters = sanitizeSound(sound, pos, volume, pitch);
+        if (parameters == null) return;
+        if (SOUND_GATE.tryAcquire(listener.level().dimension().identifier(), listener.getUUID(),
+                listener.getUUID(), sound.location(), pos, parameters.volume(), parameters.pitch(),
+                listener.level().getGameTime(), true)) {
+            sendPacket(listener, sound, pos, parameters.volume(), parameters.pitch(), true);
+        }
     }
 
     /** Son individuel dont la vraie source reste distincte de l'auditeur. */
@@ -372,6 +398,7 @@ public final class PenumbraNetworking {
             ScreamerHabituation.recordFace(player.getUUID(), gameTime);
         }
         ServerPlayNetworking.send(player, new JumpscareS2CPacket(scareType, clamped));
+        if ("impact".equals(scareType)) return; // Entity already emitted its physical sound.
         SoundEvent nearbySound;
         float volume = clamped;
         float pitch = 1.0f;
@@ -385,7 +412,7 @@ public final class PenumbraNetworking {
             }
             case "screamer", "lunge_screamer", "rampant_screamer",
                     "absent_screamer", "chorus_screamer", "refuge_screamer",
-                    "mimic_screamer" -> {
+                    "mimic_screamer", "listener_screamer" -> {
                 nearbySound = config.screamersEnabled
                         ? PenumbraSounds.SCREAMER_SHRIEK : PenumbraSounds.HOST_STINGER;
                 // Le client auditeur applique son plafond jumpscareVolume une seule
@@ -402,14 +429,14 @@ public final class PenumbraNetworking {
     }
 
     static boolean isKnownJumpscare(String scareType) {
-        return "sting".equals(scareType) || "fake_creeper".equals(scareType)
+        return "impact".equals(scareType) || "sting".equals(scareType) || "fake_creeper".equals(scareType)
                 || "apparition".equals(scareType) || "screamer".equals(scareType)
                 || "lunge_screamer".equals(scareType)
                 || "rampant_screamer".equals(scareType)
                 || "absent_screamer".equals(scareType)
                 || "chorus_screamer".equals(scareType)
                 || "refuge_screamer".equals(scareType)
-                || "mimic_screamer".equals(scareType);
+                || "mimic_screamer".equals(scareType) || "listener_screamer".equals(scareType);
     }
 
     static float sanitizeJumpscareIntensity(float intensity) {

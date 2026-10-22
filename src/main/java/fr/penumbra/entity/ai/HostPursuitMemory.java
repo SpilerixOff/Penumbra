@@ -31,4 +31,11 @@ final class HostPursuitMemory {
     boolean escaped() {
         return unseenTicks >= LOST_SIGHT_TICKS;
     }
+
+    /** Reaching the last known corner ends movement, rather than retrying an exhausted path. */
+    boolean searchPointReached(double x, double y, double z) {
+        if (lastSeen == null || unseenTicks == 0) return false;
+        double dx = x - lastSeen.x(), dy = y - lastSeen.y(), dz = z - lastSeen.z();
+        return dx * dx + dy * dy + dz * dz <= 1.5 * 1.5;
+    }
 }

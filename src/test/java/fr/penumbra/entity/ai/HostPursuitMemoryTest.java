@@ -46,4 +46,16 @@ class HostPursuitMemoryTest {
         memory.observe(true, Double.NaN, 64, 3);
         assertNull(memory.lastSeen());
     }
+
+    @Test
+    void reachingTheLastCornerStopsSearchingButReappearingStartsMovementAgain() {
+        HostPursuitMemory memory = new HostPursuitMemory();
+        memory.observe(true, 10, 64, 10);
+        assertFalse(memory.searchPointReached(10, 64, 10));
+        memory.observe(false, 70, 64, 70);
+        assertFalse(memory.searchPointReached(8, 64, 10));
+        assertTrue(memory.searchPointReached(9, 64, 10));
+        memory.observe(true, 12, 64, 10);
+        assertFalse(memory.searchPointReached(12, 64, 10));
+    }
 }

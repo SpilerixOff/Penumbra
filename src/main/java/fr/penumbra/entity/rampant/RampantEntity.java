@@ -2,6 +2,7 @@ package fr.penumbra.entity.rampant;
 
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.network.PenumbraNetworking;
+import fr.penumbra.photo.PhotoEvidenceDetector;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -56,8 +57,10 @@ public final class RampantEntity extends Monster {
             SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_ATTACHMENT =
             SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_AMBUSH_WARNING =
+            SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.BOOLEAN);
 
-    private static final int MAX_LIFETIME_TICKS = 20 * 75;
+    private static final int MAX_LIFETIME_TICKS = 20 * 45;
     private static final int LIGHT_ESCAPE_TICKS = 20 * 5;
     private static final int BLOCK_LIGHT_LIMIT = 7;
     private static final int TARGET_SCAN_INTERVAL = 10;
@@ -69,7 +72,6 @@ public final class RampantEntity extends Monster {
     private static final double TERRITORY_RADIUS = 30.0;
     private static final double LEAP_MIN_DISTANCE = 2.4;
     private static final double LEAP_MAX_DISTANCE = 8.0;
-    private static final double LEAP_HIT_DISTANCE = 1.65;
 
     private UUID ownerUuid;
     private BlockPos home = BlockPos.ZERO;
@@ -79,7 +81,12 @@ public final class RampantEntity extends Monster {
     private int lifetimeTicks;
     private int attackCooldown;
     private int brightTicks;
-    private boolean firstScreamerTriggered;
+    private boolean firstImpactTriggered;
+    private final RampantBehavior.Ambush ambush = new RampantBehavior.Ambush();
+    private final RampantBehavior.Pursuit pursuit = new RampantBehavior.Pursuit();
+    private boolean retreating;
+    private boolean dropAttackArmed;
+    private Vec3 retreatPoint;
     private Vec3 attachmentPosition;
     private Vec3 surfaceStartPosition;
     private int surfaceDirection = 1;
@@ -99,6 +106,7 @@ public final class RampantEntity extends Monster {
         super.defineSynchedData(builder);
         builder.define(DATA_PHASE, PHASE_HUNTING);
         builder.define(DATA_ATTACHMENT, ATTACHMENT_FLOOR);
+        builder.define(DATA_AMBUSH_WARNING, false);
     }
 
     public static AttributeSupplier.Builder createRampantAttributes() {
@@ -145,6 +153,8 @@ public final class RampantEntity extends Monster {
         return getRampantPhase() == PHASE_CLINGING;
     }
 
+    public boolean isAmbushWarning() { return this.entityData.get(DATA_AMBUSH_WARNING); }
+
     public boolean isLeaping() {
         return getRampantPhase() == PHASE_LEAPING;
     }
@@ -167,6 +177,7 @@ public final class RampantEntity extends Monster {
         this.target = owner;
         this.home = territoryHome.immutable();
         this.attachmentPosition = position;
+        this.pursuit.reset();
         this.entityData.set(DATA_ATTACHMENT, Mth.clamp(
                 attachment, ATTACHMENT_CEILING, ATTACHMENT_EAST));
         setPhase(PHASE_CLINGING);
@@ -175,7 +186,7 @@ public final class RampantEntity extends Monster {
         this.noPhysics = true;
         this.setInvulnerable(true);
         this.setDeltaMovement(Vec3.ZERO);
-        this.setTarget(owner);
+        this.setTarget(this.retreating ? null : owner);
     }
 
     @Override
@@ -185,7 +196,7 @@ public final class RampantEntity extends Monster {
         this.lifetimeTicks = Math.max(0, input.getIntOr("PenumbraLifetime", 0));
         this.attackCooldown = Math.max(0, input.getIntOr("PenumbraAttackCooldown", 0));
         this.brightTicks = Math.max(0, input.getIntOr("PenumbraBrightTicks", 0));
-        this.firstScreamerTriggered = input.getIntOr("PenumbraScreamer", 0) != 0;
+        this.firstImpactTriggered = input.getIntOr("PenumbraScreamer", 0) != 0;
         this.surfaceDirection = input.getIntOr("PenumbraSurfaceDirection", 1) < 0 ? -1 : 1;
         this.reperchRequested = input.getIntOr("PenumbraReperch", 0) != 0;
         this.entityData.set(DATA_PHASE, Mth.clamp(input.getIntOr(
@@ -220,7 +231,7 @@ public final class RampantEntity extends Monster {
         output.putInt("PenumbraLifetime", this.lifetimeTicks);
         output.putInt("PenumbraAttackCooldown", this.attackCooldown);
         output.putInt("PenumbraBrightTicks", this.brightTicks);
-        output.putInt("PenumbraScreamer", this.firstScreamerTriggered ? 1 : 0);
+        output.putInt("PenumbraScreamer", this.firstImpactTriggered ? 1 : 0);
         output.putInt("PenumbraSurfaceDirection", this.surfaceDirection);
         output.putInt("PenumbraReperch", this.reperchRequested ? 1 : 0);
         output.putInt("PenumbraPhase", getRampantPhase());
@@ -249,6 +260,10 @@ public final class RampantEntity extends Monster {
         if (!(this.level() instanceof ServerLevel level)) {
             return;
         }
+        if (!this.isAlive() || this.isRemoved()) {
+            this.discard();
+            return;
+        }
         if (level.getDifficulty() == Difficulty.PEACEFUL
                 || !PenumbraConfig.get().undergroundEventsEnabled) {
             this.discard();
@@ -269,7 +284,7 @@ public final class RampantEntity extends Monster {
             return;
         }
         this.target = owner;
-        this.setTarget(owner);
+        this.setTarget(this.retreating ? null : owner);
 
         double ownerFromHome = owner.position().distanceToSqr(Vec3.atCenterOf(this.home));
         if (ownerFromHome > TRACK_RADIUS * TRACK_RADIUS) {
@@ -277,10 +292,17 @@ public final class RampantEntity extends Monster {
             return;
         }
 
+        if (!isClinging() && getRampantPhase() != PHASE_FLEEING_LIGHT) {
+            this.pursuit.observe(this.hasLineOfSight(owner), owner.getX(), owner.getY(), owner.getZ());
+            if (this.pursuit.exhausted()) {
+                beginRetreat(owner);
+            }
+        }
+
         this.phaseTicks++;
         switch (getRampantPhase()) {
             case PHASE_CLINGING -> tickClinging(level, owner);
-            case PHASE_DROPPING -> tickDropping();
+            case PHASE_DROPPING -> tickDropping(level, owner);
             case PHASE_LEAPING -> tickLeaping(level, owner);
             case PHASE_FLEEING_LIGHT -> tickFleeingLight(level, owner);
             case PHASE_CLIMBING -> tickClimbing(level, owner);
@@ -294,7 +316,7 @@ public final class RampantEntity extends Monster {
         }
         this.setPos(this.attachmentPosition);
         this.setDeltaMovement(Vec3.ZERO);
-        this.getLookControl().setLookAt(owner, 180.0f, 180.0f);
+        // Stay fixed in the cave: no head tracking of a player behind a wall.
 
         Direction surface = attachmentDirection(getAttachment());
         if (surface == null || !supportsSurface(level, this.attachmentPosition, surface)) {
@@ -307,11 +329,24 @@ public final class RampantEntity extends Monster {
             this.brightTicks = 1;
             return;
         }
-        if (this.phaseTicks == 12) {
-            this.playSound(SoundEvents.SPIDER_AMBIENT, 0.8f, 0.42f);
+        if (this.phaseTicks == 20 || this.phaseTicks % 100 == 0) {
+            PenumbraNetworking.sendSoundPrioritySpatial(owner, SoundEvents.SPIDER_STEP,
+                    this.position(), 0.24f, 0.6f);
         }
-        if (RampantBehavior.shouldRelease(this.phaseTicks, this.distanceToSqr(owner))) {
-            releaseFromSurface();
+        Vec3 delta = owner.position().subtract(this.position());
+        boolean inZone = RampantBehavior.inAmbushZone(getAttachment() == ATTACHMENT_CEILING,
+                delta.x, delta.y, delta.z, this.hasLineOfSight(owner));
+        RampantBehavior.AmbushDecision decision = this.ambush.tick(this.phaseTicks, inZone);
+        this.entityData.set(DATA_AMBUSH_WARNING, this.ambush.warning());
+        switch (decision) {
+            case WARN -> PenumbraNetworking.sendSoundPrioritySpatial(owner, SoundEvents.SPIDER_AMBIENT,
+                    this.position(), 0.42f, 0.48f);
+            case RELEASE -> {
+                releaseFromSurface();
+                this.dropAttackArmed = true;
+            }
+            case EXPIRE -> this.discard();
+            default -> { }
         }
     }
 
@@ -325,11 +360,18 @@ public final class RampantEntity extends Monster {
         this.setInvulnerable(true);
         clearClimbApproach();
         this.setDeltaMovement(away);
+        if (isClinging()) this.pursuit.reset();
         setPhase(PHASE_DROPPING);
         this.playSound(SoundEvents.SPIDER_STEP, 0.9f, 0.55f);
     }
 
-    private void tickDropping() {
+    private void tickDropping(ServerLevel level, ServerPlayer owner) {
+        if (this.dropAttackArmed && this.phaseTicks >= 4
+                && this.getBoundingBox().inflate(0.3).intersects(owner.getBoundingBox())
+                && this.hasLineOfSight(owner)) {
+            hitAfterLeap(level, owner);
+            return;
+        }
         if (this.onGround() || this.phaseTicks >= 24) {
             this.setInvulnerable(false);
             this.entityData.set(DATA_ATTACHMENT, ATTACHMENT_FLOOR);
@@ -357,7 +399,8 @@ public final class RampantEntity extends Monster {
             return;
         }
 
-        double verticalDelta = owner.getY() - this.getY();
+        Vec3 remembered = pursuitPoint();
+        double verticalDelta = remembered.y - this.getY();
         if (this.phaseTicks >= 90) {
             // Une chasse au sol trop longue se termine par un retour en hauteur,
             // même si aucune attaque n'a encore porté.
@@ -372,9 +415,14 @@ public final class RampantEntity extends Monster {
             clearClimbApproach();
         }
 
-        this.getLookControl().setLookAt(owner, 120.0f, 120.0f);
+        this.getLookControl().setLookAt(remembered.x, remembered.y + 0.8, remembered.z, 120.0f, 120.0f);
         if (this.tickCount % REPATH_INTERVAL == 0) {
-            this.getNavigation().moveTo(owner, 1.38);
+            if (this.position().distanceToSqr(remembered) <= 1.0
+                    || !level.isLoaded(BlockPos.containing(remembered))) {
+                this.getNavigation().stop();
+            } else {
+                this.getNavigation().moveTo(remembered.x, remembered.y, remembered.z, 1.38);
+            }
         }
 
         double distanceSqr = this.distanceToSqr(owner);
@@ -420,8 +468,9 @@ public final class RampantEntity extends Monster {
     }
 
     private void tickLeaping(ServerLevel level, ServerPlayer owner) {
-        this.getLookControl().setLookAt(owner, 180.0f, 180.0f);
-        if (this.distanceToSqr(owner) <= LEAP_HIT_DISTANCE * LEAP_HIT_DISTANCE) {
+        // The velocity was committed at launch; cover and sidestepping can defeat the leap.
+        if (this.getBoundingBox().inflate(0.3).intersects(owner.getBoundingBox())
+                && this.hasLineOfSight(owner)) {
             hitAfterLeap(level, owner);
             return;
         }
@@ -436,12 +485,13 @@ public final class RampantEntity extends Monster {
 
     private void hitAfterLeap(ServerLevel level, ServerPlayer owner) {
         this.doHurtTarget(level, owner);
-        this.playSound(SoundEvents.SPIDER_DEATH, 1.0f, 0.50f);
-        if (!this.firstScreamerTriggered) {
-            this.firstScreamerTriggered = true;
-            String type = PenumbraConfig.get().screamersEnabled
-                    ? "rampant_screamer" : "apparition";
-            PenumbraNetworking.sendJumpscare(owner, type, 0.90f);
+        if (PenumbraConfig.get().jumpscareFrequency > 0.0f) {
+            PenumbraNetworking.sendSoundPrioritySpatial(owner, SoundEvents.SPIDER_DEATH,
+                    this.position(), 0.9f, 0.50f);
+            if (!this.firstImpactTriggered) {
+                this.firstImpactTriggered = true;
+                PenumbraNetworking.sendJumpscare(owner, "impact", 0.75f);
+            }
         }
         this.attackCooldown = 50;
         this.reperchRequested = true;
@@ -491,7 +541,8 @@ public final class RampantEntity extends Monster {
         this.climbApproachExpiresAt = this.tickCount + 60;
         Vec3 targetPosition = Vec3.atBottomCenterOf(start.air());
         this.getNavigation().moveTo(targetPosition.x, targetPosition.y, targetPosition.z, 1.42);
-        this.getLookControl().setLookAt(owner, 120.0f, 120.0f);
+        Vec3 remembered = pursuitPoint();
+        this.getLookControl().setLookAt(remembered.x, remembered.y + 0.8, remembered.z, 120.0f, 120.0f);
         return true;
     }
 
@@ -513,7 +564,7 @@ public final class RampantEntity extends Monster {
         this.setInvulnerable(false);
         this.entityData.set(DATA_ATTACHMENT, attachmentFor(wall));
         this.surfaceDirection = RampantSurfaceMotion.chooseWallDirection(
-                owner.getY() - this.getY(), this.surfaceDirection, this.reperchRequested);
+                pursuitPoint().y - this.getY(), this.surfaceDirection, this.reperchRequested);
         this.surfaceStartPosition = this.position();
         this.surfaceMoveFailures = 0;
         setPhase(PHASE_CLIMBING);
@@ -527,7 +578,8 @@ public final class RampantEntity extends Monster {
         this.setNoGravity(true);
         this.noPhysics = true;
         this.setInvulnerable(false);
-        this.getLookControl().setLookAt(owner, 180.0f, 180.0f);
+        Vec3 remembered = pursuitPoint();
+        this.getLookControl().setLookAt(remembered.x, remembered.y + 0.8, remembered.z, 180.0f, 180.0f);
 
         Direction surface = attachmentDirection(getAttachment());
         if (surface == null || !supportsSurface(level, this.position(), surface)) {
@@ -553,7 +605,7 @@ public final class RampantEntity extends Monster {
 
     private void tickWallClimb(ServerLevel level, ServerPlayer owner, Direction wall) {
         this.surfaceDirection = RampantSurfaceMotion.chooseWallDirection(
-                owner.getY() - this.getY(), this.surfaceDirection, this.reperchRequested);
+                pursuitPoint().y - this.getY(), this.surfaceDirection, this.reperchRequested);
         RampantSurfaceMotion.Step pureStep =
                 RampantSurfaceMotion.wallStep(this.surfaceDirection);
         Vec3 step = new Vec3(pureStep.x(), pureStep.y(), pureStep.z());
@@ -569,7 +621,7 @@ public final class RampantEntity extends Monster {
             }
             double travelled = surfaceTravelled();
             if (RampantSurfaceMotion.shouldPerch(this.phaseTicks, travelled,
-                    owner.getY() - this.getY(), this.reperchRequested)) {
+                    pursuitPoint().y - this.getY(), this.reperchRequested)) {
                 perchOnCurrentSurface();
             }
             return;
@@ -592,8 +644,9 @@ public final class RampantEntity extends Monster {
     }
 
     private void tickCeilingCrawl(ServerLevel level, ServerPlayer owner) {
+        Vec3 remembered = pursuitPoint();
         RampantSurfaceMotion.Step desired = RampantSurfaceMotion.ceilingStep(
-                owner.getX() - this.getX(), owner.getZ() - this.getZ());
+                remembered.x - this.getX(), remembered.z - this.getZ());
         if (desired.length() < 1.0E-7) {
             perchOnCurrentSurface();
             return;
@@ -619,7 +672,7 @@ public final class RampantEntity extends Monster {
             this.playSound(SoundEvents.SPIDER_STEP, 0.52f, 0.78f);
         }
         if (RampantSurfaceMotion.shouldPerch(this.phaseTicks, surfaceTravelled(),
-                owner.getY() - this.getY(), this.reperchRequested)) {
+                remembered.y - this.getY(), this.reperchRequested)) {
             perchOnCurrentSurface();
         }
     }
@@ -784,6 +837,16 @@ public final class RampantEntity extends Monster {
     }
 
     private void tickFleeingLight(ServerLevel level, ServerPlayer owner) {
+        if (this.retreating) {
+            if (this.phaseTicks >= 60) {
+                this.discard();
+            } else if (this.tickCount % REPATH_INTERVAL == 0 && this.retreatPoint != null
+                    && level.isLoaded(BlockPos.containing(this.retreatPoint))) {
+                this.getNavigation().moveTo(this.retreatPoint.x, this.retreatPoint.y,
+                        this.retreatPoint.z, 1.3);
+            }
+            return;
+        }
         this.brightTicks++;
         if (this.brightTicks > LIGHT_ESCAPE_TICKS
                 || level.canSeeSky(this.blockPosition().above())) {
@@ -844,6 +907,42 @@ public final class RampantEntity extends Monster {
         return this.level().getBrightness(LightLayer.BLOCK, this.blockPosition());
     }
 
+    /** Camera counterplay detaches the real creature and ends this pursuit. */
+    public boolean repelByCamera(ServerPlayer player) {
+        if (!isOwnedBy(player) || !this.isAlive() || this.retreating
+                || player.level() != this.level() || !player.isAlive() || player.isSpectator()
+                || !PhotoEvidenceDetector.canFlashReach(player, this)) {
+            return false;
+        }
+        beginRetreat(player);
+        PenumbraNetworking.sendSoundPrioritySpatial(player, SoundEvents.SPIDER_HURT,
+                this.position(), 0.7f, 0.58f);
+        return true;
+    }
+
+    private Vec3 pursuitPoint() {
+        RampantBehavior.Pursuit.Position point = this.pursuit.lastSeen();
+        return point == null ? this.position() : new Vec3(point.x(), point.y(), point.z());
+    }
+
+    private void beginRetreat(ServerPlayer owner) {
+        if (this.retreating) return;
+        Vec3 away = this.position().subtract(owner.position()).multiply(1.0, 0.0, 1.0);
+        if (away.lengthSqr() < 1.0E-5) away = new Vec3(1.0, 0.0, 0.0);
+        away = away.normalize();
+        this.retreatPoint = this.position().add(away.scale(6.0));
+        this.retreating = true;
+        this.noPhysics = false;
+        this.setNoGravity(false);
+        this.setInvulnerable(false);
+        this.getNavigation().stop();
+        this.setTarget(null);
+        clearClimbApproach();
+        this.entityData.set(DATA_ATTACHMENT, ATTACHMENT_FLOOR);
+        this.setDeltaMovement(away.x * 0.32, this.onGround() ? 0.18 : -0.18, away.z * 0.32);
+        setPhase(PHASE_FLEEING_LIGHT);
+    }
+
     private ServerPlayer owner(ServerLevel level) {
         if (this.ownerUuid == null) {
             return null;
@@ -854,6 +953,9 @@ public final class RampantEntity extends Monster {
 
     private void setPhase(int phase) {
         this.entityData.set(DATA_PHASE, phase);
+        this.entityData.set(DATA_AMBUSH_WARNING, false);
+        if (phase != PHASE_DROPPING) this.dropAttackArmed = false;
+        if (phase == PHASE_CLINGING) this.ambush.reset();
         this.phaseTicks = 0;
     }
 

@@ -135,7 +135,15 @@ public final class RampantModel extends EntityModel<RampantRenderState> {
         this.head.xRot = state.xRot * Mth.DEG_TO_RAD * 0.25f;
 
         switch (state.phase) {
-            case RampantEntity.PHASE_CLINGING -> poseClinging(time, state.phaseTicks);
+            case RampantEntity.PHASE_CLINGING -> {
+                poseClinging(time, state.phaseTicks);
+                if (state.ambushWarning) {
+                    this.body.y += 0.9f;
+                    this.frontRightLower.xRot -= 0.3f;
+                    this.frontLeftLower.xRot -= 0.3f;
+                    this.head.xRot -= 0.2f;
+                }
+            }
             case RampantEntity.PHASE_CLIMBING -> poseClimbing(time, state.attachment);
             case RampantEntity.PHASE_DROPPING -> poseDropping(time, state.phaseTicks);
             case RampantEntity.PHASE_LEAPING -> poseLeaping(time, state.phaseTicks);

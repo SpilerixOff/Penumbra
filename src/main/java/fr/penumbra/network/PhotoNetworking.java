@@ -3,6 +3,10 @@ package fr.penumbra.network;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.sequence.LinkedSceneManager;
+import fr.penumbra.director.encounter.PhysicalEncounterManager;
+import fr.penumbra.entity.HostEntity;
+import fr.penumbra.entity.watcher.WatcherEntity;
+import fr.penumbra.entity.rampant.RampantEntity;
 import fr.penumbra.entity.fauxmob.FauxMobManager;
 import fr.penumbra.entity.projectionist.ProjectionistEntity;
 import fr.penumbra.story.ConfrontationManager;
@@ -487,6 +491,16 @@ public final class PhotoNetworking {
                             target.photographed() ? 0.85f : 0.58f,
                             target.photographed() ? 0.54f : 0.68f);
                 }
+            }
+        }
+        for (var target : PhotoEvidenceDetector.detectPhysicalFlashTargets(player)) {
+            if (target instanceof HostEntity host && host.repelByCamera(player)) {
+                fr.penumbra.director.HorrorDirector.onChaseRepelled(player, host);
+                PhysicalEncounterManager.onPhotographed(player, host);
+            } else if (target instanceof WatcherEntity watcher) {
+                watcher.repelByCamera(player);
+            } else if (target instanceof RampantEntity rampant) {
+                rampant.repelByCamera(player);
             }
         }
         LinkedSceneManager.onCameraFlash(player);

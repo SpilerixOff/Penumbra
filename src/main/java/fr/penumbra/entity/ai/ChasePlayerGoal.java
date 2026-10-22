@@ -2,6 +2,7 @@ package fr.penumbra.entity.ai;
 
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.HorrorDirector;
+import fr.penumbra.director.encounter.PhysicalEncounterManager;
 import fr.penumbra.entity.HostBehavior;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.network.PenumbraNetworking;
@@ -27,7 +28,7 @@ import net.minecraft.world.phys.Vec3;
  *       (HOST_STEP rapprochés + avancée au ralenti) — la seule attaque de mêlée
  *       du mod ; {@code MeleeAttackGoal} reste bloqué par les flags MOVE|LOOK
  *       de ce goal pendant toute la poursuite ;</li>
- *   <li>abandon si distance &gt; 48 blocs pendant 100 ticks ou durée &gt; 1200 ticks
+ *   <li>abandon si distance &gt; 48 blocs pendant 100 ticks ou durée &gt; 240 ticks
  *       → {@code HorrorDirector.endChase(player, random &lt; 0.4)}.</li>
  * </ul>
  */
@@ -46,7 +47,7 @@ public class ChasePlayerGoal extends Goal {
     /** Intervalle maximal entre deux recalculs de chemin. */
     private static final int REPATH_TICKS = 10;
     /** Durée maximale d'une poursuite avant abandon. */
-    private static final int MAX_CHASE_TICKS = 1200;
+    private static final int MAX_CHASE_TICKS = 240;
     /** Distance au-delà de laquelle l'abandon se cumule. */
     private static final double FAR_DISTANCE = 48.0;
     /** Ticks consécutifs au-delà de FAR_DISTANCE avant abandon. */
@@ -159,8 +160,8 @@ public class ChasePlayerGoal extends Goal {
         this.chaseTicks++;
 
         // Abandons intelligents : durée maximale, ou cible hors zone chargée.
-        if (this.chaseTicks > MAX_CHASE_TICKS || !serverLevel.isLoaded(this.target.blockPosition())) {
-            abandon(serverLevel);
+        if (this.chaseTicks >= MAX_CHASE_TICKS || !serverLevel.isLoaded(this.target.blockPosition())) {
+            abandon(serverLevel, false);
             return;
         }
         double distance = this.host.distanceTo(this.target);
@@ -213,7 +214,7 @@ public class ChasePlayerGoal extends Goal {
         int pursuitTicks = Math.max(0, this.chaseTicks - STAGING_TICKS);
         double ramp = Math.min(1.0, pursuitTicks / (double) RAMP_TICKS);
         double speed = SPEED_START + (SPEED_END - SPEED_START) * ramp;
-        if (--this.repathCooldown <= 0 || this.host.getNavigation().isDone()) {
+        if (--this.repathCooldown <= 0) {
             this.repathCooldown = REPATH_TICKS;
             moveTowardLastSeen(serverLevel, speed);
         }
@@ -278,6 +279,12 @@ public class ChasePlayerGoal extends Goal {
     }
 
     private void abandon(ServerLevel serverLevel, boolean fakeRetreat) {
+        // Directed private scenes own their recoil and cleanup; generic endChase
+        // could otherwise teleport this actor or broadcast its disappearance.
+        if (PhysicalEncounterManager.finishChase(this.target, this.host)) {
+            this.host.getNavigation().stop();
+            return;
+        }
         HorrorDirector.endChase(this.target, fakeRetreat);
         this.host.setBehavior(fakeRetreat ? HostBehavior.HIDING : HostBehavior.COOLDOWN);
         this.host.getNavigation().stop();
@@ -293,21 +300,27 @@ public class ChasePlayerGoal extends Goal {
 
     private void moveTowardLastSeen(ServerLevel level, double speed) {
         HostPursuitMemory.Position seen = this.memory.lastSeen();
-        if (seen == null) {
+        if (seen == null || this.memory.searchPointReached(
+                this.host.getX(), this.host.getY(), this.host.getZ())) {
             this.host.getNavigation().stop();
         } else {
             moveToward(level, seen.x(), seen.y(), seen.z(), speed);
         }
     }
 
-    /** HOST_STEP positionné, audible par tout joueur assez proche de l'Hôte. */
+    /** A private Host's steps must share the same owner-only audience as its body. */
     private void playStepSound(ServerLevel serverLevel) {
         Vec3 pos = this.host.position();
         float volume = Math.min(1.0f, 0.6f + 0.02f * this.telegraphTicks);
         float pitch = 0.9f + 0.01f * this.telegraphTicks;
         if (this.target.distanceTo(this.host) <= STEP_SOUND_RANGE) {
-            PenumbraNetworking.sendSound(
-                    this.target, PenumbraSounds.HOST_STEP, pos, volume, pitch);
+            if (this.host.isPrivateToOwner()) {
+                PenumbraNetworking.sendSoundDirectPriority(
+                        this.target, PenumbraSounds.HOST_STEP, pos, volume, pitch);
+            } else {
+                PenumbraNetworking.sendSoundPrioritySpatial(
+                        this.target, PenumbraSounds.HOST_STEP, pos, volume, pitch);
+            }
         }
     }
 

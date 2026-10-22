@@ -77,4 +77,32 @@ class ListenerPursuitTest {
         }
         return pursuit;
     }
+
+    @Test
+    void sustainedNoiseCannotKeepAChargeAliveForever() {
+        ListenerPursuit pursuit = new ListenerPursuit();
+        pursuit.start();
+        for (int tick = 1; tick < ListenerPursuit.MAX_CHARGE_TICKS; tick++) {
+            pursuit.heardNoise();
+            pursuit.tick();
+            assertFalse(pursuit.exhausted());
+        }
+        pursuit.heardNoise();
+        pursuit.tick();
+        assertTrue(pursuit.exhausted());
+        assertFalse(pursuit.canContact(ListenerNoise.SPRINT_RADIUS, 0.1, true));
+    }
+
+    @Test
+    void wallsMuffleMovementWithoutTurningSilenceIntoSound() {
+        double hiddenWalking = ListenerPursuit.heardRadius(ListenerNoise.WALK_RADIUS, false);
+        assertFalse(ListenerNoise.audible(hiddenWalking, 4.0));
+        assertTrue(ListenerNoise.audible(hiddenWalking, 2.0));
+        assertFalse(ListenerNoise.lockable(hiddenWalking, 2.0));
+        assertEquals(ListenerNoise.WALK_RADIUS,
+                ListenerPursuit.heardRadius(ListenerNoise.WALK_RADIUS, true));
+        assertEquals(0.0, ListenerPursuit.heardRadius(0.0, false));
+        assertEquals(0.0, ListenerPursuit.heardRadius(Double.NaN, true));
+        assertEquals(ListenerNoise.MAX_RADIUS, ListenerPursuit.heardRadius(1000, true));
+    }
 }

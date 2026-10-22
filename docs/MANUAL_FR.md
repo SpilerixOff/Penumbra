@@ -4,8 +4,32 @@
 
 Penumbra est un mod d'horreur psychologique pour Minecraft 26.1.2 (Fabric). Il ne se contente pas
 d'ajouter un monstre : il observe votre façon de jouer, monte la tension progressivement, puis
-manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et disparaît
-dès que vous la regardez.
+manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et
+peut réagir à votre regard par une préparation visible puis une charge.
+
+## Nouveau en 0.24.0 — des sursauts dans le monde
+
+Les visages de screamer, les rémanences de visages et les écrans noirs de
+sursaut sont retirés. Les créatures restent présentes en 3D : l'Hôte et
+l'Observateur préparent leur bond, visent une position fixe puis reculent.
+Un déplacement latéral ou un couvert peut éviter le contact. Le Rampant
+attend un vrai passage dans sa zone au plafond ou près d'une paroi.
+
+La fermeture d'un coffre, d'un inventaire ou du Relevé et le retour au refuge
+peuvent préparer une scène personnelle. Le terrain, les joueurs proches, les
+menus et les délais de respiration décident si elle peut se dérouler. Une
+brève coupure des nappes et du cœur laisse les indices du monde audibles.
+
+La Caméra VHS peut repousser **vos Hôtes, Observateurs et Rampants**, avec
+une partie du corps visible à **12 blocs maximum**, dans un demi-angle de
+**50° autour du viseur**. Un obstacle qui arrête le rayon physique bloque ce
+flash. Le zoom n'augmente pas sa portée. Cette défense ne remplace pas le
+silence face à L'Écouteur ni les règles du duel final.
+
+Le [guide de l'horreur physique](PHYSICAL_HORROR_FR.md) précise les règles ;
+les [problèmes connus](KNOWN_ISSUES.md) distinguent implémentation et vérifications.
+Les sections datées ci-dessous conservent l'historique : leurs anciennes images
+de screamer et rémanences ne décrivent plus la présentation de la 0.24.0.
 
 ## Nouveau en 0.23.0 — suivre son histoire
 
@@ -26,7 +50,7 @@ votre enquête ; elle ne termine pas celle des autres joueurs du serveur.
 Le [parcours détaillé de l'histoire](STORY_FLOW_FR.md) explique le début, les
 livres, les conditions de chaque chapitre et la fin. Il contient des révélations.
 
-## Nouveau en 0.22.0 — confort personnel et accalmie sauvegardée
+## Confort personnel — depuis la 0.22.0, interface actualisée en 0.24.0
 
 En jeu, appuyez sur **K** pour ouvrir les réglages de confort, sans objet ni
 permission opérateur. La touche se réassigne dans les contrôles Minecraft.
@@ -35,14 +59,16 @@ Le menu met le solo en pause ; **le multijoueur continue de tourner**.
 
 | Réglage personnel | Effet local |
 |---|---|
-| Mouvements réduits | Coupe secousses, dérive du champ de vision, respiration du zoom, animations VHS, grain, rémanences, flashs et vacillement ; le zoom reste utilisable |
-| Masquer les visages | Retire les visages soudains plein écran, sans masquer les créatures ni changer leurs dégâts |
+| Mouvements réduits | Coupe secousses, dérive du champ de vision, respiration du zoom, animations VHS, grain, flashs et vacillement ; le zoom reste utilisable |
 | Bloquer les flashs | Retire les éclairs visuels ; photographie et contre-mesures au flash restent utilisables |
 | Grain VHS | Autorise ou coupe le grain et les lignes de balayage de l'ambiance |
-| Rémanences | Autorise ou coupe les silhouettes périphériques |
 | Lumière variable | Autorise ou coupe le vacillement de l'éclairage dynamique de Penumbra |
 | Sons soudains | Multiplie le volume des sons de sursaut couverts, de 0 à 100 % du volume de base |
 | Ambiances | Multiplie le volume des nappes et du cœur suivis, sans modifier les pas, indices ou sons Minecraft |
+
+Ces **six réglages** remplacent les huit de la 0.22.0 : les boutons Visages et
+Rémanences ont été retirés avec leurs effets. Leurs anciennes valeurs sauvegardées
+ne peuvent pas faire réapparaître ces images.
 
 Ces choix peuvent **réduire** ce que permet `config/penumbra.json`, jamais
 réactiver un effet que cette configuration coupe. Le mode mouvement réduit
@@ -51,7 +77,7 @@ Il ne change ni la fréquence des événements ni les règles du serveur.
 
 Les préréglages **Immersion**, **Mouvement réduit** et **Doux** préparent un
 brouillon. Immersion retire les réductions locales supplémentaires ; Doux
-masque aussi les visages et règle les sons soudains à 45 %, les ambiances à
+coupe aussi le grain et règle les sons soudains à 45 %, les ambiances à
 60 %. **Appliquer** enregistre dans `config/penumbra-client.json` et prend
 effet ; **Annuler** ou Échap abandonne le brouillon. Une erreur d'écriture
 laisse les réglages actifs inchangés et affiche un message.
@@ -725,6 +751,11 @@ Une fois en main ou dans l'inventaire, elle s'active avec la touche **C**.
   avec ou sans le viseur **C**. Une capture peut être prise toutes les 2 secondes.
   Le flash d’écran respecte `flashesEnabled` ; sa particule et le déclic spatial
   restent perceptibles dans le monde par les joueurs proches.
+- **Se défendre en 0.24.0** : ce même flash peut repousser vos Hôtes,
+  Observateurs et Rampants cadrés à 12 blocs maximum. Il exige une partie du
+  corps visible dans un demi-angle de 50° ; un obstacle physique le bloque,
+  même s'il est transparent. Le zoom ne prolonge pas cette portée. Les règles
+  de L'Absent, de L'Écouteur et du reflet final restent distinctes.
 - **Ouvrir l'album** : faites un **clic droit avec la caméra**. La galerie
   sépare vos tirages des photos publiques ; sélectionnez une vignette pour la
   regarder, la renommer, la partager/rendre privée, la marquer **Important** ou
@@ -738,9 +769,10 @@ Une fois en main ou dans l'inventaire, elle s'active avec la touche **C**.
   petit cadre déjà garni. Vous pouvez aussi fabriquer le cadre séparément avec
   un cuir au centre et quatre bâtons en croix (` S ` / `SLS` / ` S `), le poser
   sur un mur puis y insérer une photo par clic droit.
-- **Objet requis (optionnel)** : par défaut la caméra fonctionne sans objet
+- **Objet requis pour le zoom (optionnel)** : par défaut le zoom C fonctionne sans objet
   (`binocularsRequireItem: false`). Passez l'option à `true` pour exiger la Caméra VHS
-  en main ou dans l'inventaire. Avec `binocularsDurabilityEnabled`, chaque activation
+  en main ou dans l'inventaire. La prise de photo et son flash exigent toujours
+  la caméra en main principale. Avec `binocularsDurabilityEnabled`, chaque activation
   consomme 1 point de durabilité (256 au total).
 - **Confort** : zoom progressif réglable (`binocularsZoomLevel`, 2.0–6.0, défaut 4.0),
   transition douce désactivable (`binocularsSmoothZoom`), respiration de visée subtile
@@ -758,8 +790,8 @@ Une fois en main ou dans l'inventaire, elle s'active avec la touche **C**.
 ## ⚠️ Avertissement et confort
 
 Ce mod contient des **sons soudains et forts** (stingers, souffles, jumpscares) et des effets
-visuels potentiellement gênants (secousses de caméra, voile périphérique et visages horrifiques
-plein écran). **Personnes photosensibles** : l'option `flashesEnabled` est **désactivée par
+visuels potentiellement gênants (secousses de caméra, voile périphérique et éclairage variable).
+La 0.24.0 ne dessine plus d'images de visages. **Personnes photosensibles** : l'option `flashesEnabled` est **désactivée par
 défaut** ; ne l'activez qu'en connaissance de cause. Pour une expérience plus douce, passez
 `screamersEnabled`, `cameraShakeEnabled`, `distortionEnabled` et `fogEnabled` à `false`, puis
 réduisez `jumpscareVolume` et `jumpscareFrequency`. Jouez à volume modéré.
@@ -769,7 +801,7 @@ réduisez `jumpscareVolume` et `jumpscareFrequency`. Jouez à volume modéré.
 1. Minecraft **26.1.2**
 2. Fabric Loader **0.19.3**
 3. Fabric API **0.155.2+26.1.2**
-4. Déposez `penumbra-0.13.0.jar` dans le dossier `mods/`.
+4. Pour cette branche locale, déposez `penumbra-0.24.0.jar` dans le dossier `mods/`.
 
 En multijoueur, installez Penumbra et Fabric API sur le serveur **et sur chaque client**.
 
@@ -837,7 +869,7 @@ utilisateur sont :
 | `watcherStareSeconds` | int | `3` | 1–10 | Regard soutenu avant réaction/badge de l'Observateur (Phase 4) |
 | `originelEnabled` | bool | `true` | — | Active l'Originel : apparitions extérieures et scènes de grotte face au joueur |
 | `personalEventsEnabled` | bool | `true` | — | Active les événements personnels de la 0.6.0 |
-| `screamersEnabled` | bool | `true` | — | Autorise les neuf visages horrifiques plein écran et leurs sons |
+| `screamersEnabled` | bool | `true` | — | Autorise les cris et contenus de sursaut concernés ; ne réactive aucune image de visage en 0.24.0 |
 | `contrefaitEnabled` | bool | `true` | — | Active le Contrefait |
 | `metaMessagesEnabled` | bool | `true` | — | Autorise les faux messages méta en solo |
 | `originelTracesEnabled` | bool | `true` | — | Autorise les petites traces construites par l'Originel |
@@ -849,7 +881,7 @@ utilisateur sont :
 | `adaptiveHorrorArcsEnabled` | bool | `true` | — | Active les arcs persistants et contextuels du Directeur 2.0 |
 | `refugeContaminationEnabled` | bool | `true` | — | Active la contamination visuelle progressive des refuges |
 | `linkedMonsterEventsEnabled` | bool | `true` | — | Active les scènes à deux manifestations et leurs contre-mesures |
-| `contextualScreamersEnabled` | bool | `true` | — | Active les screamers dédiés au refuge et à la mimique |
+| `contextualScreamersEnabled` | bool | `true` | — | Active les retours contextuels concernés au refuge et à la mimique ; aucune image de visage en 0.24.0 |
 | `refugeContaminationMaxLevel` | int | `4` | 0–4 | Niveau maximal de contamination (0 coupe la progression) |
 | `refugeContaminationIntervalSeconds` | int | `300` | 120–1800 | Délai minimal entre deux contaminations d'un joueur |
 | `maxConsecutiveAudioEvents` | int | `2` | 1–4 | Nombre maximal de scènes purement sonores consécutives |
@@ -858,9 +890,9 @@ utilisateur sont :
 | `perceptionIntervalSeconds` | int | `240` | 60–1800 | Cooldown de base du faux compagnon dans le tirage du Directeur |
 | `perceptionMaxActive` | int | `3` | 1–8 | Plafond global de perceptions individuelles actives sur le serveur |
 | `listenerEnabled` | bool | `true` | — | Active L'Écouteur, la créature qui ne traque que le bruit |
-| `listenerCanHarm` | bool | `true` | — | Autorise ses dégâts au contact (le screamer reste actif si faux) |
+| `listenerCanHarm` | bool | `true` | — | Autorise ses dégâts au contact ; le son et le retour de contact peuvent rester actifs si faux |
 | `perceptionGrainEnabled` | bool | `true` | — | Grain et lignes de balayage dosés par la tension (client) |
-| `peripheralAfterimagesEnabled` | bool | `true` | — | Silhouette rémanente périphérique d'une présence réellement hors champ |
+| `peripheralAfterimagesEnabled` | bool | `true` | — | Réglage historique conservé ; les rémanences de visage ne sont plus dessinées en 0.24.0 |
 | `perceptionIntensity` | float | `1.0` | 0.0–2.0 | Force globale de la couche de perception, `0` la coupe entièrement |
 | `journalEnabled` | bool | `true` | — | Le Relevé, ses pages arrachées et son remplissage automatique |
 | `signalPyreEnabled` | bool | `true` | — | Le Bûcher et sa colonne de fumée (le carnet reste obtenable sans lui) |
@@ -887,7 +919,7 @@ Toutes les commandes `/penumbra` requièrent le niveau d'opérateur 2 :
 | `/penumbra profile <gentle\|standard\|nightmare>` | Applique un profil d'accessibilité et le sauvegarde, sans toucher aux réglages non cités |
 | `/penumbra scuttler cross` | Force une Cavaleuse à traverser le champ de vision sur un sol valide |
 | `/penumbra scuttler chase` | Force une Cavaleuse à poursuivre le joueur pendant 3 à 5 secondes sur un sol valide |
-| `/penumbra jumpscare <type>` | Déclenche un visuel connu, dont `rampant_screamer`, `absent_screamer`, `chorus_screamer`, `refuge_screamer`, `mimic_screamer` et `listener_screamer` |
+| `/penumbra jumpscare <type>` | Teste le retour sonore/caméra d'un ancien type connu ; ne dessine aucune image et ne crée pas à lui seul une scène 3D |
 | `/penumbra reset` | Réinitialise le profil d'horreur du joueur |
 | `/penumbra arc status [joueur]` | Affiche thème, phase, temps restant et pulsations de l'arc persistant |
 | `/penumbra arc start <cave\|refuge\|stalker\|mimic\|photographic> [joueur]` | Démarre immédiatement un arc thématique |
@@ -897,7 +929,7 @@ Toutes les commandes `/penumbra` requièrent le niveau d'opérateur 2 :
 | `/penumbra perception status [joueur]` | Affiche l'identité copiée et le temps restant de la perception active |
 | `/penumbra perception clear [joueur]` | Dissipe immédiatement la perception individuelle active |
 | `/penumbra chase` | Démarre une poursuite (réutilise un Hôte proche ou en invoque un) |
-| `/penumbra scare <id>` | Force un jumpscare retardé (`chest_scare`, `refuge_scare`, `torch_scare`, `lookback_scare`, `inventory_scare`, `quiet_scare`) |
+| `/penumbra scare <id>` | Demande une scène physique (`chest_scare`, `refuge_scare`, `torch_scare`, `lookback_scare`, `inventory_scare`, `quiet_scare`) ; placement, contexte et budget peuvent la refuser |
 | `/penumbra binoculars test` | Force un zoom de 3 s (solo / hôte LAN uniquement) |
 | `/penumbra binoculars host_sighting` | Force l'événement `binoculars_sighting` (zoom actif requis) |
 | `/penumbra binoculars reaction <type>` | Force une réaction de l'Hôte (`freeze`, `head_turn`, `vanish_on_unzoom`, `approach_between`, `sound_behind`, `mimic_posture`, `reappear_checked`) |

@@ -25,6 +25,8 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
@@ -85,6 +87,7 @@ public final class ListenerEntity extends Monster {
     private int emptySweeps;
     private final ListenerPursuit pursuit = new ListenerPursuit();
     private int leavingTicks;
+    private int seekingTicks;
     private Vec3 leavePoint;
     private boolean contactDone;
 
@@ -155,7 +158,7 @@ public final class ListenerEntity extends Monster {
     private static void playSceneSound(ServerPlayer owner, SoundEvent sound,
                                        Vec3 pos, float volume, float pitch) {
         if (owner != null && owner.isAlive()) {
-            PenumbraNetworking.sendSound(owner, sound, pos, volume, pitch);
+            PenumbraNetworking.sendSoundPrioritySpatial(owner, sound, pos, volume, pitch);
         }
     }
 
@@ -175,6 +178,7 @@ public final class ListenerEntity extends Monster {
     private void setBehavior(ListenerBehavior behavior) {
         if (this.getBehavior() != behavior) {
             this.entityData.set(DATA_BEHAVIOR, behavior.ordinal());
+            if (behavior == ListenerBehavior.SEEKING) this.seekingTicks = 0;
         }
     }
 
@@ -184,6 +188,10 @@ public final class ListenerEntity extends Monster {
     public void tick() {
         super.tick();
         if (!(this.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!this.isAlive() || this.isRemoved()) {
+            this.discard();
             return;
         }
         ServerPlayer owner = ownerPlayer(level);
@@ -248,14 +256,17 @@ public final class ListenerEntity extends Monster {
             if (distance > ListenerNoise.MAX_RADIUS) {
                 continue;
             }
-            double radius = radiusOf(player);
+            double emitted = radiusOf(player);
+            if (!ListenerNoise.audible(emitted, distance)) continue;
+            boolean clearPath = this.hasLineOfSight(player);
+            double radius = ListenerPursuit.heardRadius(emitted, clearPath);
             if (!ListenerNoise.audible(radius, distance)) {
                 continue;
             }
             if (radius > loudest) {
                 loudest = radius;
                 loudestAt = player.position();
-                loudestLockable = ListenerNoise.lockable(radius, distance);
+                loudestLockable = clearPath && ListenerNoise.lockable(radius, distance);
             }
         }
 
@@ -301,12 +312,23 @@ public final class ListenerEntity extends Monster {
             return;
         }
         double distance = this.position().distanceTo(source);
+        if (!ListenerNoise.audible(radius, distance)
+                || !this.level().isLoaded(BlockPos.containing(source))) return;
+        boolean clearPath = this.level().clip(new ClipContext(this.getEyePosition(),
+                source.add(0.0, 0.5, 0.0), ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, this)).getType() == HitResult.Type.MISS;
+        radius = ListenerPursuit.heardRadius(radius, clearPath);
         if (ListenerNoise.audible(radius, distance)) {
-            hear(source, ListenerNoise.lockable(radius, distance));
+            hear(source, clearPath && ListenerNoise.lockable(radius, distance));
         }
     }
 
     private void tickSeeking(ServerLevel level) {
+        if (++this.seekingTicks >= 120) {
+            // A navigable but unreachable sound must not cause a minute-long pursuit.
+            beginLeaving(level, ownerPlayer(level));
+            return;
+        }
         if (heardPoint == null) {
             beginListening(level);
             return;
@@ -316,7 +338,12 @@ public final class ListenerEntity extends Monster {
             beginListening(level);
             return;
         }
-        if (sceneTicks % 5 == 0 || this.getNavigation().isDone()) {
+        if (!level.isLoaded(BlockPos.containing(heardPoint))) {
+            emptySweeps++;
+            beginListening(level);
+            return;
+        }
+        if (sceneTicks % 5 == 0) {
             boolean started = this.getNavigation().moveTo(
                     heardPoint.x, heardPoint.y, heardPoint.z, SEEK_SPEED);
             if (!started && sceneTicks > 20) {
@@ -351,6 +378,10 @@ public final class ListenerEntity extends Monster {
 
     private void tickClosing(ServerLevel level, ServerPlayer owner) {
         this.pursuit.tick();
+        if (this.pursuit.exhausted()) {
+            beginLeaving(level, owner);
+            return;
+        }
         if (this.pursuit.lostSound()) {
             beginListening(level);
             return;
@@ -362,7 +393,11 @@ public final class ListenerEntity extends Monster {
             return;
         }
         Vec3 destination = heardPoint != null ? heardPoint : this.position();
-        if (sceneTicks % 3 == 0 || this.getNavigation().isDone()) {
+        if (!level.isLoaded(BlockPos.containing(destination))) {
+            beginListening(level);
+            return;
+        }
+        if (sceneTicks % 3 == 0) {
             this.getNavigation().moveTo(
                     destination.x, destination.y, destination.z, CLOSE_SPEED);
         }
@@ -426,15 +461,17 @@ public final class ListenerEntity extends Monster {
                 this.position(), 0.5f, 0.92f);
     }
 
-    /** Contact réel : dégâts optionnels, screamer, puis dissipation en cendres. */
+    /** Contact réel : dégâts optionnels, choc spatial, puis départ de la créature. */
     private void contact(ServerLevel level, ServerPlayer owner) {
         contactDone = true;
         PenumbraConfig config = PenumbraConfig.get();
         if (config.listenerCanHarm) {
             this.doHurtTarget(level, owner);
         }
-        PenumbraNetworking.sendJumpscare(owner,
-                config.screamersEnabled ? "listener_screamer" : "sting", 1.0f);
+        if (config.jumpscareFrequency > 0.0f) {
+            playSceneSound(owner, PenumbraSounds.LISTENER_LOCK, this.getEyePosition(), 0.85f, 0.72f);
+            PenumbraNetworking.sendJumpscare(owner, "impact", 0.65f);
+        }
         level.sendParticles(PenumbraParticles.ASH_MOTE,
                 this.getX(), this.getY() + 1.7, this.getZ(),
                 28, 0.36, 0.9, 0.36, 0.014);

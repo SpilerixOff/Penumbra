@@ -29,15 +29,22 @@ These are implemented systems to explore and test, not a promise that every comb
 
 ## Build from source
 
-This development branch prepares **0.23.0**: each newcomer receives a personal
-field journal with guidance for their current chapter. Pages can be recovered
-from a site's original chest even after its loot is gone. The first eligible
-final ritual now leads directly to the confrontation. See the
-[story walkthrough / parcours de l'histoire](docs/STORY_FLOW_FR.md).
+This development branch prepares **0.24.0**: scares now use creatures in the
+world, with visible preparation, committed charges, dodging and recoil. The
+face-image and blackout presentation has been removed, including for legacy
+scare packets. The Host, Watcher and Rampant can be repelled by a nearby,
+correctly aimed VHS-camera flash. Container and journal closures, refuge returns
+and cave ambushes have physical scenes with bounded lifetimes. See the
+[physical horror guide](docs/PHYSICAL_HORROR_FR.md) and [validation limits](docs/KNOWN_ISSUES.md).
+
+The personal journal and progression from 0.23.0 remain: each newcomer receives
+guidance for their current chapter, original site chests remain readable after
+looting, and the first eligible final ritual leads directly to the confrontation.
+See the [story walkthrough / parcours de l'histoire](docs/STORY_FLOW_FR.md).
 
 Press **K** in game for personal
-comfort settings, including reduced motion, hidden full-screen faces and
-separate ambient and sudden-sound volume. These settings do not change server
+comfort settings: four toggles for motion, flashes, grain and light flicker,
+plus separate ambient and sudden-sound volume. These settings do not change server
 difficulty. Post-ritual calm now survives reconnects and uses elapsed world
 ticks; the final badge requires winning the confrontation.
 The final ritual also clears the
@@ -74,23 +81,31 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The mod JAR is `build/libs/penumbra-0.23.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The mod JAR is `build/libs/penumbra-0.24.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 
 ## Horror effects and comfort
 
-Penumbra contains sudden sounds, full-screen horror faces, camera movement and visual distortion. Screen flashes are disabled by default (`flashesEnabled: false`); other startling effects are enabled by default. These settings are not a guarantee of comfort for photosensitive players.
+The 0.24.0 source contains sudden sounds, approaching creatures, camera movement
+and visual distortion. It no longer draws full-screen horror faces, peripheral
+face images or screamer blackouts. Other visual flashes remain configurable and
+disabled by default (`flashesEnabled: false`). The public 0.19.0 download above
+has the older presentation. These settings are not a guarantee of comfort for
+photosensitive players.
 
 Configuration is created at `config/penumbra.json`. With the game stopped, you can disable `screamersEnabled`, `cameraShakeEnabled`, `distortionEnabled` and `fogEnabled`, and lower `jumpscareVolume`, `jumpscareFrequency` and `perceptionIntensity`. The operator command `/penumbra profile gentle` applies a gentler preset; it does not turn off every effect. Client rendering settings and server event settings must be configured in their respective instances.
 
-In **0.22.0**, **K** opens a personal comfort menu (rebindable in Controls).
+Since **0.22.0**, **K** opens a personal comfort menu (rebindable in Controls).
+In 0.24.0 it exposes six controls: reduced motion, blocked flashes, grain,
+light flicker, sudden-sound volume and ambient volume. The obsolete face and
+afterimage switches are no longer shown; old saved values cannot restore those images.
 Apply saves to `config/penumbra-client.json`; Cancel discards the draft.
 Personal options can reduce effects allowed by the base configuration, but
 cannot enable effects it has disabled. These are presentation settings;
 creature damage, event frequency and progression are unchanged.
 
-For recording or streaming, set `streamerMode` to `true` in that file while the relevant game or server is stopped. It disables flashes and meta chat messages and caps jumpscare volume at `0.7`; horror faces and other startling effects can remain active. See the [playtest guide](docs/PLAYTESTING.md) for setup and a short feedback checklist.
+For recording or streaming, set `streamerMode` to `true` in `config/penumbra.json` while the relevant game or server is stopped. It disables flashes and meta chat messages and caps jumpscare volume at `0.7`; creature encounters and other startling effects can remain active. See the [playtest guide](docs/PLAYTESTING.md) for setup and a short feedback checklist.
 
 ## Contributing and provenance
 
@@ -108,18 +123,23 @@ La version **0.19.0 est ouverte aux premiers essais publics**. Le **21 octobre 2
 
 Pour jouer, téléchargez le JAR du mod sur la [page Releases](https://github.com/SpilerixOff/Penumbra/releases), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
-Cette branche de développement prépare la **0.23.0** : chaque arrivant reçoit Le Relevé, ses premières pages donnent une piste personnelle, les coffres déjà pillés restent lisibles et le premier rituel final éligible conduit directement au duel. [Voir le parcours complet](docs/STORY_FLOW_FR.md). **K** ouvre des réglages personnels de mouvement, d'image et de son, l'accalmie après le rituel survit aux reconnexions et le badge final exige une victoire. Elle comprend aussi le rituel reprenable et les photos fiabilisées de la 0.21.1, les ambiances variées et le dossier de la 0.21.0, ainsi que le rythme, le contre-jeu et le carnet de la 0.20.0. Le téléchargement public ci-dessus reste la **0.19.0** jusqu'à la prochaine publication.
+Cette branche prépare la **0.24.0** : les sursauts reposent sur les créatures dans le monde, avec préparation visible, charge esquivable et recul. Les visages plaqués à l'écran, rémanences de visages et écrans noirs de screamer sont retirés. La caméra peut interrompre un Hôte, un Observateur ou un Rampant proche et cadré ; les fermetures de coffre ou de carnet et les retours au refuge peuvent ouvrir des scènes physiques. [Voir le guide de l'horreur physique](docs/PHYSICAL_HORROR_FR.md) et les [limites de validation](docs/KNOWN_ISSUES.md).
+
+Le parcours personnel de la 0.23.0 est conservé : chaque arrivant reçoit Le Relevé, les coffres déjà pillés restent lisibles et le premier rituel final éligible conduit directement au duel. [Voir le parcours complet](docs/STORY_FLOW_FR.md). L'accalmie survit aux reconnexions et le badge final exige une victoire. Le téléchargement public ci-dessus reste la **0.19.0** jusqu'à la prochaine publication.
 
 L'accalmie dure au plus 48 000 ticks du monde : un serveur actif continue de la décompter hors connexion ; un serveur arrêté la met en pause. La reconnexion ne la réinitialise pas. Voir les [problèmes connus](docs/KNOWN_ISSUES.md).
 
-Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.23.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
+Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.24.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
 
 **K** ouvre le menu personnel, réassignable dans les commandes de Minecraft.
+Ses six réglages sont : mouvement réduit, flashs bloqués, grain, scintillement
+de lumière et les deux volumes Ambiances / Sons soudains. Les anciens boutons
+Visages et Rémanences ont été retirés avec ces effets.
 **Appliquer** enregistre dans `config/penumbra-client.json` ; **Annuler** abandonne
 les changements. Ces choix réduisent les effets autorisés par la configuration
 de base et laissent les dégâts, la fréquence des événements et la progression
 du serveur inchangés.
 
-Le mod contient des sons soudains, des visages horrifiques plein écran, des secousses et des distorsions. Les flashs sont désactivés par défaut, mais d'autres effets restent actifs. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
+Le code 0.24.0 contient des sons soudains, des créatures qui approchent, des secousses et des distorsions. Les images de visages ont été retirées ; le téléchargement public 0.19.0 conserve son ancienne présentation. Les autres flashs sont désactivés par défaut. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
 
 Consultez le [manuel français](docs/MANUAL_FR.md), les [problèmes connus](docs/KNOWN_ISSUES.md) et le [guide de contribution](CONTRIBUTING.md). Les retours en français sont bienvenus. Licence : [MIT](LICENSE).

@@ -1105,7 +1105,7 @@ public final class PenumbraCommands {
             return 1;
         }
         source.sendFailure(Component.literal("Scare '" + id + "' non déclenché "
-                + "(delayedJumpscaresEnabled=false ou cooldown actif)."));
+                + "(scène active, écran ouvert, option désactivée ou aucun emplacement praticable)."));
         return 0;
     }
 

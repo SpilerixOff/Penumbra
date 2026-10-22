@@ -1,5 +1,6 @@
 package fr.penumbra.client.entity.listener;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.entity.listener.ListenerEntity;
 import net.fabricmc.api.EnvType;
@@ -28,6 +29,13 @@ public final class ListenerRenderer
     @Override
     public ListenerRenderState createRenderState() {
         return new ListenerRenderState();
+    }
+
+    @Override
+    protected void scale(ListenerRenderState state, PoseStack poseStack) {
+        // The thigh/shin chain ends at y=0, not at vanilla's y=24px plane.
+        super.scale(state, poseStack);
+        poseStack.translate(0.0f, 1.5f, 0.0f);
     }
 
     @Override

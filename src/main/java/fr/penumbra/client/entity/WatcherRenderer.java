@@ -1,5 +1,6 @@
 package fr.penumbra.client.entity;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.entity.watcher.WatcherEntity;
 import net.fabricmc.api.EnvType;
@@ -33,9 +34,20 @@ public class WatcherRenderer extends MobRenderer<WatcherEntity, WatcherRenderSta
     }
 
     @Override
+    protected void scale(WatcherRenderState state, PoseStack poseStack) {
+        // Feet are authored at y=0, rather than vanilla's y=24px plane.
+        super.scale(state, poseStack);
+        poseStack.translate(0.0f, 1.5f, 0.0f);
+    }
+
+    @Override
     public void extractRenderState(WatcherEntity entity, WatcherRenderState state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.lunging = entity.isLunging();
         state.lungeProgress = entity.getLungeProgress(partialTick);
+        state.windingUp = entity.isWindingUp();
+        state.windupProgress = entity.getWindupProgress(partialTick);
+        state.recovering = entity.isRecovering();
+        state.recoveryProgress = entity.getRecoveryProgress(partialTick);
     }
 }

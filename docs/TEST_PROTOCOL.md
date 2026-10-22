@@ -2034,3 +2034,121 @@ doivent encore être distingués des preuves automatisées disponibles.
    un jeu de données d'essai volumineux, puis comparer les données rechargées.
    Les tests de codec ne constituent pas à eux seuls un essai serveur de charge.
    Ce contrôle ne supprime pas les limites distinctes du registre des structures.
+
+## 129. 0.24.0 — absence d'images et réglages personnels
+
+Ces sections constituent un protocole à exécuter, pas un compte rendu de QA.
+Utiliser un monde isolé et le même JAR 0.24.0 côté serveur et clients. Noter
+la version, le mode de jeu, les réglages, les TPS et le nombre réel de clients.
+
+1. Charger une ancienne configuration autorisant les visages et rémanences.
+   Déclencher les anciens types `screamer`, `apparition`, `lunge_screamer` et
+   les variantes nommées. Attendu : aucun visage dans le HUD, aucune rémanence
+   de visage ni écran noir de screamer ; les sons prévus restent possibles.
+2. Ouvrir K : trois préréglages et six réglages individuels, dont quatre
+   interrupteurs et deux volumes. Aucun bouton Visages ou Rémanences. Vérifier
+   petite interface, navigation, Appliquer, Annuler et persistance au redémarrage.
+3. Activer mouvement réduit : aucun déplacement de caméra provoqué par
+   `impact`. Régler Sons soudains à zéro : vérifier séparément Hôte,
+   Observateur, contact du Rampant et contact de L'Écouteur. Leurs animations
+   et les règles du serveur restent actives.
+4. Tester `jumpscareFrequency=0`, puis recharger la configuration : les
+   retours de contact n'ajoutent ni cri soudain ni secousse. Distinguer les
+   bruits ordinaires de déplacement des sons de contact.
+
+## 130. Hôte et Observateur : charge, esquive et recul
+
+1. Préparer un sol plat, plusieurs blocs de hauteur libre et un joueur en
+   survie. Utiliser `spawnhost` ou `watcher test` pour le diagnostic ; si l'acteur
+   est repositionné par console, le noter. Cela ne valide pas le placement naturel.
+2. Regarder l'Hôte jusqu'à sa réaction. Pour l'Observateur, rester à plus de
+   huit blocs et soutenir le regard selon `watcherStareSeconds`. Attendu : tête
+   inclinée et préparation des bras, puis approche du véritable modèle 3D.
+3. Rester immobile sur un essai : un seul contact, cri issu de la créature,
+   éventuelle secousse courte sans image, puis recul visible pendant environ
+   36 ticks avant dissolution. En créatif, ne pas considérer l'absence de dégâts
+   comme une preuve d'esquive.
+4. Recommencer en se décalant latéralement pendant la préparation. La créature
+   doit garder son point d'arrivée initial ; hors de portée à la fin, aucun dégât.
+5. Interposer un mur ou gagner un couvert. Vérifier la trajectoire entière,
+   notamment les angles et passages trop bas : aucune traversée et aucun contact
+   derrière le mur. Répéter près d'une limite de chunk chargé.
+6. Bloquer le recul avec un obstacle : la créature peut rester en pose de
+   retrait jusqu'à son expiration ; elle ne traverse ni le mur ni le joueur.
+   Contrôler également dalles, escaliers et bords de plateforme.
+
+## 131. Caméra physique et poursuites interrompues
+
+1. Avec une caméra en main principale, photographier un Hôte, un Observateur
+   puis un Rampant proches pendant leur préparation ou attaque. Attendu :
+   interruption et retrait visible, sans seconde attaque de la même manifestation.
+2. Répéter à 12 blocs puis au-delà, près de l'axe du viseur puis hors du
+   demi-angle de 50°. Le zoom ne doit pas augmenter la portée de défense.
+3. Masquer la tête en laissant le torse visible : flash efficace si un
+   échantillon du corps reste cadré et accessible. Ajouter ensuite un mur plein
+   puis du verre entre le joueur et tout le corps : le rayon physique est bloqué.
+4. Photographier une créature d'un autre joueur : aucune répulsion attribuée
+   à cette photo. Les observations photographiques et la défense sont distinctes.
+5. Interrompre une vraie poursuite enregistrée de l'Hôte : vérifier que
+   l'acteur recule, que le suivi de poursuite du directeur se termine et que
+   le délai de récupération prévu s'applique. Ne pas remplacer le recul par
+   une suppression immédiate de l'entité.
+6. Tester la recharge, un paquet de déclencheur rejeté, une déconnexion et
+   un changement de dimension : aucune répulsion provenant d'une vieille capture.
+   Refaire le duel final pour vérifier que ses trois ouvertures restent nécessaires.
+
+## 132. Scènes de coffre, de lecture et de refuge
+
+1. Ouvrir un coffre ou Le Relevé pendant quelques secondes puis fermer.
+   Dans un contexte éligible, vérifier le déclenchement après fermeture et
+   l'absence de scène nouvelle pendant la lecture. La probabilité normale
+   implique de distinguer un tirage sans scène d'une régression.
+2. Répéter après une ouverture inférieure à 30 ticks, une lecture supérieure
+   à 600 ticks et un passage par les réglages. Aucun ancien piège ne doit être
+   déclenché. Tester les transitions entre album et lecteur de photo.
+3. Retourner au refuge avec un encadrement ou un angle réellement disponible.
+   Pour la variante de retour, vérifier observation, retrait, court silence,
+   bruit provenant d'une autre position puis présence à cette position.
+4. Refuser les placements : plafond trop bas, sol dangereux, eau/lave, bord du
+   monde, chunk absent, joueur voisin. Attendu : aucun acteur coincé, aucun
+   bloc modifié et aucune image utilisée en remplacement.
+5. Ouvrir un menu pendant une scène active, mourir, dormir, passer en spectateur,
+   changer de dimension ou se déconnecter : la scène doit s'arrêter, sans
+   réapparition tardive après reprise. Un flash annule aussi sa suite prévue.
+6. Avec deux clients réellement connectés, vérifier que l'Hôte de scène,
+   ses indices privés et sa dissolution ne sont présentés qu'au propriétaire.
+   Vérifier séparément les créatures ordinaires partagées et l'annulation si
+   l'autre joueur entre dans l'espace protégé de la scène.
+
+## 133. Rampant, couvert et L'Écouteur
+
+1. Faire apparaître un Rampant sur un plafond valide. Passer loin dessous
+   ou derrière un mur : pas de chute immédiate. Entrer dans la zone proche :
+   avertissement bref ; sortir pendant cet avertissement annule le décrochage.
+2. Rester dans la zone lors d'un second essai : chute puis contact seulement
+   si les corps se rejoignent et la vue est dégagée. Tester un saut esquivé et
+   un obstacle, puis le flash caméra et la lumière.
+3. Rompre la vue du Rampant : sa recherche se dirige vers la position connue,
+   sans suivre chaque mouvement caché. Vérifier sa fin de recherche et le départ,
+   y compris après une remontée sur une paroi.
+4. Attirer L'Écouteur par du bruit derrière un obstacle : son atténué et
+   recherche possibles, mais pas de nouvelle charge sur ce seul bruit masqué.
+   En vue dégagée, vérifier avertissement, approche, silence et couvert comme
+   moyens d'échapper au contact. Une recherche bloquée ne dure pas indéfiniment.
+5. À deux joueurs, le bruit de B peut attirer une créature partagée mais ne
+   doit pas autoriser un coup sur son propriétaire A resté silencieux.
+
+## 134. Silence, provenance sonore et limites de validation
+
+1. Pendant une nouvelle scène, écouter l'arrêt bref des nappes et du cœur
+   suivis par Penumbra. Les pas, les cris spatiaux et les sons Minecraft doivent
+   rester audibles. Vérifier la reprise puis la déconnexion sans boucle résiduelle.
+2. Déplacer l'auditeur autour de la créature : son contact doit garder son
+   origine réelle, sans double cri au centre de l'écran. Pour une scène privée,
+   le voisin ne doit pas recevoir ce son.
+3. Comparer solo, serveur local et latence réelle, si disponible. Mesurer
+   séparément la fluidité de l'approche, les collisions, le timing du son et
+   le ressenti de surprise. Aucun test automatique ne garantit un sursaut humain.
+4. Consigner les contrôles réellement exécutés, les configurations et les
+   captures disponibles. Un essai forcé ne valide pas le rythme naturel d'une
+   campagne ; un client local ne valide pas deux joueurs ni la latence Internet.

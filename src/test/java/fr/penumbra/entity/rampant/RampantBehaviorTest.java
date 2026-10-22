@@ -16,13 +16,70 @@ class RampantBehaviorTest {
     }
 
     @Test
-    void clingHasMinimumButAlwaysEndsAtMaximum() {
-        assertFalse(RampantBehavior.shouldRelease(
-                RampantBehavior.CLING_MIN_TICKS - 1, 1.0));
-        assertTrue(RampantBehavior.shouldRelease(
-                RampantBehavior.CLING_MIN_TICKS, 14.0 * 14.0));
-        assertTrue(RampantBehavior.shouldRelease(
-                RampantBehavior.CLING_MAX_TICKS, 1000.0));
+    void ceilingAmbushNeedsAPassageBelowAndClearSightInsteadOfFourteenBlockProximity() {
+        assertFalse(RampantBehavior.inAmbushZone(true, 12, -3, 0, true));
+        assertFalse(RampantBehavior.inAmbushZone(true, 0, 2, 0, true));
+        assertFalse(RampantBehavior.inAmbushZone(true, 0, -3, 0, false));
+        assertFalse(RampantBehavior.inAmbushZone(true, Double.NaN, -3, 0, true));
+        assertTrue(RampantBehavior.inAmbushZone(true, 1, -3, 1, true));
+        assertTrue(RampantBehavior.inAmbushZone(false, 2, 0, 1, true));
+    }
+
+    @Test
+    void waitingNeverAttacksAtATimeoutEvenIfTheOwnerRemainsNearby() {
+        RampantBehavior.Ambush ambush = new RampantBehavior.Ambush();
+        for (int tick = 0; tick < RampantBehavior.CLING_MAX_TICKS; tick++) {
+            assertEquals(RampantBehavior.AmbushDecision.WAIT, ambush.tick(tick, false));
+        }
+        assertEquals(RampantBehavior.AmbushDecision.EXPIRE,
+                ambush.tick(RampantBehavior.CLING_MAX_TICKS, true));
+    }
+
+    @Test
+    void steppingOutDuringTheWarningCancelsTheDropAndRequiresANewWarning() {
+        RampantBehavior.Ambush ambush = new RampantBehavior.Ambush();
+        assertEquals(RampantBehavior.AmbushDecision.WAIT,
+                ambush.tick(RampantBehavior.CLING_MIN_TICKS - 1, true));
+        int tick = RampantBehavior.CLING_MIN_TICKS;
+        assertEquals(RampantBehavior.AmbushDecision.WARN, ambush.tick(tick++, true));
+        for (int i = 0; i < 7; i++) ambush.tick(tick++, true);
+        assertEquals(RampantBehavior.AmbushDecision.WAIT, ambush.tick(tick++, false));
+        assertFalse(ambush.warning());
+        assertEquals(RampantBehavior.AmbushDecision.WARN, ambush.tick(tick++, true));
+        for (int i = 1; i < RampantBehavior.AMBUSH_WARNING_TICKS - 1; i++) {
+            assertEquals(RampantBehavior.AmbushDecision.WAIT, ambush.tick(tick++, true));
+        }
+        assertEquals(RampantBehavior.AmbushDecision.RELEASE, ambush.tick(tick, true));
+        ambush.reset();
+        assertFalse(ambush.warning());
+    }
+
+    @Test
+    void coverFreezesTheLastSeenPositionAndEndsTheRampantPursuit() {
+        RampantBehavior.Pursuit pursuit = new RampantBehavior.Pursuit();
+        pursuit.observe(true, 12, 30, 8);
+        for (int tick = 1; tick < RampantBehavior.LOST_SIGHT_TICKS; tick++) {
+            pursuit.observe(false, 12 + tick, 30, 8 + tick);
+            assertEquals(new RampantBehavior.Pursuit.Position(12, 30, 8), pursuit.lastSeen());
+            assertFalse(pursuit.exhausted());
+        }
+        pursuit.observe(false, 100, 30, 100);
+        assertTrue(pursuit.exhausted());
+    }
+
+    @Test
+    void reacquiringSightCannotExtendTheTotalChaseAndANewPerchForgetsTheOldPoint() {
+        RampantBehavior.Pursuit pursuit = new RampantBehavior.Pursuit();
+        for (int tick = 1; tick < RampantBehavior.MAX_PURSUIT_TICKS; tick++) {
+            pursuit.observe(tick % 10 == 0, tick, 30, 8);
+            assertFalse(pursuit.exhausted());
+        }
+        pursuit.observe(true, 50, 30, 8);
+        assertTrue(pursuit.exhausted());
+        pursuit.reset();
+        pursuit.observe(false, 500, 20, 500);
+        assertEquals(null, pursuit.lastSeen());
+        assertFalse(pursuit.exhausted());
     }
 
     @Test

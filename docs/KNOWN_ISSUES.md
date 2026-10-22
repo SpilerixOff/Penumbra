@@ -1,4 +1,56 @@
-# Problèmes connus — Penumbra 0.23.0
+# Problèmes connus — Penumbra 0.24.0
+
+## 0.24.0 — validation ciblée
+
+- **390 tests dans 76 suites ont réussi**, sans échec, erreur ni test ignoré,
+  avec `test validatePenumbraResources build` après les corrections de terrain,
+  de rendu et de mort pendant une attaque.
+- Dans un monde isolé, un vrai clic caméra a fait reculer l’Hôte avant sa
+  disparition, sans dégâts au joueur. Les positions ont été relevées côté
+  serveur et l’alignement au sol a été contrôlé visuellement.
+- Le Rampant est resté au plafond après 40 ticks hors de sa zone, a averti
+  pendant 12 ticks au passage du joueur sous lui, puis est tombé et a touché.
+- Une charge de l’Hôte armée par le regard a été esquivée en décalant le joueur
+  de trois blocs pendant sa préparation. Le corps a reculé puis disparu ; la
+  santé est restée exactement identique.
+- La suppression d’un Hôte pendant sa préparation ne provoque plus de coup
+  posthume : après `/kill` et 40 ticks, aucun acteur ne reste et la santé est
+  inchangée. La pose finale du Rampant au plafond et les six réglages du menu K
+  ont aussi été contrôlés visuellement.
+- Ces essais utilisent **un seul client**, des placements par console et des
+  pas de simulation ; le recul au flash a été observé à 5 TPS. Ils ne valident
+  ni une campagne complète ni l’équilibrage d’une partie à plusieurs. Les
+  essais interrompus par gel réseau, timeout ou mob vanilla ne sont pas comptés.
+- Les nouvelles scènes sont personnelles : leur Hôte, leurs sons privés et
+  leurs particules sont réservés à leur propriétaire. Les créatures ordinaires
+  restent des entités partagées. Les autres joueurs proches peuvent empêcher
+  ou annuler une scène ; jouer groupé ne garantit donc pas de la voir.
+- Un terrain étroit, un plafond trop bas, des liquides ou un emplacement
+  dangereux peuvent empêcher la scène. Le refus n'est pas remplacé par une
+  image à l'écran. Les scènes de refuge exigent un encadrement ou un angle
+  utilisable ; un champ vide ne suffit pas.
+- Une fermeture de lecteur doit suivre une occupation d'environ 1,5 à 30 s.
+  Une consultation très brève, une longue lecture, un passage par les réglages,
+  un signal périmé ou une autre dimension ne doivent pas libérer un ancien piège.
+  Le directeur et la probabilité de déclenchement s'appliquent encore : fermer
+  un coffre ne promet pas une apparition à chaque essai.
+- Le flash physique a une portée de 12 blocs et un demi-angle de 50°, sans
+  extension due au zoom. Il ne repousse que les Hôtes, Observateurs et Rampants
+  du photographe, avec un rayon dégagé vers une partie du corps. Les règles
+  propres au reflet de la confrontation et à L'Absent restent distinctes.
+- Les trajectoires et le recul doivent encore être contrôlés en jeu sur les
+  dalles, escaliers, bords de falaise et avec une latence réseau réelle.
+  Si le recul est bloqué, la créature peut rester en pose de retrait jusqu'à
+  la fin de sa durée plutôt que franchir l'obstacle.
+- La brève coupure sonore vise les nappes et battements suivis par Penumbra ;
+  elle ne coupe ni le système audio, ni tous les sons Minecraft, ni ceux d'un
+  autre mod. Les six réglages personnels de confort ne changent pas la difficulté.
+- Le même JAR **0.24.0** est nécessaire côté serveur et chaque client pour
+  ces paquets et états synchronisés. La présence de noms de paquets ou d'assets
+  hérités ne constitue pas une garantie de compatibilité avec un client ancien.
+
+Le [guide de l'horreur physique](PHYSICAL_HORROR_FR.md) décrit les règles de jeu ;
+les contrôles à exécuter se trouvent en fin de [protocole](TEST_PROTOCOL.md).
 
 ## 0.23.0 — résultats et limites de validation
 
