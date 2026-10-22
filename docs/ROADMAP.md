@@ -1,13 +1,21 @@
 # Feuille de route de Penumbra
 
-## État actuel — 0.22.0, livraison locale
+## État actuel — 0.23.0, livraison locale et validation ciblée
 
-La version publique reste 0.19.0. Les versions 0.20.0, 0.21.0 et 0.21.1
-sont préparées localement. La 0.22.0 ajoute le confort personnel et corrige la
-persistance de l'accalmie. Sa compilation, la validation des ressources et
-305 tests dans 59 suites ont réussi. Les essais en jeu restent limités aux
-cas ci-dessous ; ils ne valident pas une longue survie, deux clients simultanés
-ou la latence Internet.
+La version publique reste 0.19.0. Les versions 0.20.0 à 0.23.0 sont préparées
+localement. La 0.23.0 rend l'enquête accessible à un nouveau joueur sur un
+serveur déjà exploré et clarifie sa progression jusqu'au rituel final. La
+compilation finale, la validation des ressources et les tests ont réussi :
+**347 tests dans 68 suites, sans échec**. Les premiers contrôles en jeu ont
+confirmé l'arrivée en survie sans OP, la remise d'un carnet, le guide aux étapes
+0 et 5 et le refus du rituel sans caméra sans consommer le sceau. Avec caméra,
+un clic et une seule offrande ont ensuite ouvert le duel, sans victoire finale.
+Le coffre original du sanctuaire, vidé pour l'essai, a accordé sa page sans
+régénérer de butin. Après sauvegarde forcée, arrêt propre et redémarrage,
+l'étape, la page et la remise unique du carnet persistent ; le guide propose
+de reprendre la rencontre, sans victoire inventée. Ces vérifications et les
+résultats historiques ci-dessous ne valident pas une campagne entière, un
+duel complet en 0.23.0, deux clients simultanés ou la latence Internet.
 
 | Version | Évolution locale |
 |---|---|
@@ -16,6 +24,39 @@ ou la latence Internet.
 | 0.21.0 | Dossier d'enquête, nappes sonores suivies et variées, duel en trois étapes, éclairage regroupé |
 | 0.21.1 | Isolation et reprise du rituel, reflet gardé visible pendant son déplacement, confirmation durable des fragments, captures liées à la bonne connexion |
 | 0.22.0 | Menu personnel K, huit réglages et trois préréglages locaux ; accalmie sauvegardée ; badge de confrontation réservé à la victoire — validation ciblée, limites documentées |
+| 0.23.0 | Relevé remis individuellement et refabricable, suivi personnel de l'histoire, pages récupérables dans les coffres déjà pillés, alternative Maison décalée, finale en une offrande éligible, historique préservé au-delà des anciennes limites — validation ciblée et rechargement contrôlé |
+
+## 0.23.0 — implémentation et validation ciblée
+
+- Chaque nouveau joueur reçoit le Relevé une fois dans le monde. Un inventaire
+  plein retarde la remise sans jeter le livre ; une recette livre + poche d'encre
+  permet de remplacer un exemplaire perdu sans effacer l'enquête.
+- Les premiers feuillets suivent les données personnelles envoyées par le
+  serveur : prochaine piste, repos/visiteur au refuge, observations, contrôle
+  de la caméra et épilogue après victoire. Les réglages d'histoire et de copies
+  désactivées sont expliqués, sans annoncer les étapes futures.
+- Un nouveau lecteur peut retrouver sa page en ouvrant le coffre exact d'une
+  structure enregistrée, même vidé par un autre joueur. Le butin partagé reste
+  intact. La Maison décalée offre une alternative à la copie personnelle pour
+  l'étape 3 ; le calendrier des tentatives de copie persiste aux reconnexions.
+- Au stade 5, une caméra est requise avant consommation du sceau. Une seule
+  offrande mène à la confrontation ; un rituel effectué plus tôt n'épuise pas
+  l'autel pour la finale et ne la déclenche pas sur un événement sans rapport.
+- Les connaissances et marqueurs personnels ne sont plus tronqués aux anciennes
+  limites de 256. Les tests couvrent plusieurs centaines d'identités, les
+  rechargements NBT et la récupération d'une victoire historiquement enregistrée.
+- Compilation finale, ressources et 347 tests dans 68 suites validés. En jeu :
+  arrivée en survie sans OP, remise d'un seul carnet, suivi aux étapes 0 et 5,
+  puis refus du rituel sans caméra avec conservation du sceau confirmés.
+  Un clic avec caméra et une seule offrande ont ensuite fait apparaître le
+  reflet et les indications du duel, au stade 6 : badge du rituel présent,
+  badge final absent. L'abandon par éloignement a retiré le reflet. Le coffre
+  du sanctuaire vidé pour l'essai a accordé sa page sans régénérer le butin.
+  Après sauvegarde forcée et redémarrage contrôlé, le stade 6, la page retrouvée
+  et la remise unique sont conservés : un carnet, la caméra, aucun sceau,
+  coffre toujours vide et guide de reprise. Aucun duel complet 0.23.0 ni essai
+  à deux clients simultanés n'est revendiqué. Les sections 123 à 128 du
+  protocole distinguent les résultats observés des contrôles non exécutés.
 
 ## 0.22.0 — implémentation et validation partielle
 
@@ -69,6 +110,10 @@ sans réarmement ni attribution du badge.
 
 ## Prochaines vérifications
 
+- Compléter la QA 0.23.0 : inventaire plein en survie/créatif, suivi aux autres
+  étapes, découverte coopérative et interruptions restantes. Jouer la campagne
+  naturellement puis le duel complet en survie ; les transitions automatisées
+  et le démarrage du duel vérifié ne remplacent pas ces essais.
 - Terminer les contrôles 0.22.0 : menu anglais et petites dimensions GUI,
   effets immédiats et première attribution du badge.
   Diagnostiquer le crash natif GLFW du client B, reproduit avant connexion

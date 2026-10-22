@@ -7,6 +7,25 @@ d'ajouter un monstre : il observe votre façon de jouer, monte la tension progre
 manifeste une présence — **l'Hôte** — une silhouette qui vous étudie, imite vos pas et disparaît
 dès que vous la regardez.
 
+## Nouveau en 0.23.0 — suivre son histoire
+
+Chaque joueur reçoit **Le Relevé** à sa première arrivée. Le clic droit ouvre
+ses propres pistes et ses pages ; le début du carnet indique comment avancer
+au chapitre courant. En cas de perte, refabriquez-le avec **un livre et une
+poche d'encre**. Les connaissances restent sauvegardées.
+
+Vous pouvez relever les quatre pages en fouillant les coffres d'origine des
+sites, même si un autre joueur a déjà pris le butin. La découverte d'une
+**Maison décalée** fournit aussi une autre voie que la copie de votre refuge.
+
+Une fois arrivé à Reconnaissance, apportez **la caméra et un Sceau de cendre**
+au sanctuaire : le premier rituel éligible mène directement au reflet. Sans
+caméra, le jeu vous prévient avant de consommer le Sceau. La victoire conclut
+votre enquête ; elle ne termine pas celle des autres joueurs du serveur.
+
+Le [parcours détaillé de l'histoire](STORY_FLOW_FR.md) explique le début, les
+livres, les conditions de chaque chapitre et la fin. Il contient des révélations.
+
 ## Nouveau en 0.22.0 — confort personnel et accalmie sauvegardée
 
 En jeu, appuyez sur **K** pour ouvrir les réglages de confort, sans objet ni
@@ -639,9 +658,12 @@ déjà sauvegardés restent acquis. Pour les diagnostics, la commande opérateur
     `/penumbra debug restoration`) sans jamais écraser une modification du joueur.
 - **Copies imparfaites du refuge** (`imperfectCopiesEnabled`, stade ≥ 3) : l'Hôte
   reconstruit votre refuge de mémoire, presque à l'identique — détails faux,
-  pancartes inachevées. Tentative toutes les 10 minutes par joueur (15 % de
-  probabilité, cooldown de 3 jours de jeu, jamais à moins de 30 blocs d'un autre
-  joueur), restaurable via `/penumbra copy restore` ou `/penumbra debug restoration`.
+  pancartes inachevées. Depuis la 0.23.0, la première tentative est planifiée
+  après deux minutes, avec un nouvel essai au plus une fois par minute si le
+  site est refusé. Ce délai est sauvegardé. Après construction : cooldown de
+  trois jours de jeu, jamais à moins de 30 blocs d'un autre joueur. Une Maison
+  décalée découverte permet aussi d'avancer. Les copies sont restaurables via
+  `/penumbra copy restore` ou `/penumbra debug restoration`.
 - **Nouvelles commandes** : `/penumbra story get|set`, `/penumbra structure
   locate|spawn <type>`, `/penumbra item give <id>`, `/penumbra copy build|restore`,
   `/penumbra event night|underground <id>`, `/penumbra binoculars landmark`,

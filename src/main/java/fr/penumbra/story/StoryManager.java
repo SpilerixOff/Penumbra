@@ -37,15 +37,17 @@ public class StoryManager extends SavedData {
     public static final String KEY_FIRST_ANOMALY = "first_anomaly";
     /** Observation du poste d'observation — structure (règle 0→1, alternative). */
     public static final String KEY_STRUCTURE_OBSERVATION_POST = "structure_observation_post";
-    /** Événement d'imitation subi (règle 1→2, ×{@value #MIMIC_EVENTS_REQUIRED}). */
+    /** Événement d'imitation subi (règle 1→2, ×3). */
     public static final String KEY_MIMIC_EVENT = "mimic_event";
-    /** Hôte aperçu dans ou près du refuge (règle 2→3, ×{@value #REFUGE_HOST_SEEN_REQUIRED}). */
+    /** Hôte aperçu dans ou près du refuge (règle 2→3, ×1). */
     public static final String KEY_REFUGE_HOST_SEEN = "refuge_host_seen";
-    /** Nuit passée dans un lit (règle 2→3, ×{@value #BED_USED_REQUIRED}). */
+    /** Nuit passée dans un lit (règle 2→3, ×2). */
     public static final String KEY_BED_USED = "bed_used";
-    /** Copie imparfaite du refuge découverte (règle 3→4, ×{@value #COPY_BUILT_REQUIRED}). */
+    /** Copie imparfaite du refuge découverte (règle 3→4, ×1). */
     public static final String KEY_COPY_BUILT = "copy_built";
-    /** Hôte observé — jumelles ou à l'œil nu (règle 4→5, ×{@value #HOST_OBSERVED_REQUIRED}). */
+    /** Maison anormale découverte personnellement : autre voie 3→4, y compris en groupe. */
+    public static final String KEY_STRUCTURE_SHIFTED_HOUSE = "structure_shifted_house";
+    /** Hôte observé — jumelles ou à l'œil nu (règle 4→5, ×4). */
     public static final String KEY_HOST_OBSERVED = "host_observed";
     /** Rituel du Sanctuaire de cendre accompli (règle 5→6). */
     public static final String KEY_SANCTUM_RITUAL = "sanctum_ritual";
@@ -55,13 +57,6 @@ public class StoryManager extends SavedData {
     public static final String KEY_LINKED_SCENE = "linked_scene";
     /** Faux compagnon perçu et vérifié (compteur d'enquête, hors seuils 0–6). */
     public static final String KEY_FALSE_COMPANION = "false_companion";
-
-    // ——— Seuils contractuels de progression ———
-    private static final int MIMIC_EVENTS_REQUIRED = 3;
-    private static final int REFUGE_HOST_SEEN_REQUIRED = 1;
-    private static final int BED_USED_REQUIRED = 2;
-    private static final int COPY_BUILT_REQUIRED = 1;
-    private static final int HOST_OBSERVED_REQUIRED = 4;
 
     /**
      * Données narratives d'un joueur : stade (0–6) et compteurs de découvertes.
@@ -111,9 +106,13 @@ public class StoryManager extends SavedData {
             this.stage = stage;
         }
 
-        /** Incrémente le compteur d'une découverte. */
-        private void increment(String key) {
-            this.counters.merge(key, 1, Integer::sum);
+        /** Actual mutation shared by live events and persistence/workflow tests. */
+        void discover(String key, boolean progressionEnabled) {
+            this.counters.compute(key, (ignored, previous) -> previous == null ? 1
+                    : (int) Math.min(Integer.MAX_VALUE, Math.max(0L, previous) + 1L));
+            if (progressionEnabled) {
+                this.stage = StoryProgression.nextStage(this.stage, this.counters, key);
+            }
         }
     }
 
@@ -192,9 +191,7 @@ public class StoryManager extends SavedData {
         story.stage(clamped);
         data.setDirty();
         if (clamped > previous) {
-            player.sendSystemMessage(Component
-                    .translatable("penumbra.story.stage." + StoryStage.byIndex(clamped).id())
-                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+            announceStage(player, clamped);
         }
         // Reaching the final stage unlocks the duel; its badge belongs to a real victory.
         return true;
@@ -216,45 +213,28 @@ public class StoryManager extends SavedData {
      * <p>Règles (un seul franchissement de stade par appel) :</p>
      * <ul>
      *   <li>0→1 : {@code first_anomaly} ×1 OU {@code structure_observation_post} ×1 ;</li>
-     *   <li>1→2 : {@code mimic_event} ×{@value #MIMIC_EVENTS_REQUIRED} ;</li>
-     *   <li>2→3 : {@code refuge_host_seen} ×{@value #REFUGE_HOST_SEEN_REQUIRED}
-     *       ET {@code bed_used} ×{@value #BED_USED_REQUIRED} ;</li>
-     *   <li>3→4 : {@code copy_built} ×{@value #COPY_BUILT_REQUIRED} ;</li>
-     *   <li>4→5 : {@code host_observed} ×{@value #HOST_OBSERVED_REQUIRED} ;</li>
-     *   <li>5→6 : {@code sanctum_ritual} ×1.</li>
+     *   <li>1→2 : {@code mimic_event} ×3 ;</li>
+     *   <li>2→3 : {@code refuge_host_seen} ×1 ET {@code bed_used} ×2 ;</li>
+     *   <li>3→4 : {@code copy_built} ×1 OU {@code structure_shifted_house} ×1 ;</li>
+     *   <li>4→5 : {@code host_observed} ×4 ;</li>
+     *   <li>5→6 : un nouveau {@code sanctum_ritual} au stade 5.</li>
      * </ul>
      */
     public static void noteDiscovery(ServerPlayer player, String key) {
         StoryManager data = get(player);
         PlayerStory story = data.story(player.getUUID());
-        story.increment(key);
+        int previous = story.stage();
+        story.discover(key, PenumbraConfig.get().storyEnabled);
         data.setDirty();
-        if (PenumbraConfig.get().storyEnabled) {
-            evaluateProgression(player, story);
+        if (story.stage() > previous) {
+            announceStage(player, story.stage());
         }
     }
 
-    /**
-     * Évalue la règle du stade courant et fait monter le joueur d'UN stade si elle
-     * est remplie (via {@link #setStage}, donc message narratif + persistance).
-     * Les compteurs étant monotones, les seuils déjà atteints se réévaluent sans
-     * coût à chaque découverte suivante.
-     */
-    private static void evaluateProgression(ServerPlayer player, PlayerStory story) {
-        int target = switch (StoryStage.byIndex(story.stage())) {
-            case NORMALCY -> story.count(KEY_FIRST_ANOMALY) >= 1
-                    || story.count(KEY_STRUCTURE_OBSERVATION_POST) >= 1 ? 1 : 0;
-            case TRACES -> story.count(KEY_MIMIC_EVENT) >= MIMIC_EVENTS_REQUIRED ? 2 : 1;
-            case IMITATION -> story.count(KEY_REFUGE_HOST_SEEN) >= REFUGE_HOST_SEEN_REQUIRED
-                    && story.count(KEY_BED_USED) >= BED_USED_REQUIRED ? 3 : 2;
-            case FAMILIARITY -> story.count(KEY_COPY_BUILT) >= COPY_BUILT_REQUIRED ? 4 : 3;
-            case SUBSTITUTION -> story.count(KEY_HOST_OBSERVED) >= HOST_OBSERVED_REQUIRED ? 5 : 4;
-            case RECOGNITION -> story.count(KEY_SANCTUM_RITUAL) >= 1 ? 6 : 5;
-            case CONFRONTATION -> StoryStage.MAX_INDEX;
-        };
-        if (target > story.stage()) {
-            setStage(player, target);
-        }
+    private static void announceStage(ServerPlayer player, int stage) {
+        player.sendSystemMessage(Component
+                .translatable("penumbra.story.stage." + StoryStage.byIndex(stage).id())
+                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
     }
 
     /** Récupère l'état persistant du monde, en le créant vierge si nécessaire. */
@@ -265,7 +245,7 @@ public class StoryManager extends SavedData {
     }
 
     /** Données narratives d'un joueur ; créées vierges (et marquées sales) si absentes. */
-    private PlayerStory story(UUID id) {
+    PlayerStory story(UUID id) {
         PlayerStory story = this.players.get(id);
         if (story == null) {
             story = new PlayerStory();

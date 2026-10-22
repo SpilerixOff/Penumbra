@@ -50,6 +50,7 @@ import fr.penumbra.registry.PenumbraSounds;
 import fr.penumbra.refuge.RefugeContaminationManager;
 import fr.penumbra.story.ConfrontationManager;
 import fr.penumbra.story.StoryManager;
+import fr.penumbra.story.StoryOnboarding;
 import fr.penumbra.structure.PenumbraStructures;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -172,6 +173,7 @@ public class PenumbraMod implements ModInitializer {
         // familier plutôt que sous celui du témoin (0.19.0).
         ServerPlayConnectionEvents.JOIN.register(
                 (handler, sender, server) -> KnownIdentities.remember(handler.player));
+        StoryOnboarding.register();
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             HorrorDirector.onPlayerDisconnect(handler.player.getUUID());
             LinkedSceneManager.onPlayerDisconnect(server, handler.player.getUUID());

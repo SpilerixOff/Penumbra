@@ -1,4 +1,4 @@
-# Protocole de test — Penumbra 0.1.0 à 0.22.0
+# Protocole de test — Penumbra 0.1.0 à 0.23.0
 
 Chaque étape indique le résultat attendu. Toute commande `/penumbra` requiert le niveau
 d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
@@ -6,6 +6,8 @@ d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
 
 Les sections 120 à 122 couvrent la 0.22.0 ; leur validation en jeu est partielle,
 avec les résultats observés consignés avant la section 120.
+Les sections 123 à 128 couvrent la 0.23.0 ; le bilan qui les précède distingue
+les contrôles confirmés des cas restant à jouer.
 Le menu de confort **K** ne requiert aucune permission opérateur. Pendant
 les tests d'accalmie, ne pas forcer une tension de 90 ou plus : cette commande
 de diagnostic annule volontairement la récompense de calme.
@@ -13,7 +15,7 @@ de diagnostic annule volontairement la récompense de calme.
 ## 1. Démarrage sans crash
 
 1. Lancez le client (ou `./gradlew runClient` en dev) avec Fabric Loader 0.19.3,
-   Fabric API 0.155.2+26.1.2 et `penumbra-0.22.0.jar`.
+   Fabric API 0.155.2+26.1.2 et `penumbra-0.23.0.jar`.
 2. **Attendu** : le jeu atteint l'écran titre sans crash ; les journaux contiennent une ligne
    `[Penumbra]` d'initialisation, sans stack trace.
 
@@ -1863,3 +1865,172 @@ la survie longue et la latence Internet ne sont pas déclarés validés.
    seconde attribution. Refaire avec les badges coupés sur un autre joueur.
 3. Charger une sauvegarde où le badge a déjà été obtenu selon l'ancienne règle :
    il reste acquis. Ce cas ne valide pas l'attribution initiale de la nouvelle règle.
+
+# Parcours de l'histoire 0.23.0 — validation ciblée
+
+La compilation finale, la validation des ressources et les tests ont réussi :
+**347 tests dans 68 suites, sans échec**. Les observations en jeu confirmées
+le 22 octobre 2026 se limitent aux cas suivants ; les sections 123 à 128
+restent un protocole, et ne sont pas déclarées intégralement exécutées.
+
+| Contrôle observé | Résultat |
+|---|---|
+| Arrivée en survie sans OP | Un Relevé remis ; suivi personnel ouvert aux étapes 0 puis 5 |
+| Rituel au stade 5, sans caméra | Refus lisible, sceau conservé |
+| Un vrai clic avec caméra dans l'inventaire et une seule offrande | Préambule puis reflet et indications du duel ; stade 6, `sanctum_ritual=1`, `structure_ash_sanctum=1` ; badge du rituel présent et badge final absent (capture 09:57:40) |
+| Abandon du duel par éloignement | Acteur disparu, aucune victoire finale accordée |
+| Coffre original du sanctuaire préparé vide, table de butin retirée, clic à main vide | Coffre ouvert toujours vide et page « L'immobilité » accordée, sans régénération du butin (message 09:59:29, capture 09:59:37) |
+| Sauvegarde forcée, arrêt propre, redémarrage et reconnexion | Lecture NBT après sauvegarde : stade 6, rituel 1, `method_stillness`, remise du carnet et aucune victoire ; après reconnexion : un carnet, caméra, aucun sceau, coffre vide, guide « La dernière rencontre » et 2/14 notes (page et observation de créature) |
+
+La sauvegarde a été forcée à 10:00:08, l'arrêt propre s'est terminé avec le code
+0 à 10:00:39, le redémarrage a eu lieu à 10:01:16 et la reconnexion à 10:01:42.
+Le guide de reprise a été capturé à 10:02:47. Ces contrôles avec un seul
+client ne valident ni deux joueurs
+simultanés, ni le déroulement naturel de tous les chapitres, ni un duel complet.
+Les inventaires pleins, les autres états du guide et les autres cas ci-dessous
+doivent encore être distingués des preuves automatisées disponibles.
+
+## 123. Remise personnelle du Relevé et inventaire plein
+
+1. Connecter un joueur encore inconnu de ce monde, avec `journalEnabled=true`,
+   sans permission opérateur. Attendu : un Relevé dans l'inventaire, un message
+   expliquant clic droit, enquête personnelle, refabrication et K ; aucun écran
+   ne s'ouvre automatiquement. Répéter en survie et en créatif.
+2. Préparer un autre joueur d'essai dont l'inventaire est plein avant sa première
+   remise, sans Relevé. Attendu : message demandant une place, aucun livre jeté
+   au sol, aucun objet remplacé. Libérer une place sans quitter le serveur :
+   le Relevé doit arriver au prochain contrôle, dans environ 40 ticks.
+3. Répéter le cas plein en créatif : la remise ne doit pas être considérée
+   comme acquise tant que le livre n'est pas réellement dans l'inventaire.
+   Ne pas confondre un retour positif d'insertion avec une livraison visible.
+4. Quitter alors que la remise est encore en attente, puis rejoindre et libérer
+   une place. Le droit au livre doit être conservé. Après une remise réussie,
+   plusieurs reconnexions et un redémarrage du serveur ne donnent ni double
+   livre ni nouveau message de bienvenue. Tester aussi un joueur qui possédait
+   déjà un Relevé avant la mise à jour : son exemplaire suffit.
+5. Après livraison, perdre volontairement le livre dans ce monde d'essai :
+   une reconnexion ne doit pas le remplacer. Combiner un livre et une poche
+   d'encre pour en refaire un ; vérifier la recette dans le livre de recettes
+   après obtention d'un livre. Les découvertes personnelles restent présentes.
+6. Sur une configuration sans journal, aucune remise ni invitation à libérer
+   une place. Réactiver le journal puis rejoindre avec un joueur qui ne l'a
+   jamais reçu : sa première remise doit rester possible.
+
+## 124. Suivi personnel, étapes et fin de l'histoire
+
+1. Ouvrir le Relevé d'un nouveau joueur : les premiers feuillets sont
+   « Votre enquête », avant le frontispice de Warrick. Ils indiquent refuge,
+   repos, exploration et boussole, sans annoncer les objectifs des étapes
+   suivantes. Vérifier français et anglais, petite et grande interface,
+   pagination au clavier/souris et retour au début avec Début.
+2. Dans le monde d'essai, utiliser `/penumbra story set <0–6>` pour contrôler
+   chaque état d'affichage. Fermer puis rouvrir le livre après chaque changement :
+   il reçoit un nouvel instantané du serveur, sans prétendre évoluer en direct.
+
+| Étape du joueur | Indication attendue |
+|---|---|
+| 0 | Refuge avec lit, pauses nocturnes, anomalie ou poste d'observation |
+| 1 | Continuer ses activités et repérer plusieurs manifestations d'imitation |
+| 2 | Deux pauses immobiles distinctes d'environ 10 s au même endroit, nuit/pénombre ; repos sur 2 et visiteur au refuge distingués |
+| 3 | Maison décalée déjà visitée par d'autres toujours utile ; copie personnelle comme autre voie si autorisée |
+| 4 | Rencontres avec l'Hôte et observations personnelles sur 4 |
+| 5 | Caméra VHS et Sceau de cendre au sanctuaire ; distinction avec le Sceau de bannissement |
+| 6, sans victoire | Reprise possible, caméra en main principale, immobilité/cadrage, clic gauche à l'ouverture, trois brèches |
+| Victoire acquise | Épilogue, poursuite libre du jeu et accalmie temporaire ; aucun retour artificiel au début |
+
+3. Pour l'étape 2, réaliser les pauses et les repos plutôt que seulement forcer
+   le stade. Vérifier séparément les compteurs de lits et la présence de l'Hôte
+   au refuge. Pour l'étape 4, comparer les observations affichées aux données
+   serveur. Le suivi ne doit pas inventer les découvertes d'un autre joueur.
+4. Régler `storyEnabled=false` : message explicite d'histoire désactivée,
+   sans objectif impossible. Avec `imperfectCopiesEnabled=false`, l'étape 3
+   doit orienter vers la Maison décalée sans promettre une copie personnelle.
+5. Le simple passage au stade 6 ne doit jamais afficher la victoire. Gagner
+   réellement le duel, ou charger une sauvegarde d'essai d'une victoire déjà
+   vérifiée : l'épilogue reste affiché après rechargement. Il explique que
+   l'ambiance peut revenir après environ 40 minutes au rythme du monde.
+6. Prêter le même exemplaire du Relevé à un autre joueur : ses propres pages,
+   compteurs et objectifs apparaissent. Reprendre le livre ne modifie aucun
+   des deux historiques. Les notes de caméra n'annoncent ni pellicule à acheter
+   ni charges limitées : clic gauche, puis environ deux secondes entre prises.
+
+## 125. Pages personnelles dans les coffres déjà pillés
+
+1. Avec A, vider les coffres naturels d'un poste d'observation, d'une Maison
+   décalée, d'un Sanctuaire et d'un puits ; conserver leurs positions exactes.
+   Tester les variantes existantes, notamment les deux profondeurs du puits.
+2. Avec B, arrivé plus tard et sans ces pages, faire un vrai clic droit sur
+   chacun des coffres restés en place. Attendu : message de page retrouvée et
+   page personnelle lisible, même si le coffre est vide ; aucun remplissage du
+   coffre, aucun objet retiré à A et aucun changement de son Relevé.
+3. Réouvrir avec B : pas de seconde attribution ni progression supplémentaire.
+   Vérifier aussi B sans Relevé en main, puis avec un exemplaire refabriqué :
+   la connaissance appartient au joueur et reste consultable ensuite.
+4. Ouvrir un coffre ordinaire proche, un coffre déplacé ou un coffre aux mêmes
+   coordonnées dans une autre dimension : aucune page ne doit être accordée.
+   Une structure doit encore être connue du registre et le coffre à sa place
+   exacte. La destruction du coffre n'entraîne pas de récupération à distance.
+5. La page physique du butin continue de fonctionner. Si cette page est déjà
+   connue du lecteur, son utilisation ne consomme pas un duplicata. Recharger
+   le serveur conserve les quatre connaissances de B sans modifier celles de A.
+
+## 126. Maison décalée, coopération et copie personnelle
+
+1. Avec deux joueurs à l'étape 3, faire découvrir la même Maison décalée à A
+   puis à B. Chaque découverte personnelle doit permettre sa progression ;
+   le passage de A ne valide ni n'épuise celui de B. Refaire avec les copies
+   personnelles désactivées et avec une maison dont le coffre est déjà vide.
+2. Faire découvrir la maison à B avant l'étape 3. Une fois ce stade atteint,
+   la découverte déjà enregistrée reste valable lors de l'évaluation suivante ;
+   B n'a pas à trouver une deuxième maison pour satisfaire cette condition.
+3. Avec les copies activées, vérifier également la voie de la copie personnelle.
+   Les conditions de terrain et de protection des constructions restent actives :
+   l'alternative Maison décalée ne doit pas les contourner.
+4. Contrôler le calendrier de copie sur un joueur éligible : première tentative
+   après environ deux minutes, nouvelle tentative après environ une minute en
+   cas de refus, délai de trois jours conservé après une construction réussie.
+   Déconnecter/reconnecter entre les tentatives ne doit pas repousser sans fin
+   la première possibilité. Noter les ticks et la condition d'éligibilité.
+
+## 127. Premier rituel final avec une seule offrande
+
+1. En survie dans un monde d'essai, placer le joueur au stade 5 et lui donner
+   exactement un Sceau de cendre, sans Caméra VHS dans son inventaire. Cliquer
+   le pilier d'un sanctuaire : message demandant la caméra, sceau conservé,
+   aucun préambule lancé ni autel consommé pour ce joueur.
+2. Ajouter une Caméra VHS à l'inventaire et recommencer. Attendu : une seule
+   offrande est consommée ; le même préambule valide le stade 6 puis ouvre
+   directement le duel. Aucun deuxième sceau ni second clic rituel ne doit être
+   nécessaire, et l'accalmie normale ne doit pas annoncer une fausse fin.
+3. Prendre la caméra en main principale et tenter les trois ouvertures. Réserver
+   le marqueur de victoire et le badge de confrontation à une victoire réelle.
+   Le badge propre au rituel ne doit pas être confondu avec celui du duel.
+4. Tester un sanctuaire utilisé plus tôt dans l'histoire par ce même joueur :
+   au stade 5, une nouvelle offrande avec caméra peut déclencher la finale.
+   Un rituel ancien suivi d'un événement sans lien avec l'autel ne doit pas,
+   à lui seul, faire passer du stade 5 au stade 6.
+5. Interrompre avant la victoire, puis revenir avec une nouvelle offrande :
+   reprise possible au même autel. Tester également un placement impossible
+   de la copie : message d'échec, aucun faux succès ni accalmie de récompense,
+   et possibilité de retenter lorsque le terrain est valide.
+6. En créatif, refaire les contrôles fonctionnels en notant que le sceau n'est
+   pas consommé par conception. Ce cas ne valide pas le coût en survie ; les
+   contrôles de rythme à faible TPS ne valident pas l'équilibrage à 20 TPS.
+
+## 128. Historique au-delà des anciennes limites de sauvegarde
+
+1. Exécuter les tests ciblés `JournalKnowledgeTest` : 300 identités distinctes
+   gardent pages et observations après trois cycles NBT ; les anciens formats
+   chargent toutes les identités, ignorent les identifiants inconnus et retirent
+   les doublons sans effacer les premières entrées.
+2. Exécuter `PenumbraPersistentStateTest` : plus de 256 marqueurs, dont victoire
+   et remise du Relevé pour 400 identités, survivent aux rechargements. Vérifier
+   aussi une ancienne liste dont le marqueur de victoire se trouve après la
+   256e entrée ; ne pas remplacer cette vérification par une liste courte.
+3. Sur une copie de sauvegarde, contrôler qu'un compteur personnel de victoire
+   réellement enregistré peut restaurer un ancien marqueur perdu. Un simple
+   stade 6, un autre joueur vainqueur ou un compteur nul ne doit pas suffire.
+4. Compléter par démarrage, sauvegarde et arrêt propre d'un serveur utilisant
+   un jeu de données d'essai volumineux, puis comparer les données rechargées.
+   Les tests de codec ne constituent pas à eux seuls un essai serveur de charge.
+   Ce contrôle ne supprime pas les limites distinctes du registre des structures.

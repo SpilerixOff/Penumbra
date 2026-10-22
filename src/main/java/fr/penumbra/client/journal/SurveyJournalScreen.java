@@ -3,6 +3,7 @@ package fr.penumbra.client.journal;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.journal.JournalEntry;
+import fr.penumbra.journal.StoryGuide;
 import fr.penumbra.registry.PenumbraSounds;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -46,16 +47,19 @@ public final class SurveyJournalScreen extends Screen {
     private final Map<JournalEntry, JournalEntry.State> states;
     private final int progress;
     private final int total;
+    private final StoryGuide.Snapshot story;
     private final RandomSource smudgeRandom = RandomSource.create(0x5E1EC7L);
     private final List<Sheet> sheets = new ArrayList<>();
     private JournalLayout.Spread layout;
     private int page;
     private double scrollRemainder;
 
-    public SurveyJournalScreen(Set<String> readableIds, int progress, int total) {
+    public SurveyJournalScreen(Set<String> readableIds, int progress, int total,
+                               StoryGuide.Snapshot story) {
         super(Component.translatable("screen.penumbra.journal.title"));
         this.progress = Math.max(0, progress);
         this.total = Math.max(1, total);
+        this.story = story;
         this.states = new EnumMap<>(JournalEntry.class);
         for (JournalEntry entry : JournalEntry.ORDER) {
             this.states.put(entry, readableIds.contains(entry.id())
@@ -78,7 +82,7 @@ public final class SurveyJournalScreen extends Screen {
     private record BodyLine(FormattedCharSequence text, int color, JournalLayout.Line position) {
     }
 
-    private record Sheet(JournalEntry entry, List<BodyLine> lines, boolean continued,
+    private record Sheet(JournalEntry entry, boolean guide, List<BodyLine> lines, boolean continued,
                          boolean lastForEntry) {
     }
 
@@ -95,7 +99,7 @@ public final class SurveyJournalScreen extends Screen {
                     : previous.lines().getFirst().position().paragraph();
             for (int index = 0; index < this.sheets.size(); index++) {
                 Sheet candidate = this.sheets.get(index);
-                if (candidate.entry() == previous.entry()
+                if (candidate.entry() == previous.entry() && candidate.guide() == previous.guide()
                         && (candidate.lines().isEmpty() || candidate.lines().stream()
                         .anyMatch(line -> line.position().paragraph() == paragraph))) {
                     this.page = index;
@@ -108,20 +112,27 @@ public final class SurveyJournalScreen extends Screen {
 
     private void paginate() {
         this.sheets.clear();
+        List<Paragraph> guide = StoryGuide.lines(this.story).stream()
+                .map(line -> new Paragraph(Component.translatable(line.key(),
+                        line.arguments().toArray()), INK)).toList();
+        paginateEntry(JournalEntry.FRONTISPIECE, true, guide);
         for (JournalEntry entry : JournalEntry.ORDER) {
-            List<Paragraph> paragraphs = paragraphs(entry);
-            List<List<FormattedCharSequence>> wrapped = paragraphs.stream()
-                    .map(paragraph -> this.font.split(paragraph.text(),
-                            this.layout.rightBody().width() - 4)).toList();
-            List<List<JournalLayout.Line>> pages = JournalLayout.paginate(
-                    wrapped.stream().map(List::size).toList(),
-                    this.layout.rightBody().height(), lineAdvance(), PARAGRAPH_GAP);
-            for (int index = 0; index < pages.size(); index++) {
-                List<BodyLine> lines = pages.get(index).stream().map(position -> new BodyLine(
-                        wrapped.get(position.paragraph()).get(position.index()),
-                        paragraphs.get(position.paragraph()).color(), position)).toList();
-                this.sheets.add(new Sheet(entry, lines, index > 0, index == pages.size() - 1));
-            }
+            paginateEntry(entry, false, paragraphs(entry));
+        }
+    }
+
+    private void paginateEntry(JournalEntry entry, boolean guide, List<Paragraph> paragraphs) {
+        List<List<FormattedCharSequence>> wrapped = paragraphs.stream()
+                .map(paragraph -> this.font.split(paragraph.text(),
+                        this.layout.rightBody().width() - 4)).toList();
+        List<List<JournalLayout.Line>> pages = JournalLayout.paginate(
+                wrapped.stream().map(List::size).toList(),
+                this.layout.rightBody().height(), lineAdvance(), PARAGRAPH_GAP);
+        for (int index = 0; index < pages.size(); index++) {
+            List<BodyLine> lines = pages.get(index).stream().map(position -> new BodyLine(
+                    wrapped.get(position.paragraph()).get(position.index()),
+                    paragraphs.get(position.paragraph()).color(), position)).toList();
+            this.sheets.add(new Sheet(entry, guide, lines, index > 0, index == pages.size() - 1));
         }
     }
 
@@ -187,10 +198,12 @@ public final class SurveyJournalScreen extends Screen {
     private void drawLeftPage(GuiGraphicsExtractor graphics, Sheet sheet, JournalEntry.State state,
                               int mouseX, int mouseY) {
         JournalLayout.Rect body = this.layout.leftBody();
-        Component title = state == JournalEntry.State.TORN
+        Component title = sheet.guide() ? Component.translatable("journal.penumbra.guide.title")
+                : state == JournalEntry.State.TORN
                 ? Component.translatable("screen.penumbra.journal.torn_title")
                 : Component.translatable(sheet.entry().titleKey());
-        Component subtitle = state == JournalEntry.State.TORN ? Component.empty()
+        Component subtitle = sheet.guide() ? Component.translatable(StoryGuide.subtitleKey(this.story))
+                : state == JournalEntry.State.TORN ? Component.empty()
                 : ink(Component.translatable(sheet.continued()
                 ? "screen.penumbra.journal.continued" : sheet.entry().subtitleKey()));
         List<FormattedCharSequence> titleLines = this.font.split(title, body.width() - 4);
@@ -198,7 +211,7 @@ public final class SurveyJournalScreen extends Screen {
                 : this.font.split(subtitle, body.width() - 4);
         int captionHeight = titleLines.size() * this.font.lineHeight
                 + (subtitleLines.isEmpty() ? 0 : 6 + subtitleLines.size() * lineAdvance());
-        int portraitSize = Math.max(0, Math.min(PORTRAIT_SIZE,
+        int portraitSize = sheet.guide() ? 0 : Math.max(0, Math.min(PORTRAIT_SIZE,
                 Math.min(body.width() - 4, body.height() - captionHeight - 12)));
         if (portraitSize < 24) {
             portraitSize = 0;

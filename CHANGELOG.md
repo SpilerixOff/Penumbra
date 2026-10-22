@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.23.0] — Une enquête pour chaque joueur
+
+- Le Relevé est remis personnellement à la première connexion, même sur un
+  serveur déjà exploré. Une place libre suffit ; la remise attend si nécessaire.
+  Un livre et une poche d'encre permettent de le remplacer sans perdre l'enquête.
+- Les premiers feuillets donnent la piste du chapitre actuel et, après la
+  victoire, l'épilogue. Chaque lecteur reçoit uniquement son propre avancement.
+- Fouiller le coffre d'origine d'un site permet de relever sa page même si
+  son butin a déjà été pris. Aucun objet du coffre n'est régénéré.
+- Une Maison décalée découverte peut remplacer la découverte d'une copie du
+  refuge pour avancer. La première tentative de copie est planifiée après
+  deux minutes, puis réessayée au plus une fois par minute ; ses délais sont
+  persistants et les protections du terrain restent actives.
+- Au chapitre Reconnaissance, le premier rituel éligible convoque directement
+  le reflet. Une caméra manquante est signalée avant consommation du Sceau.
+  Un rituel précoce ne débloque pas le dernier chapitre à distance plus tard.
+- Les victoires et les connaissances ne sont plus tronquées après 256 entrées.
+  Une victoire ancienne dont la marque a disparu peut être restaurée depuis
+  son compteur de victoire personnel, jamais depuis le seul ancien badge.
+- Les textes sur la caméra expliquent sa recharge entre les clichés : elle
+  n'utilise pas de charges consommables.
+
+Voir [le parcours complet](docs/STORY_FLOW_FR.md), qui contient les conditions
+de progression et les limites des vérifications.
+
 ## [0.22.0] — Votre façon de vivre l'horreur
 
 - **K** ouvre les réglages personnels en jeu, sans commande opérateur.

@@ -4,6 +4,7 @@ import fr.penumbra.PenumbraMod;
 import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.copy.CopyManager;
+import fr.penumbra.copy.CopyTracker;
 import fr.penumbra.data.PenumbraPersistentState;
 import fr.penumbra.director.sequence.LinkedSceneManager;
 import fr.penumbra.entity.HostBehavior;
@@ -295,10 +296,6 @@ public final class HorrorDirector {
             // 0.16.0 : les Échos exigent que l'imitation soit déjà en place.
             Map.entry("action_echo", 3),
             Map.entry("false_rain", 3));
-    /** Intervalle entre deux tentatives de copie imparfaite, par joueur (10 min, Phase 3). */
-    private static final long COPY_CHECK_INTERVAL_TICKS = 12000L;
-    /** Probabilité d'une tentative de copie à chaque échéance (Phase 3 : 15 %). */
-    private static final float COPY_BUILD_CHANCE = 0.15f;
     /** Les 7 types de réactions jumelles (SPEC2 §4), ordre stable pour le tirage pondéré. */
     private static final List<String> BINO_REACTION_TYPES = List.of(
             "freeze", "head_turn", "vanish_on_unzoom", "approach_between",
@@ -368,8 +365,6 @@ public final class HorrorDirector {
     private static final Map<UUID, Boolean> WAS_SLEEPING = new HashMap<>();
     /** Dernier état d'inventaire observé (détection de l'ouverture). */
     private static final Map<UUID, Boolean> WAS_INVENTORY_OPEN = new HashMap<>();
-    /** Dernier tick de tentative de copie imparfaite, par joueur (Phase 3). */
-    private static final Map<UUID, Long> LAST_COPY_CHECK = new HashMap<>();
     /** 0.5.0 : dernier ordinal d'état synchronisé au client, par joueur. */
     private static final Map<UUID, Integer> LAST_SYNCED_STATE = new HashMap<>();
     /** Commande de test ayant explicitement terminé la grâce de ce joueur. */
@@ -452,7 +447,6 @@ public final class HorrorDirector {
                 tickRefugeReturn(player, profile, gameTime);
                 tickSleepWake(player);
                 tickInventoryScare(player, profile);
-                tickCopyCheck(player, gameTime);
             }
             if (profilePhase) {
                 syncTensionIfNeeded(player, profile, gameTime, false);
@@ -461,6 +455,7 @@ public final class HorrorDirector {
                 // Découverte réelle d'une copie (et non simple construction), à
                 // cadence bornée : une vérification toutes les cinq secondes.
                 CopyManager.tickDiscovery(player);
+                tickCopyCheck(player);
                 tickLongQuiet(player, profile, gameTime);
                 tickNaturalChase(player, profile, gameTime);
                 trySelectEvent(player, profile, gameTime);
@@ -543,7 +538,6 @@ public final class HorrorDirector {
         LAST_NEAR_REFUGE.remove(playerId);
         WAS_SLEEPING.remove(playerId);
         WAS_INVENTORY_OPEN.remove(playerId);
-        LAST_COPY_CHECK.remove(playerId);
         LAST_SYNCED_STATE.remove(playerId);
         GRACE_BYPASSED.remove(playerId);
         IMMEDIATE_SELECTION_PENDING.remove(playerId);
@@ -580,7 +574,6 @@ public final class HorrorDirector {
         LAST_NEAR_REFUGE.clear();
         WAS_SLEEPING.clear();
         WAS_INVENTORY_OPEN.clear();
-        LAST_COPY_CHECK.clear();
         LAST_SYNCED_STATE.clear();
         GRACE_BYPASSED.clear();
         IMMEDIATE_SELECTION_PENDING.clear();
@@ -723,6 +716,7 @@ public final class HorrorDirector {
         data.resetProfile(playerId);
         VULNERABILITY_COOLDOWN_UNTIL.remove(playerId);
         StoryManager.reset(player);
+        CopyTracker.get(player.level()).resetAttempts(playerId);
         RefugeContaminationManager.restoreLoadedForOwner(
                 player.level().getServer(), playerId);
         LinkedSceneManager.onPlayerDisconnect(player.level().getServer(), playerId);
@@ -749,7 +743,6 @@ public final class HorrorDirector {
         LAST_NEAR_REFUGE.remove(playerId);
         WAS_SLEEPING.remove(playerId);
         WAS_INVENTORY_OPEN.remove(playerId);
-        LAST_COPY_CHECK.remove(playerId);
         LAST_SYNCED_STATE.remove(playerId);
         GRACE_BYPASSED.remove(playerId);
         IMMEDIATE_SELECTION_PENDING.remove(playerId);
@@ -1923,31 +1916,12 @@ public final class HorrorDirector {
         }
     }
 
-    /**
-     * Copies imparfaites (Phase 3) : tous les {@value #COPY_CHECK_INTERVAL_TICKS}
-     * ticks par joueur, probabilité de {@value #COPY_BUILD_CHANCE} de tenter
-     * {@code CopyManager.maybeBuildCopy} (garde-fous internes : config, stade
-     * d'histoire ≥ 3, cooldown 3 jours, isolement, site). La première
-     * observation initialise le suivi sans déclencher. O(1) par appel :
-     * une lecture/écriture de map, le reste est délégué.
-     */
-    private static void tickCopyCheck(ServerPlayer player, long gameTime) {
+    /** The persistent copy calendar is sampled at the five-second selection cadence. */
+    private static void tickCopyCheck(ServerPlayer player) {
         if (isInFalseCalm(player) || isAutomaticEventPaused(player)) {
             return;
         }
-        UUID playerId = player.getUUID();
-        Long last = LAST_COPY_CHECK.get(playerId);
-        if (last == null) {
-            LAST_COPY_CHECK.put(playerId, gameTime); // premier contact : suivi sans déclenchement
-            return;
-        }
-        if (gameTime - last < COPY_CHECK_INTERVAL_TICKS) {
-            return;
-        }
-        LAST_COPY_CHECK.put(playerId, gameTime);
-        if (player.getRandom().nextFloat() < COPY_BUILD_CHANCE) {
-            CopyManager.maybeBuildCopy(player);
-        }
+        CopyManager.maybeBuildCopy(player);
     }
 
     /**

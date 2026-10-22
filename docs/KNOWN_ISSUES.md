@@ -1,6 +1,59 @@
-# Problèmes connus — Penumbra 0.22.0
+# Problèmes connus — Penumbra 0.23.0
 
-## 0.22.0 — résultats et limites de validation
+## 0.23.0 — résultats et limites de validation
+
+- **347 tests dans 68 suites ont réussi**, sans échec, avec la compilation
+  finale et la validation des ressources. Les tests couvrent notamment les
+  transitions, l'isolation des lecteurs, les paquets et les rechargements NBT.
+  Ils ne valident pas à eux seuls une campagne complète.
+- En jeu, l'arrivée d'un joueur en survie **sans permission opérateur** a
+  confirmé la remise d'un seul Relevé. Le suivi personnel a été ouvert aux
+  étapes 0 puis 5 ; cela ne signifie pas que tout le parcours intermédiaire
+  a été joué naturellement.
+- Au stade 5, le clic rituel sans caméra a été refusé avec le message attendu
+  et le Sceau de cendre conservé. Avec la caméra dans l'inventaire, **un vrai
+  clic et une seule offrande ont lancé le préambule puis la confrontation** :
+  reflet et indications de duel visibles, stade 6, compteur `sanctum_ritual=1`
+  et découverte `structure_ash_sanctum=1`. Le badge du rituel est présent,
+  celui de la victoire finale reste absent. Le début de la rencontre a été
+  capturé le 22 octobre 2026 à 09:57:40 ; aucun duel complet n'est déclaré.
+- Un éloignement a ensuite interrompu le duel et fait disparaître son acteur,
+  sans badge final. Dans le même essai, le coffre original du sanctuaire a été
+  vidé et sa table de butin retirée. Un vrai clic à main vide a ouvert le coffre
+  toujours vide et accordé la page « L'immobilité » (message à 09:59:29, capture
+  à 09:59:37), sans régénérer de butin. Ce contrôle avec un seul client ne
+  constitue pas encore une validation entre deux joueurs simultanés.
+- **La persistance a été vérifiée après une vraie sauvegarde forcée, un arrêt
+  propre et un redémarrage.** Après la sauvegarde de 10:00:08, la lecture NBT
+  confirme le stade 6, `sanctum_ritual=1`, la page `method_stillness`, le marqueur
+  de remise du carnet et l'absence de victoire. Le serveur s'est arrêté à
+  10:00:39 avec le code 0, a redémarré à 10:01:16, puis le joueur s'est reconnecté
+  à 10:01:42 : un seul carnet, caméra conservée, aucun sceau et coffre toujours
+  vide. Le Relevé rouvert affiche « La dernière rencontre » avec les consignes
+  de reprise et 2/14 notes (la page et une observation de créature accumulée),
+  capturé à 10:02:47. Le duel interrompu n'a pas été transformé en victoire.
+- Les remises différées avec inventaire plein en survie/créatif, tous les
+  états du guide, la découverte coopérative et les autres interruptions
+  demandent encore leurs contrôles en jeu. Aucun duel complet
+  de la 0.23.0, aucune campagne de survie entière ni validation de latence
+  Internet ou de deux clients simultanés n'est revendiqué ici.
+- La récupération personnelle d'une page exige un coffre encore présent à
+  la position exacte d'une structure enregistrée. Un coffre détruit ou déplacé
+  et une structure sortie du registre ne sont pas réparés automatiquement.
+  Cette règle ne régénère ni les objets partagés ni les Sceaux de cendre.
+- Les plafonds de 256 des connaissances du Relevé et des marqueurs persistants
+  ont été retirés. Une victoire dont un ancien marqueur a été perdu peut être
+  reconnue à partir de son compteur personnel conservé ; un simple stade 6
+  ne suffit pas. La mise à jour n'invente pas des pages déjà perdues dans une
+  ancienne sauvegarde. Les limites distinctes du registre des structures restent.
+- Le guide décrit les mécanismes activés : couper les événements ou la
+  génération des structures peut toujours empêcher une progression naturelle.
+  Les réglages de confort locaux ne coupent pas ces mécanismes.
+- Le paquet d'ouverture du Relevé transporte maintenant le suivi personnel :
+  installer la même version **0.23.0** côté serveur et sur tous les clients.
+  La préversion publique demeure 0.19.0 ; la 0.23.0 est préparée localement.
+
+## 0.22.0 — résultats historiques et limites encore pertinentes
 
 - **305 tests dans 59 suites ont réussi**, sans échec ; compilation et
   validation des ressources réussies. Cela ne remplace pas les contrôles en jeu.
@@ -46,7 +99,8 @@
 - Le badge de confrontation demande désormais la victoire. Les badges déjà
   obtenus restent acquis ; une sauvegarde où il existait déjà ne permet pas
   de valider sa première attribution selon la nouvelle règle.
-- Installer la même version **0.22.0** côté serveur et sur tous les clients.
+- Ces essais utilisaient la même version **0.22.0** côté serveur et clients ;
+  pour la version actuelle, suivre l'exigence de compatibilité indiquée plus haut.
 
 ## 0.21.1 — résultats historiques
 
@@ -112,8 +166,9 @@
 
 - **Un seul Bûcher naturel par monde.** Depuis la 0.19.0, la recherche déplace
   son site vers la terre ferme si le tirage initial tombe en mer. Un monde
-  entièrement océanique peut néanmoins rester sans site viable ; le carnet
-  reste disponible en créatif.
+  entièrement océanique peut néanmoins rester sans site viable. Depuis la
+  0.23.0, la remise personnelle et la recette du Relevé permettent de le lire
+  sans dépendre de la présence ou du butin de ce camp.
 - **La fumée apparaît avant le camp**, et c'est voulu. Le panache est émis en
   altitude dès qu'un joueur est à moins de 480 blocs ; le camp au sol, lui, ne
   se construit qu'à cent blocs et seulement si le chunk est déjà chargé. Voir de
@@ -129,7 +184,8 @@
 - **Les quatre pages arrachées sont garanties**, une par structure, dans le
   premier pool de leur loot table. Un coffre déjà pillé avant 0.18.0 ne
   contiendra pas la sienne : la table n'est tirée qu'à la première ouverture.
-  Il faudra en trouver un autre.
+  Depuis la 0.23.0, l'ouverture du coffre à sa position enregistrée permet
+  néanmoins à chaque lecteur de retrouver sa page sans régénérer le butin.
 - Une page arrachée s'absorbe **sans posséder le carnet**, et une page déjà
   glissée n'est jamais consommée. Une page dont le composant `penumbra:page_id`
   est absent ou inconnu reste inerte dans l'inventaire au lieu de disparaître.

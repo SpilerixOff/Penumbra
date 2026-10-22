@@ -5,6 +5,7 @@ import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.entity.HostEntity;
+import fr.penumbra.journal.StructurePageDiscovery;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraItems;
 import fr.penumbra.registry.PenumbraParticles;
@@ -97,6 +98,7 @@ public final class PenumbraStructures {
     public static void register() {
         ServerChunkEvents.CHUNK_GENERATE.register(PenumbraStructures::onChunkGenerate);
         UseBlockCallback.EVENT.register(PenumbraStructures::onUseBlock);
+        StructurePageDiscovery.register();
     }
 
     public static void onServerStopped(MinecraftServer server) {
@@ -355,15 +357,20 @@ public final class PenumbraStructures {
             serverPlayer.sendOverlayMessage(Component.translatable("penumbra.ritual.busy"));
             return InteractionResult.SUCCESS;
         }
-        boolean retryFinale = StoryManager.getStage(serverPlayer)
-                >= fr.penumbra.story.StoryStage.CONFRONTATION.index()
-                && !ConfrontationManager.isWon(serverPlayer);
+        int stage = StoryManager.getStage(serverPlayer);
+        boolean alreadyWon = ConfrontationManager.isWon(serverPlayer);
+        // A ritual performed earlier must not exhaust the altar before recognition.
+        boolean retryFinale = SanctumRitualRules.summonsConfrontation(stage, alreadyWon);
         StructureTracker tracker = StructureTracker.get(serverLevel.getServer());
         Optional<StructureTracker.Entry> sanctum =
                 tracker.findSanctumAt(serverPlayer.getUUID(), serverLevel.dimension(),
                         hitResult.getBlockPos(), retryFinale);
         if (sanctum.isEmpty()) {
             return InteractionResult.PASS;
+        }
+        if (SanctumRitualRules.needsCamera(stage, alreadyWon, hasCamera(serverPlayer))) {
+            serverPlayer.sendSystemMessage(Component.translatable("penumbra.confrontation.need_camera"));
+            return InteractionResult.SUCCESS;
         }
         BlockPos pos = hitResult.getBlockPos();
         ConfrontationManager.Prelude prelude =
@@ -374,6 +381,13 @@ public final class PenumbraStructures {
         }
         runRitualFinale(serverLevel, serverPlayer, pos, sanctum.get(), prelude);
         return InteractionResult.SUCCESS;
+    }
+
+    private static boolean hasCamera(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (player.getInventory().getItem(slot).is(PenumbraItems.BINOCULARS)) return true;
+        }
+        return false;
     }
 
     // ================= 0.5.0 : finale du rituel =================
@@ -513,23 +527,21 @@ public final class PenumbraStructures {
     /** Clôture du rituel : son de libération, accalmie, découverte, badge, messages. */
     private static void finishRitual(ServerLevel level, ServerPlayer player, BlockPos pos,
                                      StructureTracker.Entry sanctum) {
-        // 1.0 — au stade final, le rituel ne libère plus : il convoque.
-        if (ConfrontationManager.tryBegin(level, player, pos)) {
-            StructureTracker.get(level.getServer()).markSanctumActivated(player.getUUID(), sanctum);
-            return;
-        }
-        if (StoryManager.getStage(player) >= fr.penumbra.story.StoryStage.CONFRONTATION.index()
-                && !ConfrontationManager.isWon(player)) {
+        // The same offering completes recognition and starts the duel, before calm/rewards.
+        SanctumRitualRules.Completion completion = SanctumRitualRules.complete(
+                StoryManager.getStage(player), ConfrontationManager.isWon(player),
+                () -> StoryManager.noteDiscovery(player, StoryManager.KEY_SANCTUM_RITUAL),
+                () -> ConfrontationManager.tryBegin(level, player, pos));
+        if (completion == SanctumRitualRules.Completion.NO_SPACE) {
             player.sendSystemMessage(Component.translatable("penumbra.confrontation.no_space"));
-            return; // A failed summon is retryable, not a completed ritual reward.
+            return; // A failed summon remains retryable and gives no normal ritual reward.
         }
         StructureTracker.get(level.getServer()).markSanctumActivated(player.getUUID(), sanctum);
+        PenumbraBadges.grant(player, "sanctum_ritual");
+        if (completion == SanctumRitualRules.Completion.SUMMONED) return;
         PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.RITUAL_RELEASE,
                 Vec3.atCenterOf(pos), 1.0f, 1.0f);
         HorrorDirector.applyPostRitualCalm(player, RITUAL_CALM_TICKS);
-        StoryManager.noteDiscovery(player, "sanctum_ritual");
-        // Phase 4 : badge « Cendre et serment ».
-        PenumbraBadges.grant(player, "sanctum_ritual");
         player.sendSystemMessage(Component.translatable("penumbra.structure.ritual_done"));
         // L'épilogue n'est pas une fin : après l'accalmie, il réapprend.
         player.sendSystemMessage(Component.translatable("penumbra.ritual.epilogue"));

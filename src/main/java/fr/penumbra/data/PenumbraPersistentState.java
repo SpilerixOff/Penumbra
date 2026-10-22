@@ -62,10 +62,9 @@ public class PenumbraPersistentState extends SavedData {
         this.worldSeedMirror = worldSeedMirror;
         this.oneShots = new java.util.HashSet<>();
         for (String id : oneShots) {
-            if (this.oneShots.size() >= 256) {
-                break;
-            }
-            if (id != null && !id.isBlank() && id.length() <= 96) {
+            // These server-owned flags are permanent, including personal victories
+            // and onboarding. A global cap silently forgets older players on reload.
+            if (validOneShotId(id)) {
                 this.oneShots.add(id);
             }
         }
@@ -78,9 +77,24 @@ public class PenumbraPersistentState extends SavedData {
 
     /** 0.6.0 : consomme un one-shot (persisté immédiatement). */
     public void markOneShot(String id) {
-        if (this.oneShots.add(id)) {
+        if (validOneShotId(id) && this.oneShots.add(id)) {
             setDirty();
         }
+    }
+
+    private static boolean validOneShotId(String id) {
+        return id != null && !id.isBlank() && id.length() <= 96;
+    }
+
+    /**
+     * Repairs victories lost by the old 256-flag load cap. Only the personal
+     * victory counter is evidence: stage 6 and old advancement badges are not.
+     * The counter is written by the completed duel, independently of this set.
+     */
+    public boolean hasConfrontationVictory(UUID playerId, int recordedWins) {
+        String key = "confrontation_done:" + playerId;
+        if (recordedWins > 0) markOneShot(key);
+        return isOneShotUsed(key);
     }
 
     /**

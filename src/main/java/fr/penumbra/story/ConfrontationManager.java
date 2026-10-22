@@ -119,7 +119,8 @@ public final class ConfrontationManager {
     /** Le duel a-t-il déjà été gagné dans ce monde ? */
     public static boolean isWon(ServerPlayer player) {
         return PenumbraPersistentState.get(player.level().getServer())
-                .isOneShotUsed(oneShotKey(player));
+                .hasConfrontationVictory(player.getUUID(),
+                        StoryManager.getCounters(player).getOrDefault("confrontation", 0));
     }
 
     /**

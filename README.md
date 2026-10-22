@@ -29,7 +29,13 @@ These are implemented systems to explore and test, not a promise that every comb
 
 ## Build from source
 
-This development branch prepares **0.22.0**: press **K** in game for personal
+This development branch prepares **0.23.0**: each newcomer receives a personal
+field journal with guidance for their current chapter. Pages can be recovered
+from a site's original chest even after its loot is gone. The first eligible
+final ritual now leads directly to the confrontation. See the
+[story walkthrough / parcours de l'histoire](docs/STORY_FLOW_FR.md).
+
+Press **K** in game for personal
 comfort settings, including reduced motion, hidden full-screen faces and
 separate ambient and sudden-sound volume. These settings do not change server
 difficulty. Post-ritual calm now survives reconnects and uses elapsed world
@@ -68,7 +74,7 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The mod JAR is `build/libs/penumbra-0.22.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The mod JAR is `build/libs/penumbra-0.23.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 
@@ -102,11 +108,11 @@ La version **0.19.0 est ouverte aux premiers essais publics**. Le **21 octobre 2
 
 Pour jouer, téléchargez le JAR du mod sur la [page Releases](https://github.com/SpilerixOff/Penumbra/releases), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
-Cette branche de développement prépare la **0.22.0** : **K** ouvre des réglages personnels de mouvement, d'image et de son, l'accalmie après le rituel survit aux reconnexions et le badge final exige une victoire. Elle comprend aussi le rituel reprenable et les photos fiabilisées de la 0.21.1, les ambiances variées et le dossier de la 0.21.0, ainsi que le rythme, le contre-jeu et le carnet de la 0.20.0. Le téléchargement public ci-dessus reste la **0.19.0** jusqu'à la prochaine publication.
+Cette branche de développement prépare la **0.23.0** : chaque arrivant reçoit Le Relevé, ses premières pages donnent une piste personnelle, les coffres déjà pillés restent lisibles et le premier rituel final éligible conduit directement au duel. [Voir le parcours complet](docs/STORY_FLOW_FR.md). **K** ouvre des réglages personnels de mouvement, d'image et de son, l'accalmie après le rituel survit aux reconnexions et le badge final exige une victoire. Elle comprend aussi le rituel reprenable et les photos fiabilisées de la 0.21.1, les ambiances variées et le dossier de la 0.21.0, ainsi que le rythme, le contre-jeu et le carnet de la 0.20.0. Le téléchargement public ci-dessus reste la **0.19.0** jusqu'à la prochaine publication.
 
 L'accalmie dure au plus 48 000 ticks du monde : un serveur actif continue de la décompter hors connexion ; un serveur arrêté la met en pause. La reconnexion ne la réinitialise pas. Voir les [problèmes connus](docs/KNOWN_ISSUES.md).
 
-Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.22.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
+Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.23.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
 
 **K** ouvre le menu personnel, réassignable dans les commandes de Minecraft.
 **Appliquer** enregistre dans `config/penumbra-client.json` ; **Annuler** abandonne
