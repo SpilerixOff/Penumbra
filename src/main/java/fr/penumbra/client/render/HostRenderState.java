@@ -14,4 +14,6 @@ public final class HostRenderState extends LivingEntityRenderState {
     public float windupProgress;
     public boolean recovering;
     public float recoveryProgress;
+    public boolean grappling;
+    public float grappleProgress;
 }

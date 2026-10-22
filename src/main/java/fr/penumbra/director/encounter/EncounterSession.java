@@ -9,6 +9,8 @@ final class EncounterSession {
     static final int RETREAT_TICKS = 32;
     static final int HUSH_TICKS = 18;
     static final int CHASE_TICKS = 80;
+    // Windup, leap, two-handed lift/throw and complete recoil fit within five seconds.
+    static final int LUNGE_MAX_TICKS = 100;
 
     enum Variant { RECOIL, LUNGE, CHASE, REBOUND }
     enum Phase { OBSERVE, RETREAT, HUSH, REAPPEAR, CHASE, LUNGE, RECOVERY, DONE }
@@ -68,7 +70,7 @@ final class EncounterSession {
                 if (!chasesEnabled || phaseTicks >= CHASE_TICKS) transition(Phase.RETREAT);
             }
             case LUNGE -> {
-                if (!chasesEnabled || phaseTicks >= 72) cancel();
+                if (!chasesEnabled || phaseTicks >= LUNGE_MAX_TICKS) cancel();
             }
             case RECOVERY -> { if (phaseTicks >= 40) cancel(); }
             case DONE -> { }

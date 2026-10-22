@@ -1,4 +1,4 @@
-# Protocole de test — Penumbra 0.1.0 à 0.23.0
+# Protocole de test — Penumbra 0.1.0 à 0.25.0
 
 Chaque étape indique le résultat attendu. Toute commande `/penumbra` requiert le niveau
 d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
@@ -2152,3 +2152,26 @@ la version, le mode de jeu, les réglages, les TPS et le nombre réel de clients
 4. Consigner les contrôles réellement exécutés, les configurations et les
    captures disponibles. Un essai forcé ne valide pas le rythme naturel d'une
    campagne ; un client local ne valide pas deux joueurs ni la latence Internet.
+
+## 135. 0.25.0 — Bond, saisie et projection de l'Hôte
+
+1. À 20 TPS, en survie et sans armure, regarder un Hôte situé à neuf blocs
+   dans un espace dégagé. Observer la préparation, le bond en arc, la plongée,
+   la fermeture des deux mains, la levée puis le jet et le recul.
+   Relever la hauteur réelle du joueur et sa position après la projection.
+2. Tourner le regard pendant la prise : la caméra reste contrôlable.
+   Vérifier un seul coup, puis la reprise normale des déplacements.
+3. Esquiver latéralement pendant la préparation : la charge conserve sa cible
+   initiale et ne saisit pas le joueur éloigné. Interposer un mur : aucun passage
+   du corps à travers le bloc. Tester aussi le mur derrière la victime.
+4. Installer un plafond à deux blocs au-dessus de la victime, puis une dalle :
+   la levée s'interrompt avant la collision, sans suffocation ni jet retardé.
+5. Photographier l'Hôte pendant la levée : il libère le joueur et recule.
+   Refaire avec mort/suppression de l'acteur, spectateur, déconnexion,
+   changement de dimension et téléportation externe de la victime.
+6. Avec deux clients, vérifier que seul le propriétaire est saisi et déplacé,
+   et que l'observateur voit les mains, la levée et le jet synchronisés.
+   Deux Hôtes ne doivent pas se disputer la même victime pendant une prise.
+7. Relever les erreurs réseau, corrections de mouvement ou kicks éventuels.
+   Les essais locaux ne couvrent pas la latence Internet, les serveurs avec
+   plugins de déplacement ou l'équilibrage sur tous les terrains.

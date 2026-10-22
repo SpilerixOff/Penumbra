@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.25.0] — La prise de l'Hôte
+
+- La charge déclenchée par le regard comprend un bond en arc, une plongée,
+  une saisie à deux mains, un soulèvement puis une projection physique.
+- Le corps, les bras et les mains suivent les étapes synchronisées par le
+  serveur. Le joueur garde le contrôle de son regard pendant la prise.
+- La trajectoire reste engagée vers la position initiale : une esquive peut
+  éviter la saisie. Le flash peut interrompre la prise avant la projection.
+- Le déplacement vérifie les obstacles et l'espace au-dessus du joueur ;
+  une interruption ne conserve aucun verrou de mouvement ou de gravité.
+
+Version de développement ; [résultats et limites des essais](docs/KNOWN_ISSUES.md).
+
 ## [0.24.0] — Des présences dans le monde
 
 - Les visages de screamer, les rémanences de visages et les écrans noirs de

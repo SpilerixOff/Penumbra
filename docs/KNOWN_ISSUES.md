@@ -1,4 +1,39 @@
-# Problèmes connus — Penumbra 0.24.0
+# Problèmes connus — Penumbra 0.25.0
+
+## 0.25.0 — saisie physique de l'Hôte
+
+- **404 tests dans 78 suites ont réussi**, sans échec, erreur ni test ignoré,
+  avec la compilation et la validation des ressources. Les nouveaux tests
+  vérifient notamment les contacts des deux mains, les pieds au sol, les
+  transitions de pose, la levée et les limites du jet.
+- Essai local à 20 TPS : la victime passe de Y=100 à Y=101,05, puis est
+  projetée d'environ 8,68 blocs depuis la prise, avec un seul coup de 6 PV.
+  Le témoin connecté reste immobile et à 20 PV. Les angles de la victime
+  restent inchangés. La distance du jet dépend du terrain et du mouvement.
+- Un plafond bas interrompt la levée sans suffocation ni projection. Un mur
+  ajouté pendant la préparation et une esquive latérale de trois blocs
+  empêchent le contact. Supprimer l'Hôte pendant une levée mesurée libère
+  le joueur au sol, sans dégâts ni jet tardif. Le plafond a été testé à
+  20 TPS ; les trois autres interventions ont été préparées à 5 TPS, puis
+  leur résultat contrôlé à 20 TPS, avec un déplacement d'esquive par console.
+- Deux prises réelles ont été enregistrées, depuis le joueur et en troisième
+  personne. Le second client a rencontré
+  deux plantages natifs dans `glfw.dll` lors de l'activation de sa fenêtre
+  sur ce PC ; le journal ne permet pas d'en attribuer la cause au mod.
+  Cela limite la validation visuelle depuis un deuxième client. Aucun essai
+  avec latence Internet ou plugin serveur de déplacement n'est revendiqué.
+- Le flash pendant la nouvelle saisie, la déconnexion, le changement de
+  dimension, deux Hôtes simultanés et la projection contre un mur proche
+  restent à vérifier en jeu ; les gardes correspondantes sont présentes
+  dans le code et ne constituent pas à elles seules une validation en partie.
+- Ces essais utilisent un monde isolé et des placements de diagnostic.
+  Ils ne valident ni une campagne complète ni l'équilibrage à long terme.
+- Installer **0.25.0 sur le serveur et tous les clients** : le nouvel état
+  de saisie synchronisé demande la même version des deux côtés.
+- La projection peut entraîner des dégâts de chute sur un terrain en pente
+  ou près d'un vide. La saisie ne change pas durablement la gravité du joueur.
+
+Voir la section 135 du [protocole de test](TEST_PROTOCOL.md).
 
 ## 0.24.0 — validation ciblée
 

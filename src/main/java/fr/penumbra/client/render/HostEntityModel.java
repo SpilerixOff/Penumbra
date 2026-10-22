@@ -1,6 +1,7 @@
 package fr.penumbra.client.render;
 
 import fr.penumbra.PenumbraMod;
+import fr.penumbra.client.animation.HostAttackAnimation;
 import fr.penumbra.client.animation.MonsterAnimationMath;
 import fr.penumbra.entity.HostBehavior;
 import net.fabricmc.api.EnvType;
@@ -34,6 +35,7 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
     private static final float TREMOR_DURATION_TICKS = 7.0f;
     private static final int TREMOR_SEED = 1013;
 
+    private final ModelPart hips;
     private final ModelPart head;
     private final ModelPart body;
     private final ModelPart rightArm;
@@ -43,20 +45,33 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
     private final ModelPart leftForearm;
     private final ModelPart leftHand;
     private final ModelPart rightLeg;
+    private final ModelPart rightShin;
     private final ModelPart leftLeg;
+    private final ModelPart leftShin;
+    private final ModelPart[] rightFingers;
+    private final ModelPart[] leftFingers;
+    private final ModelPart rightThumb;
+    private final ModelPart leftThumb;
 
     public HostEntityModel(ModelPart root) {
         super(root);
-        this.head = root.getChild("head");
-        this.body = root.getChild("body");
-        this.rightArm = root.getChild("right_arm");
+        this.hips = root.getChild("hips");
+        this.body = this.hips.getChild("body");
+        this.head = this.body.getChild("head");
+        this.rightArm = this.body.getChild("right_arm");
         this.rightForearm = this.rightArm.getChild("forearm");
         this.rightHand = this.rightForearm.getChild("hand");
-        this.leftArm = root.getChild("left_arm");
+        this.leftArm = this.body.getChild("left_arm");
         this.leftForearm = this.leftArm.getChild("forearm");
         this.leftHand = this.leftForearm.getChild("hand");
-        this.rightLeg = root.getChild("right_leg");
-        this.leftLeg = root.getChild("left_leg");
+        this.rightLeg = this.hips.getChild("right_leg");
+        this.rightShin = this.rightLeg.getChild("shin");
+        this.leftLeg = this.hips.getChild("left_leg");
+        this.leftShin = this.leftLeg.getChild("shin");
+        this.rightFingers = fingers(this.rightHand);
+        this.leftFingers = fingers(this.leftHand);
+        this.rightThumb = this.rightHand.getChild("thumb");
+        this.leftThumb = this.leftHand.getChild("thumb");
     }
 
     /**
@@ -66,60 +81,94 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
      */
     public static LayerDefinition createBodyLayer() {
         MeshDefinition mesh = new MeshDefinition();
-        PartDefinition root = mesh.getRoot();
-
-        // Tete relevee de 2 px : le cou se voit, la silhouette culmine a 2,75 blocs.
-        root.addOrReplaceChild("head",
-                CubeListBuilder.create().texOffs(0, 0)
-                        .addBox(-4.0f, -18.0f, -5.0f, 8.0f, 8.0f, 10.0f),
-                PartPose.offset(0.0f, -26.0f, 0.0f));
-        PartDefinition body = root.addOrReplaceChild("body",
+        PartDefinition hips = mesh.getRoot().addOrReplaceChild("hips",
+                CubeListBuilder.create(), PartPose.offset(0.0f, -14.0f, 0.0f));
+        // Tout le haut du corps pivote autour du bassin. Le cou, la tete et
+        // les epaules restent solidaires, meme lorsque le torse plonge a 60°.
+        PartDefinition body = hips.addOrReplaceChild("body",
                 CubeListBuilder.create().texOffs(0, 20)
-                        .addBox(-4.0f, 0.0f, -2.0f, 8.0f, 20.0f, 4.0f),
-                PartPose.offset(0.0f, -34.0f, 0.0f));
+                        .addBox(-4.0f, -20.0f, -2.0f, 8.0f, 20.0f, 4.0f),
+                PartPose.ZERO);
         // Cou trop fin, solidaire du torse (il suit la respiration du corps).
         body.addOrReplaceChild("neck",
                 CubeListBuilder.create().texOffs(24, 18)
                         .addBox(-2.0f, -3.0f, -2.0f, 4.0f, 3.0f, 4.0f),
-                PartPose.offset(0.0f, 0.0f, 0.0f));
+                PartPose.offset(0.0f, -20.0f, 0.0f));
+        body.addOrReplaceChild("head",
+                CubeListBuilder.create().texOffs(0, 0)
+                        .addBox(-4.0f, -8.0f, -5.0f, 8.0f, 8.0f, 10.0f),
+                PartPose.offset(0.0f, -22.0f, 0.0f));
 
         // Epaules desaxees : la droite pend 1 px plus bas que la gauche.
-        PartDefinition rightArm = root.addOrReplaceChild("right_arm",
+        PartDefinition rightArm = body.addOrReplaceChild("right_arm",
                 CubeListBuilder.create().texOffs(40, 0)
                         .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 8.0f, 3.0f),
-                PartPose.offset(-5.0f, -33.4f, 0.0f));
+                PartPose.offset(-5.0f, -19.4f, 0.0f));
         PartDefinition rightForearm = rightArm.addOrReplaceChild("forearm",
                 CubeListBuilder.create().texOffs(40, 8)
                         .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 8.0f, 3.0f),
                 PartPose.offset(0.0f, 8.0f, 0.0f));
-        rightForearm.addOrReplaceChild("hand",
+        PartDefinition rightHand = rightForearm.addOrReplaceChild("hand",
                 CubeListBuilder.create().texOffs(52, 0)
-                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 3.0f, 3.0f),
+                        .addBox(-1.5f, 0.0f, -1.0f, 3.0f, 2.2f, 2.0f),
                 PartPose.offset(0.0f, 8.0f, 0.0f));
+        addFingers(rightHand, true);
 
-        PartDefinition leftArm = root.addOrReplaceChild("left_arm",
+        PartDefinition leftArm = body.addOrReplaceChild("left_arm",
                 CubeListBuilder.create().texOffs(40, 20)
                         .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 8.0f, 3.0f),
-                PartPose.offset(5.0f, -32.4f, 0.0f));
+                PartPose.offset(5.0f, -18.4f, 0.0f));
         PartDefinition leftForearm = leftArm.addOrReplaceChild("forearm",
                 CubeListBuilder.create().texOffs(40, 28)
                         .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 8.0f, 3.0f),
                 PartPose.offset(0.0f, 8.0f, 0.0f));
-        leftForearm.addOrReplaceChild("hand",
+        PartDefinition leftHand = leftForearm.addOrReplaceChild("hand",
                 CubeListBuilder.create().texOffs(52, 8)
-                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 3.0f, 3.0f),
+                        .addBox(-1.5f, 0.0f, -1.0f, 3.0f, 2.2f, 2.0f),
                 PartPose.offset(0.0f, 8.0f, 0.0f));
+        addFingers(leftHand, false);
 
-        root.addOrReplaceChild("right_leg",
+        PartDefinition rightLeg = hips.addOrReplaceChild("right_leg",
                 CubeListBuilder.create().texOffs(0, 46)
-                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 14.0f, 3.0f),
-                PartPose.offset(-1.5f, -14.0f, 0.0f));
-        root.addOrReplaceChild("left_leg",
+                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 7.0f, 3.0f),
+                PartPose.offset(-1.5f, 0.0f, 0.0f));
+        rightLeg.addOrReplaceChild("shin",
+                CubeListBuilder.create().texOffs(0, 53)
+                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 7.0f, 3.0f),
+                PartPose.offset(0.0f, 7.0f, 0.0f));
+        PartDefinition leftLeg = hips.addOrReplaceChild("left_leg",
                 CubeListBuilder.create().texOffs(14, 46)
-                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 14.0f, 3.0f),
-                PartPose.offset(1.5f, -14.0f, 0.0f));
+                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 7.0f, 3.0f),
+                PartPose.offset(1.5f, 0.0f, 0.0f));
+        leftLeg.addOrReplaceChild("shin",
+                CubeListBuilder.create().texOffs(14, 53)
+                        .addBox(-1.5f, 0.0f, -1.5f, 3.0f, 7.0f, 3.0f),
+                PartPose.offset(0.0f, 7.0f, 0.0f));
 
         return LayerDefinition.create(mesh, 64, 64);
+    }
+
+    private static void addFingers(PartDefinition hand, boolean right) {
+        int textureY = right ? 0 : 8;
+        for (int index = 0; index < 3; index++) {
+            PartDefinition finger = hand.addOrReplaceChild("finger_" + index,
+                    CubeListBuilder.create().texOffs(52, textureY)
+                            .addBox(-0.35f, 0.0f, -0.4f, 0.7f, 1.5f, 0.8f),
+                    PartPose.offset(index - 1.0f, 2.1f, 0.0f));
+            finger.addOrReplaceChild("tip",
+                    CubeListBuilder.create().texOffs(54, textureY)
+                            .addBox(-0.3f, 0.0f, -0.35f, 0.6f, 1.2f, 0.7f),
+                    PartPose.offset(0.0f, 1.5f, 0.0f));
+        }
+        hand.addOrReplaceChild("thumb",
+                CubeListBuilder.create().texOffs(52, textureY)
+                        .addBox(-0.4f, 0.0f, -0.4f, 0.8f, 1.8f, 0.8f),
+                PartPose.offset(right ? 1.45f : -1.45f, 0.7f, 0.0f));
+    }
+
+    private static ModelPart[] fingers(ModelPart hand) {
+        return new ModelPart[] {hand.getChild("finger_0"), hand.getChild("finger_1"),
+                hand.getChild("finger_2")};
     }
 
     @Override
@@ -148,6 +197,8 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
         this.leftLeg.xRot = leftStride * (chase ? 1.16f : 0.85f) * walkSpeed;
         this.rightLeg.zRot = 0.025f + rightStride * 0.035f * walkSpeed;
         this.leftLeg.zRot = -0.025f - leftStride * 0.025f * walkSpeed;
+        this.rightShin.xRot = Math.max(0.0f, -rightStride) * 0.28f * walkSpeed;
+        this.leftShin.xRot = Math.max(0.0f, -leftStride) * 0.28f * walkSpeed;
 
         // Les epaules pendent; seuls les coudes trahissent la respiration.
         this.rightArm.zRot = 0.04f;
@@ -160,7 +211,7 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
 
         this.body.xRot = chase ? 0.31f : breath * 0.012f;
         this.body.zRot = life * Mth.sin(time * 0.014f + 0.8f) * 0.012f;
-        this.body.y = -34.0f - breath * (chase ? 0.08f : 0.18f);
+        this.hips.y = -14.0f - breath * (chase ? 0.08f : 0.18f);
         this.head.yRot = state.yRot * Mth.DEG_TO_RAD * 1.12f
                 + life * Mth.sin(time * 0.013f) * 0.05f;
         this.head.xRot = state.xRot * Mth.DEG_TO_RAD * 1.12f
@@ -169,43 +220,71 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
         this.head.zRot = 0.035f + life * Mth.sin(time * 0.008f) * 0.04f;
 
         applyBehaviorPose(behavior, rightStride, leftStride, walkSpeed, time);
+        // Ces orientations sont exprimees dans le monde, pas relativement au
+        // nouveau torse parent : la tete continue a regarder le joueur.
+        this.head.xRot -= this.body.xRot;
+        this.rightArm.xRot -= this.body.xRot;
+        this.leftArm.xRot -= this.body.xRot;
+        setGrip(chase ? 0.65f : 0.18f);
         if (!statue) {
             applyTremor(time);
         }
-        if (state.recovering) {
-            applyRecovery(state.recoveryProgress);
+        if (state.grappling) {
+            applyAttackPose(HostAttackAnimation.grapple(state.grappleProgress));
+        } else if (state.recovering) {
+            applyAttackPose(HostAttackAnimation.recovery(state.recoveryProgress));
         } else if (state.windingUp) {
-            applyWindup(state.windupProgress);
+            applyAttackPose(HostAttackAnimation.windup(state.windupProgress));
         } else if (state.lunging) {
-            applyLunge(state.lungeProgress, time);
+            applyAttackPose(HostAttackAnimation.lunge(state.lungeProgress));
         }
     }
 
-    private void applyWindup(float progress) {
-        this.head.zRot = 0.12f + 0.42f * progress;
-        this.head.xRot -= 0.20f * progress;
-        this.body.xRot = -0.18f * progress;
-        this.rightArm.xRot = -0.38f * progress;
-        this.leftArm.xRot = -0.24f * progress;
-        this.rightForearm.xRot = -0.72f * progress;
-        this.leftForearm.xRot = -0.55f * progress;
-        this.rightHand.xRot = 0.36f * progress;
-        this.leftHand.xRot = 0.30f * progress;
+    private void applyAttackPose(HostAttackAnimation.Pose pose) {
+        this.hips.y = pose.hipsY();
+        this.body.xRot = pose.torsoPitch();
+        this.body.zRot = 0.0f;
+        this.head.xRot = pose.headPitch() - pose.torsoPitch();
+        this.head.zRot = 0.035f;
+        this.rightLeg.xRot = pose.thighPitch();
+        this.leftLeg.xRot = pose.thighPitch();
+        this.rightLeg.zRot = 0.0f;
+        this.leftLeg.zRot = 0.0f;
+        this.rightShin.xRot = pose.kneePitch();
+        this.leftShin.xRot = pose.kneePitch();
+        applyArm(this.rightArm, this.rightForearm, this.rightHand,
+                pose.rightArm(), pose.torsoPitch());
+        applyArm(this.leftArm, this.leftForearm, this.leftHand,
+                pose.leftArm(), pose.torsoPitch());
+        this.rightArm.zRot = pose.spread();
+        this.leftArm.zRot = -pose.spread();
+        setGrip(pose.grip());
     }
 
-    private void applyRecovery(float progress) {
-        float recoil = 1.0f - progress * 0.65f;
-        this.body.xRot = -0.32f * recoil;
-        this.head.xRot -= 0.28f * recoil;
-        this.head.zRot = -0.30f * recoil;
-        this.rightArm.xRot = -1.12f * recoil;
-        this.leftArm.xRot = -0.84f * recoil;
-        this.rightForearm.xRot = -1.05f * recoil;
-        this.leftForearm.xRot = -0.92f * recoil;
-        this.rightHand.xRot = 0.38f;
-        this.leftHand.xRot = 0.30f;
-        this.rightLeg.xRot = Mth.sin(progress * 18.0f) * 0.32f;
-        this.leftLeg.xRot = -this.rightLeg.xRot;
+    private static void applyArm(ModelPart arm, ModelPart forearm, ModelPart hand,
+                                 HostAttackAnimation.Arms pose, float torsoPitch) {
+        arm.xRot = pose.shoulderPitch() - torsoPitch;
+        arm.yRot = 0.0f;
+        forearm.xRot = pose.elbowPitch();
+        forearm.yRot = 0.0f;
+        hand.xRot = pose.wristPitch();
+    }
+
+    private void setGrip(float grip) {
+        float closed = MonsterAnimationMath.clamp01(grip);
+        for (int index = 0; index < 3; index++) {
+            float curl = -closed * (1.10f + index * 0.05f);
+            this.rightFingers[index].xRot = curl;
+            this.leftFingers[index].xRot = curl;
+            this.rightFingers[index].getChild("tip").xRot = -0.90f * closed;
+            this.leftFingers[index].getChild("tip").xRot = -0.90f * closed;
+            this.rightFingers[index].zRot = (index - 1.0f) * 0.14f * (1.0f - closed);
+            this.leftFingers[index].zRot = (index - 1.0f) * 0.14f * (1.0f - closed);
+        }
+        this.rightThumb.zRot = 0.55f - 1.15f * closed;
+        this.leftThumb.zRot = -0.55f + 1.15f * closed;
+        this.rightThumb.xRot = -0.85f * closed;
+        this.leftThumb.xRot = -0.85f * closed;
     }
 
     private void applyBehaviorPose(HostBehavior behavior, float rightStride,
@@ -260,29 +339,4 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
         this.rightHand.xRot -= Math.abs(tremor) * 1.6f;
     }
 
-    private void applyLunge(float progress, float time) {
-        MonsterAnimationMath.AttackPose pose =
-                MonsterAnimationMath.attackPose(progress);
-        float preparation = pose.anticipation();
-        float strike = pose.strike();
-        float impact = pose.impact();
-        this.body.xRot = 0.18f * preparation - 0.62f * strike;
-        this.body.y = -34.0f + 0.55f * preparation - 0.35f * strike;
-        this.head.xRot += 0.20f * preparation - 0.38f * strike;
-        this.head.zRot += Mth.sin(time * 3.8f)
-                * (0.04f * strike + 0.13f * impact);
-        this.rightArm.xRot = 0.36f * preparation - 1.70f * strike;
-        this.leftArm.xRot = 0.30f * preparation - 1.78f * strike;
-        this.rightForearm.xRot = -0.28f * preparation - 0.82f * strike;
-        this.leftForearm.xRot = -0.36f * preparation - 0.74f * strike;
-        // Les doigts se deplient completement au moment de la frappe.
-        this.rightHand.xRot = -0.16f + 0.55f * strike - 0.30f * impact;
-        this.leftHand.xRot = -0.12f + 0.50f * strike - 0.26f * impact;
-        this.rightArm.yRot = -0.14f * strike;
-        this.leftArm.yRot = 0.14f * strike;
-        this.rightArm.zRot = 0.08f + 0.23f * strike;
-        this.leftArm.zRot = -0.08f - 0.23f * strike;
-        this.rightLeg.xRot = -0.22f * preparation + 0.56f * strike;
-        this.leftLeg.xRot = 0.18f * preparation - 0.50f * strike;
-    }
 }

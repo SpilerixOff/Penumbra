@@ -35,6 +35,8 @@ public final class PenumbraEntities {
                     .sized(0.6f, 2.6f)
                     .eyeHeight(2.3f)
                     .clientTrackingRange(6)
+                    // Keep the hands, body and lifted player on the same tick in multiplayer.
+                    .updateInterval(1)
                     .build(HOST_KEY));
 
     /** Petit cadre mural synchronisé comme un cadre d'objet, sans attributs vivants. */
