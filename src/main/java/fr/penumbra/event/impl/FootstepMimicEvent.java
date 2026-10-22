@@ -7,6 +7,7 @@ import fr.penumbra.director.TensionState;
 import fr.penumbra.event.HorrorEvent;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraSounds;
+import fr.penumbra.story.ConfrontationManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -84,7 +85,7 @@ public final class FootstepMimicEvent implements HorrorEvent {
      * ce qui rend la poursuite crédible si le joueur a bougé entre-temps).
      */
     private static void playStep(ServerPlayer player) {
-        if (player.isRemoved()) {
+        if (player.isRemoved() || ConfrontationManager.isActive(player.getUUID())) {
             return;
         }
         RandomSource random = player.getRandom();

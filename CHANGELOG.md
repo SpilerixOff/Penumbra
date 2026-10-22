@@ -1,5 +1,233 @@
 # Changelog
 
+## [0.24.0] — Des présences dans le monde
+
+- Les visages de screamer, les rémanences de visages et les écrans noirs de
+  sursaut ne sont plus dessinés. Les anciens paquets restent compatibles pour
+  leurs sons ; les anciens réglages ne peuvent pas réactiver ces images.
+- L'Hôte et l'Observateur annoncent leur charge par une pose visible, attaquent
+  la position repérée puis reculent avant de disparaître. Une esquive ou un
+  obstacle peut faire échouer le contact ; la trajectoire vérifie tout le corps.
+  Le cri vient de la créature et une courte secousse ne le rejoue pas une seconde fois.
+- Le Rampant attend un passage réel sous son plafond ou près de sa paroi.
+  Sa préparation peut être annulée en quittant la zone. Ses attaques demandent
+  un contact visible, et sa recherche utilise la dernière position observée.
+- Les retours au refuge et les anciens sursauts de coffre, d'inventaire,
+  de retournement ou de calme peuvent mettre en scène un Hôte personnel :
+  observation, recul, charge, courte poursuite ou retour depuis une autre position.
+  Le terrain, l'espace, les autres joueurs et la durée bornent ces scènes.
+- La fermeture d'un inventaire ou d'un lecteur, dont Le Relevé, peut servir de
+  déclencheur. Les menus bloquent ces nouvelles scènes ; les anciens signaux
+  expirent et ne reprennent pas après déconnexion ou changement de dimension.
+- Les scènes peuvent suspendre brièvement les nappes et le cœur de Penumbra,
+  en conservant les pas, les cris positionnels et les sons du monde.
+- Le flash de la caméra peut repousser un Hôte, un Observateur ou un Rampant
+  appartenant au photographe, à portée de 12 blocs et dans un cône de 50° de
+  part et d'autre du viseur. Une partie du corps doit être visible ; un bloc
+  qui intercepte le rayon physique empêche le flash de l'atteindre.
+- Les poursuites ont une durée bornée et tiennent compte de la perte de vue.
+  Un flash qui interrompt une poursuite de l'Hôte conserve son recul et clôt
+  son suivi par le directeur. L'Écouteur atténue les bruits à travers un obstacle
+  et ne lance pas une charge aveugle sur cette seule information.
+- **K** présente six réglages : mouvement, flashs, grain, scintillement et
+  deux volumes. Les boutons Visages et Rémanences ont été retirés.
+- L'Hôte, l'Observateur, l'Écouteur et le Rampant sont réalignés sur leur
+  position physique. Les pattes du Rampant restent sous la face du plafond.
+- Une créature morte ou retirée ne poursuit plus ses attaques personnalisées
+  pendant l'animation de mort, y compris après une suppression par commande.
+
+Ces changements sont implémentés sur la branche de développement. Les résultats
+de validation de cette version sont consignés séparément dans
+[les problèmes connus](docs/KNOWN_ISSUES.md) ; les résultats 0.23.0 ne valent pas
+validation de la 0.24.0. Voir aussi [le guide](docs/PHYSICAL_HORROR_FR.md).
+
+## [0.23.0] — Une enquête pour chaque joueur
+
+- Le Relevé est remis personnellement à la première connexion, même sur un
+  serveur déjà exploré. Une place libre suffit ; la remise attend si nécessaire.
+  Un livre et une poche d'encre permettent de le remplacer sans perdre l'enquête.
+- Les premiers feuillets donnent la piste du chapitre actuel et, après la
+  victoire, l'épilogue. Chaque lecteur reçoit uniquement son propre avancement.
+- Fouiller le coffre d'origine d'un site permet de relever sa page même si
+  son butin a déjà été pris. Aucun objet du coffre n'est régénéré.
+- Une Maison décalée découverte peut remplacer la découverte d'une copie du
+  refuge pour avancer. La première tentative de copie est planifiée après
+  deux minutes, puis réessayée au plus une fois par minute ; ses délais sont
+  persistants et les protections du terrain restent actives.
+- Au chapitre Reconnaissance, le premier rituel éligible convoque directement
+  le reflet. Une caméra manquante est signalée avant consommation du Sceau.
+  Un rituel précoce ne débloque pas le dernier chapitre à distance plus tard.
+- Les victoires et les connaissances ne sont plus tronquées après 256 entrées.
+  Une victoire ancienne dont la marque a disparu peut être restaurée depuis
+  son compteur de victoire personnel, jamais depuis le seul ancien badge.
+- Les textes sur la caméra expliquent sa recharge entre les clichés : elle
+  n'utilise pas de charges consommables.
+
+Voir [le parcours complet](docs/STORY_FLOW_FR.md), qui contient les conditions
+de progression et les limites des vérifications.
+
+## [0.22.0] — Votre façon de vivre l'horreur
+
+- **K** ouvre les réglages personnels en jeu, sans commande opérateur.
+  Trois préréglages et huit réglages permettent de réduire les mouvements,
+  masquer les visages plein écran, bloquer les flashs et régler séparément
+  le grain, les rémanences, les torches, les sursauts et les nappes sonores.
+- Les choix sont enregistrés dans `config/penumbra-client.json`. Appliquer
+  les active ; Annuler ou Échap laisse les anciens choix intacts. Ils ne
+  modifient pas la difficulté du serveur, les créatures ou le dossier.
+- Le mouvement réduit arrête les secousses, la respiration du viseur,
+  la dérive de champ de vision et les effets animés supplémentaires. Le
+  zoom volontaire de la caméra reste disponible. Masquer un flash visuel
+  n'empêche pas la caméra de fonctionner pendant une confrontation.
+- Les nappes et le cœur déjà en cours sont arrêtés à l'application des
+  réglages, puis reprennent au nouveau volume. Les sons du monde et les
+  indices positionnels restent distincts de ce réglage d'ambiance.
+- L'accalmie après le rituel est sauvegardée par joueur. Elle dure au plus
+  48 000 ticks du monde : le temps s'écoule sur un serveur actif, y compris
+  hors connexion, et s'arrête quand le serveur est arrêté. Rejoindre ou
+  changer de dimension n'accorde pas une nouvelle période de calme.
+- Le badge final récompense désormais une confrontation gagnée. Atteindre
+  le stade narratif 6 ne le débloque plus ; les anciens badges sont conservés.
+
+## [0.21.1] — Stabilisation du rituel et des photos
+
+### Un rituel réservé à son participant
+
+- La réservation commence dès l'activation du sanctuaire. Elle interrompt les
+  scènes liées et les apparitions temporaires proches appartenant au participant,
+  sans supprimer les créatures d'un autre joueur ni les créatures ordinaires.
+- Les suites déjà programmées des faux pas, de l'anticlimax et du retour au
+  refuge respectent aussi cette réservation, pour préserver l'écoute du rituel.
+- Chaque préambule appartient à une tentative précise. S'éloigner de plus de
+  40 blocs, changer de dimension, mourir, dormir, passer en spectateur ou se
+  déconnecter l'annule ; ses anciens effets différés ne reprennent pas au retour.
+- Le sanctuaire n'est validé qu'après le préambule, au démarrage du duel ou à
+  la conclusion normale du rituel. Une tentative interrompue reste rejouable
+  sur le même autel, sans attribuer une victoire ou une récompense de calme.
+- L'apparition de l'Hôte pendant le préambule vérifie l'espace nécessaire à
+  toute sa silhouette, le sol et les limites du monde. Si aucun emplacement
+  sûr n'est disponible, le préambule se poursuit sans cette apparition.
+- Pendant le duel, le reflet refuse un déplacement qui le cacherait derrière
+  le pilier ou un mur. Il garde sa dernière position visible pour permettre
+  l'observation et le flash, tout en respectant le sol et les collisions.
+- Chaque fragment gagné est aussi confirmé dans le chat : le message de
+  sortie d'une photo ne peut plus masquer la progression du duel.
+
+### Des captures liées à la bonne session
+
+- Une capture encore en traitement lors d'une déconnexion ne peut plus
+  terminer ou annuler une nouvelle prise de vue après reconnexion.
+- Les identifiants des prises restent distincts entre les connexions ; les
+  anciens retours du déclencheur et de la capture sont ignorés.
+
+## [0.21.0] — Écouter, comprendre, confronter
+
+### Ambiance sonore
+
+- Trois variantes pour chaque nappe de tension, plus de nouveaux pas lourds
+  et imités : 13 fichiers produits ou remplacés, dont 10 variantes ajoutées.
+- Les nappes durent huit secondes et leurs instances sont suivies : deux au
+  maximum pendant le fondu, un seul battement cardiaque. Le faux calme et la
+  désactivation du son amélioré arrêtent aussi les pistes déjà lancées.
+- Pause, changement de monde, réapparition et déconnexion nettoient ou figent
+  correctement la couche sonore et ses minuteurs.
+- Les fichiers sont redécodés après encodage pour contrôler pics, durée et
+  fondus. Le générateur original et ses graines sont livrés dans les sources.
+
+### Un dossier pour mener l'enquête
+
+- L'album donne accès à un dossier personnel : méthode, observations, pistes
+  partielles et déductions. Une piste décrit une action possible sans nommer
+  une créature encore inconnue ; une paire complète devient une déduction.
+- L'Écouteur devient une catégorie de preuve photographique.
+- L'Écouteur effectue trois recherches infructueuses avant de repartir. Un
+  chemin bloqué n'est plus compté deux fois, évitant des rencontres trop courtes
+  en terrain accidenté.
+- La limite de huit preuves par photo ne tronque plus le dossier global :
+  toutes les catégories connues persistent, sans notification répétée à chaque
+  redécouverte. Le dossier affiché vient du serveur, pas des photos publiques.
+- Les vérifications de cadrage précèdent les rayons de visibilité dans le
+  détecteur photographique, pour éviter les recherches inutiles.
+- À la déconnexion, les textures photographiques et la couche sonore sont
+  nettoyées sur le thread client, évitant une erreur OpenGL à la sortie du monde.
+
+### Une confrontation qui se prépare
+
+- Le rituel final convoque une copie dédiée au bon joueur. Elle ne conserve
+  plus l'IA de chasse ni la durée de vie d'une apparition ordinaire.
+- Trois séquences demandent silence et observation avant une fenêtre de
+  flash, avec une respiration entre les réussites. Rater une fenêtre ne
+  retire pas les réussites acquises ; le flash visuel reste facultatif.
+- Le reflet cherche des emplacements chargés, avec sol et espace suffisants,
+  sans déplacer le joueur. Les nouvelles scènes automatiques du directeur
+  attendent la fin du duel.
+- Le même sanctuaire permet de retenter après un abandon ; le préambule ne
+  peut pas être déclenché plusieurs fois en parallèle. Un échec d'apparition
+  ne donne pas la récompense de victoire.
+- Les victoires déjà sauvegardées et la récompense de calme sont conservées.
+
+### Éclairage
+
+- Les sources proches partagent les mises à jour de terrain : chaque section
+  touchée n'est invalidée qu'une fois par tick, même avec plusieurs torches.
+- L'instantané de lumière est publié avant de demander les reconstructions.
+  Une pause en solo conserve la lumière au lieu de tout éteindre et reconstruire.
+
+## [0.20.0] — Tension, fuite et enquête
+
+### Une peur qui laisse le temps de comprendre
+
+- Le directeur réserve les présages et les retombées aux indices. Les apparitions
+  arrivent pendant la montée et la manifestation ; l'escalade automatique vers
+  une poursuite ou un scare attend la phase de manifestation.
+- Les scènes autonomes respectent aussi une respiration en solo : au moins
+  10 secondes après un effet perceptible, 20 après une manifestation.
+  Une manifestation en retard ne contourne plus l'intervalle des événements.
+- Une santé basse, la faim, le manque d'air, le feu et les dégâts récents
+  suspendent les nouvelles scènes de pression ; 10 secondes de récupération
+  suivent. Cela n'annule pas une créature déjà engagée.
+- Le faux calme sauvegardé est reconnu par l'ambiance client et les règles
+  de contagion. Les commandes de diagnostic restent disponibles ; les suites
+  internes des scènes liées conservent leur déroulement.
+
+### Des rencontres dont on peut apprendre les règles
+
+- **Hôte :** couper sa ligne de vue pendant 4 secondes permet de s'échapper.
+  Il poursuit la dernière position vue, plus la position exacte derrière un
+  mur. Revenir dans son regard réinitialise sa mémoire de poursuite.
+- Son bond de regard commence par 0,6 seconde d'immobilité et un son ; sa
+  destination est fixée au déclenchement. Une esquive, un obstacle ou la
+  rupture de vue peut éviter l'impact. Il ne réarme plus ce bond pendant sa
+  retraite ou son repos.
+- **Écouteur :** sa charge annonce aussi 0,6 seconde avant de pouvoir toucher.
+  Un propriétaire silencieux est protégé au contact, même si un autre joueur
+  attire la créature. Un mur bloque le coup et 34 ticks de silence cassent
+  toujours son verrouillage.
+- Sa durée de scène ne se fige plus quand la cible s'éloigne. Sa sortie est
+  bornée, et les scènes des autres créatures se nettoient lorsque leur
+  propriétaire meurt, dort, quitte ou devient spectateur.
+- Les bonds de l'Observateur, du Contrefait et de l'Originel s'interrompent
+  lorsque la ligne de vue est rompue.
+
+### Retrouver sa route et lire ses découvertes
+
+- **Boussole :** clic droit pour choisir le camp de Warrick, les sites
+  inexplorés ou le site le plus proche. Le choix reste sur l'objet ; la
+  découverte reste propre à chaque joueur. Les anciennes boussoles commencent
+  par guider vers le camp. Aucun chunk distant n'est chargé pour lire son
+  altitude. Les autres sites doivent déjà être générés.
+- **Carnet :** papier lisible sous le texte, auteur et titre sur plusieurs
+  lignes, dimensions adaptées à l'écran, paragraphes longs répartis sans
+  perdre les contre-mesures, indices paginés, flèches corrigées et navigation
+  au clavier ou à la molette.
+- Les structures construites sont immédiatement envoyées aux clients présents,
+  sans devoir recharger le monde. Leur commande respecte maintenant la
+  position et la rotation de `/execute`.
+
+Les tests ajoutés couvrent le rythme, la mémoire de poursuite, le contact de
+l'Écouteur, les itinéraires de boussole et les bornes de pagination. Cette
+version reste à éprouver sur de longues parties et avec plusieurs joueurs.
+
 ## [0.19.0] — Maillages
 
 ### Les objets trouvés — le mobilier qui n'a rien à faire là

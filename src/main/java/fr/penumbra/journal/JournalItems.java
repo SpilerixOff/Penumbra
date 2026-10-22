@@ -46,6 +46,15 @@ public final class JournalItems {
                     .networkSynchronized(ByteBufCodecs.STRING_UTF8)
                     .build());
 
+    /** Route choisie par le joueur ; les anciennes boussoles visent le camp. */
+    public static final DataComponentType<Integer> COMPASS_MODE = Registry.register(
+            BuiltInRegistries.DATA_COMPONENT_TYPE,
+            PenumbraMod.id("compass_mode"),
+            DataComponentType.<Integer>builder()
+                    .persistent(Codec.INT)
+                    .networkSynchronized(ByteBufCodecs.VAR_INT)
+                    .build());
+
     /** Palier d'éloignement (0 à 4) affiché par la boussole, jamais un chiffre. */
     public static final DataComponentType<Integer> COMPASS_DISTANCE = Registry.register(
             BuiltInRegistries.DATA_COMPONENT_TYPE,
@@ -83,8 +92,8 @@ public final class JournalItems {
                     .setId(TORN_PAGE_KEY)));
 
     /**
-     * Boussole d'arpenteur : pointe le site connu le plus proche, Bûcher
-     * compris. Fabricable dès le début — une boussole et un lingot de cuivre —
+     * Boussole d'arpenteur : choix entre le Bûcher, les sites inexplorés et le
+     * site le plus proche. Fabricable — une boussole et un lingot de cuivre —
      * parce qu'elle sert justement à trouver ce qu'on ne trouve pas autrement.
      */
     public static final Item SURVEY_COMPASS = Registry.register(

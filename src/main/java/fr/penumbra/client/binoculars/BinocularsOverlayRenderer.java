@@ -3,6 +3,7 @@ package fr.penumbra.client.binoculars;
 import java.util.Locale;
 
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -81,7 +82,7 @@ public final class BinocularsOverlayRenderer {
         }
 
         // L'entrée ressemble à l'ouverture d'un écran orientable de caméscope.
-        float openingScale = 0.92f + 0.08f * p;
+        float openingScale = ClientComfort.motionAllowed() ? 0.92f + 0.08f * p : 1.0f;
         int viewWidth = Math.max(4, Math.round(targetWidth * openingScale));
         int viewHeight = Math.max(3, Math.round(viewWidth / (float) VIEW_ASPECT));
         int centerX = Math.round(width * 0.5f + BinocularsManager.getBreathOffsetX());
@@ -104,16 +105,18 @@ public final class BinocularsOverlayRenderer {
         drawRoundedFrame(g, left, top, right, bottom, radius, 2,
                 argb(RGB_HOUSING_EDGE, scaleAlpha(230, maskAlpha)));
         drawVignette(g, left, top, right, bottom, maskAlpha);
-        drawScanlines(g, left, top, right, bottom, radius, maskAlpha);
-        drawAnalogNoise(g, left, top, right, bottom, radius, timeMs, maskAlpha,
-                cfg.flashesEnabled);
+        if (ClientComfort.grainEnabled()) {
+            drawScanlines(g, left, top, right, bottom, radius, maskAlpha);
+            drawAnalogNoise(g, left, top, right, bottom, radius, timeMs, maskAlpha,
+                    ClientComfort.flashesEnabled());
+        }
 
         if (cfg.binocularsLensDirt) {
             drawStaticLensDust(g, left, top, right, bottom, radius, maskAlpha);
         }
 
         drawFocusBrackets(g, left, top, right, bottom, maskAlpha);
-        drawReadout(g, left, top, right, bottom, timeMs, maskAlpha, cfg.flashesEnabled);
+        drawReadout(g, left, top, right, bottom, timeMs, maskAlpha, ClientComfort.flashesEnabled());
     }
 
     /**

@@ -41,6 +41,7 @@ public final class PenumbraC2S {
 
     private static final Map<UUID, Boolean> ZOOM_STATES = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> INVENTORY_STATES = new ConcurrentHashMap<>();
+    private static final Map<UUID, SceneScreenState> SCENE_SCREENS = new ConcurrentHashMap<>();
     /** Fenêtre courante de comptage par joueur : [début de fenêtre, paquets reçus]. */
     private static final Map<UUID, long[]> RATE_WINDOWS = new ConcurrentHashMap<>();
     /** Dernier avertissement de rate-limit émis, par joueur (tick de jeu). */
@@ -83,14 +84,24 @@ public final class PenumbraC2S {
         }
     }
 
+    /** 0=gameplay, 1=inventory or reading, 2=another blocking screen. */
+    public record SceneScreenC2S(int kind) implements CustomPacketPayload {
+        public SceneScreenC2S { kind = SceneScreenState.sanitize(kind); }
+        public static final Type<SceneScreenC2S> TYPE = new Type<>(PenumbraMod.id("scene_screen"));
+        public static final StreamCodec<? super RegistryFriendlyByteBuf, SceneScreenC2S> CODEC =
+                StreamCodec.composite(ByteBufCodecs.VAR_INT, SceneScreenC2S::kind, SceneScreenC2S::new);
+        @Override public Type<SceneScreenC2S> type() { return TYPE; }
+    }
+
     /**
-     * Enregistre les deux payloads en phase play, sens client → serveur.
+     * Enregistre les payloads en phase play, sens client → serveur.
      * Vérifié en fabric-api 0.155.2+26.1.2 : le miroir de {@code clientboundPlay()}
      * est {@code PayloadTypeRegistry.serverboundPlay()}.
      */
     public static void registerPayloads() {
         PayloadTypeRegistry.serverboundPlay().register(BinocularsStateC2S.TYPE, BinocularsStateC2S.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(InventoryStateC2S.TYPE, InventoryStateC2S.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SceneScreenC2S.TYPE, SceneScreenC2S.CODEC);
     }
 
     /**
@@ -137,6 +148,14 @@ public final class PenumbraC2S {
         ServerPlayNetworking.registerGlobalReceiver(InventoryStateC2S.TYPE, (payload, context) -> {
             if (allowC2S(context.player())) {
                 INVENTORY_STATES.put(context.player().getUUID(), payload.open());
+            }
+        });
+        ServerPlayNetworking.registerGlobalReceiver(SceneScreenC2S.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (allowC2S(player)) {
+                SCENE_SCREENS.computeIfAbsent(player.getUUID(), ignored -> new SceneScreenState())
+                        .accept(payload.kind(), player.level().getGameTime(),
+                                player.level().dimension().identifier().toString());
             }
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> clear(handler.player.getUUID()));
@@ -186,6 +205,19 @@ public final class PenumbraC2S {
         return INVENTORY_STATES.getOrDefault(playerId, Boolean.FALSE);
     }
 
+    public static boolean isScreenBlocking(ServerPlayer player) {
+        SceneScreenState state = SCENE_SCREENS.get(player.getUUID());
+        return state != null && state.blocks(player.level().getGameTime(),
+                player.level().dimension().identifier().toString())
+                || player.containerMenu != player.inventoryMenu;
+    }
+
+    public static boolean consumeSceneScreenClose(ServerPlayer player) {
+        SceneScreenState state = SCENE_SCREENS.get(player.getUUID());
+        return state != null && state.consumeClose(player.level().getGameTime(),
+                player.level().dimension().identifier().toString());
+    }
+
     /** Validation serveur de la possession, utilisée quand l'option l'exige. */
     private static boolean hasBinoculars(ServerPlayer player) {
         for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
@@ -200,6 +232,7 @@ public final class PenumbraC2S {
     public static void clear(UUID playerId) {
         ZOOM_STATES.remove(playerId);
         INVENTORY_STATES.remove(playerId);
+        SCENE_SCREENS.remove(playerId);
         RATE_WINDOWS.remove(playerId);
         RATE_LAST_WARN.remove(playerId);
     }
@@ -208,6 +241,7 @@ public final class PenumbraC2S {
     public static void clearAll() {
         ZOOM_STATES.clear();
         INVENTORY_STATES.clear();
+        SCENE_SCREENS.clear();
         RATE_WINDOWS.clear();
         RATE_LAST_WARN.clear();
     }

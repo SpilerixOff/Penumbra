@@ -6,6 +6,7 @@ import fr.penumbra.director.PlayerHorrorProfile;
 import fr.penumbra.story.StoryManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
@@ -13,8 +14,8 @@ import java.util.Optional;
  * Point d'entrée du système de copies imparfaites.
  * <p>
  * {@link #maybeBuildCopy(ServerPlayer)} est appelé par le directeur depuis un
- * point rare (fréquence recommandée : ~1 appel toutes les 10 minutes par
- * joueur, probabilité 15 %) — aucune boucle par tick ici. Garde-fous internes :
+ * point borné (toutes les cinq secondes). Le calendrier persistant attend deux
+ * minutes, puis réessaie un site refusé après une minute. Garde-fous internes :
  * config {@code imperfectCopiesEnabled}, stade d'histoire ≥ {@value #MIN_STAGE},
  * cooldown de {@value #COOLDOWN_TICKS} ticks (3 jours de jeu, persisté),
  * aucun autre joueur à moins de 30 blocs du joueur. Les garde-fous de site
@@ -42,6 +43,17 @@ public final class CopyManager {
      * Ne fait rien la plupart du temps : coût nul quand les garde-fous échouent.
      */
     public static void maybeBuildCopy(ServerPlayer player) {
+        if (!PenumbraConfig.get().imperfectCopiesEnabled
+                || !player.level().dimension().equals(Level.OVERWORLD)
+                || StoryManager.getStage(player) < MIN_STAGE) {
+            return;
+        }
+        CopyTracker tracker = CopyTracker.get(player.level());
+        long now = player.level().getServer().overworld().getGameTime();
+        if (!tracker.cooldownElapsed(player.getUUID(), now)
+                || !tracker.claimAttempt(player.getUUID(), now)) {
+            return;
+        }
         tryBuild(player, false);
     }
 
@@ -77,10 +89,8 @@ public final class CopyManager {
             return false;
         }
         CopyTracker tracker = CopyTracker.get(level);
-        long now = level.getGameTime();
-        long lastCopy = tracker.lastCopyTick(player.getUUID());
-        // lastCopy == 0 signifie « jamais construit » : pas de cooldown initial.
-        if (!force && lastCopy != 0L && now - lastCopy < COOLDOWN_TICKS) {
+        long now = level.getServer().overworld().getGameTime();
+        if (!force && !tracker.cooldownElapsed(player.getUUID(), now)) {
             return false;
         }
         // Jamais en présence d'autres joueurs à moins de 30 blocs du joueur.

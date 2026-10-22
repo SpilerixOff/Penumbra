@@ -9,6 +9,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HorrorDirectorPacingTest {
 
     @Test
+    void pressureGuardIncludesStingsAndCreaturesBeyondTheOldHostOnlyFilter() {
+        for (String event : new String[]{"watcher_group", "listener_passage", "sleep_interrupt",
+                "fake_creeper", "binoculars_reveal", "false_companion", "mining_bait"}) {
+            assertTrue(HorrorDirector.isPressureEvent(event), event);
+        }
+        assertFalse(HorrorDirector.isPressureEvent("footsteps"));
+        assertFalse(HorrorDirector.isPressureEvent("silence"));
+        assertFalse(HorrorDirector.isPressureEvent("paired_echo"));
+        assertFalse(HorrorDirector.isPressureEvent("door_anomaly"));
+        assertFalse(HorrorDirector.isPressureEvent("faux_creature"));
+    }
+
+    @Test
     void calmEventsCanAccumulateAcrossTheDefaultNinetySecondGap() {
         PlayerHorrorProfile profile = new PlayerHorrorProfile();
         for (int event = 0; event < 5; event++) {

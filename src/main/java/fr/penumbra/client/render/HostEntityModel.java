@@ -172,9 +172,40 @@ public final class HostEntityModel extends EntityModel<HostRenderState> {
         if (!statue) {
             applyTremor(time);
         }
-        if (state.lunging) {
+        if (state.recovering) {
+            applyRecovery(state.recoveryProgress);
+        } else if (state.windingUp) {
+            applyWindup(state.windupProgress);
+        } else if (state.lunging) {
             applyLunge(state.lungeProgress, time);
         }
+    }
+
+    private void applyWindup(float progress) {
+        this.head.zRot = 0.12f + 0.42f * progress;
+        this.head.xRot -= 0.20f * progress;
+        this.body.xRot = -0.18f * progress;
+        this.rightArm.xRot = -0.38f * progress;
+        this.leftArm.xRot = -0.24f * progress;
+        this.rightForearm.xRot = -0.72f * progress;
+        this.leftForearm.xRot = -0.55f * progress;
+        this.rightHand.xRot = 0.36f * progress;
+        this.leftHand.xRot = 0.30f * progress;
+    }
+
+    private void applyRecovery(float progress) {
+        float recoil = 1.0f - progress * 0.65f;
+        this.body.xRot = -0.32f * recoil;
+        this.head.xRot -= 0.28f * recoil;
+        this.head.zRot = -0.30f * recoil;
+        this.rightArm.xRot = -1.12f * recoil;
+        this.leftArm.xRot = -0.84f * recoil;
+        this.rightForearm.xRot = -1.05f * recoil;
+        this.leftForearm.xRot = -0.92f * recoil;
+        this.rightHand.xRot = 0.38f;
+        this.leftHand.xRot = 0.30f;
+        this.rightLeg.xRot = Mth.sin(progress * 18.0f) * 0.32f;
+        this.leftLeg.xRot = -this.rightLeg.xRot;
     }
 
     private void applyBehaviorPose(HostBehavior behavior, float rightStride,

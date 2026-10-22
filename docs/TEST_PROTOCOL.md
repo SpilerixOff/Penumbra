@@ -1,20 +1,28 @@
-# Protocole de test — Penumbra 0.1.0 à 0.19.0
+# Protocole de test — Penumbra 0.1.0 à 0.23.0
 
 Chaque étape indique le résultat attendu. Toute commande `/penumbra` requiert le niveau
 d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
 `/penumbra tension 80`.
 
+Les sections 120 à 122 couvrent la 0.22.0 ; leur validation en jeu est partielle,
+avec les résultats observés consignés avant la section 120.
+Les sections 123 à 128 couvrent la 0.23.0 ; le bilan qui les précède distingue
+les contrôles confirmés des cas restant à jouer.
+Le menu de confort **K** ne requiert aucune permission opérateur. Pendant
+les tests d'accalmie, ne pas forcer une tension de 90 ou plus : cette commande
+de diagnostic annule volontairement la récompense de calme.
+
 ## 1. Démarrage sans crash
 
 1. Lancez le client (ou `./gradlew runClient` en dev) avec Fabric Loader 0.19.3,
-   Fabric API 0.155.2+26.1.2 et `penumbra-0.19.0.jar`.
+   Fabric API 0.155.2+26.1.2 et `penumbra-0.23.0.jar`.
 2. **Attendu** : le jeu atteint l'écran titre sans crash ; les journaux contiennent une ligne
    `[Penumbra]` d'initialisation, sans stack trace.
 
 ## 2. Présence dans la liste des mods
 
 1. Ouvrez l'écran **Mods** depuis le menu principal.
-2. **Attendu** : « Penumbra » version `0.19.0` apparaît, avec icône et description.
+2. **Attendu** : « Penumbra » version `0.22.0` apparaît, avec icône et description.
 
 ## 3. Commande de statut
 
@@ -541,8 +549,11 @@ liés à la tension : `/penumbra tension 80`.
 4. **sanctum_ritual** : `/penumbra structure spawn ash_sanctum`,
    `/penumbra item give ash_sigil`, clic droit du sceau sur le pilier central.
    **Attendu** : rituel consommé + avancement **« Cendre et serment »**.
-5. **confrontation** : `/penumbra story set 6`. **Attendu** : avancement défi
-   **« Il connaît votre nom »** toasté à l'atteinte du stade final.
+5. **confrontation** : sur un joueur sans ce badge, `/penumbra story set 6`.
+   **Attendu depuis 0.22.0** : aucun octroi au simple passage au stade final.
+   Gagner ensuite le duel (section 117) : **« Il connaît votre nom »** est
+   accordé une seule fois si les badges sont activés. Les anciennes
+   attributions restent conservées ; ne pas les utiliser comme preuve de ce test.
 6. Passez `badgesEnabled: false`, recommencez le test 1 sur un autre joueur.
    **Attendu** : aucun toast, aucune erreur dans les journaux (sortie silencieuse).
 
@@ -1704,8 +1715,440 @@ et JAR 0.19.0 chargeable sur client comme sur serveur dédié.
    débits de chuchotement.
 3. Vérifier qu'aucun son positionné n'est en stéréo (l'atténuation spatiale
    exige du mono) : tous les fichiers générés sont mono.
-4. Laisser tourner une nappe d'ambiance complète (~22 s) : la boucle ne doit
+4. Laisser tourner une nappe d'ambiance complète (8 s depuis la 0.21.0) : la boucle ne doit
    présenter aucun clic au raccord (fondu croisé intégré).
 5. Niveaux à l'oreille : cri nettement au-dessus du chuchotement, nappes en
    retrait. Ajustement éventuel dans `tools/generate_sounds.py` (constantes
    `normalize`) puis régénération.
+
+# Stabilisation 0.21.1
+
+Les procédures ci-dessous décrivent les résultats attendus. Leur présence
+ne signifie pas que chaque cas a été exécuté ; le rapport de livraison
+précise les contrôles réellement passés.
+
+## 117. Rituel, interruptions et victoire
+
+1. Dans un monde d'essai, préparer un sanctuaire, une Caméra VHS et un Sceau
+   de cendre. Passer au stade 6 avec `/penumbra story set 6`.
+2. Faire apparaître un Absent avec `/penumbra absent test`, puis activer le
+   pilier avec le sceau. Attendu : l'ancien acteur du joueur est retiré et
+   le préambule peut aboutir à une copie dédiée sur un terrain valide.
+3. Caméra en main, rester au sol, immobile, en regardant la copie. Au signal
+   d'ouverture, faire un **clic gauche**. **C ne déclenche pas le flash** :
+   c'est le viseur. Obtenir trois réussites séparées par les temps de repos.
+4. Attendu : les réussites apparaissent une à une ; trois réussites donnent
+   la victoire, le badge et l'accalmie. Une fenêtre manquée ne remet pas les
+   réussites à zéro. Recharger le monde conserve la victoire.
+5. Sur une tentative non gagnée, quitter le rayon de 40 blocs pendant le
+   préambule, puis revenir. Attendu : les anciens messages/apparitions ne
+   reprennent pas ; le même sanctuaire accepte une nouvelle tentative.
+6. Refaire l'interruption par mort/réapparition, changement de dimension et
+   déconnexion/reconnexion. Une nouvelle instance du joueur ne doit jamais
+   reprendre les tâches de sa session précédente.
+7. Avec deux joueurs, lancer une scène pour B et le rituel de A. Attendu :
+   le nettoyage de A conserve les acteurs de B et ne valide pas ses flashs.
+8. Garder le pilier central entre la position miroir théorique et le joueur.
+   Attendu : la copie s'arrête avant de se masquer derrière le pilier. Se
+   décaler peut lui permettre de reprendre un mouvement visible ; elle ne
+   traverse ni les murs ni les sols pour retrouver son point miroir.
+
+Un rythme réduit par `/tick rate 5` peut servir au diagnostic fonctionnel des
+fenêtres. Rétablir `/tick rate 20` ensuite ; ce test ne valide pas la difficulté
+ou le rythme ressenti à vitesse normale.
+
+## 118. Preuve de l'Écouteur et dossier personnel
+
+1. Dans un monde d'essai, faire apparaître L'Écouteur sur un terrain dégagé.
+   Le cadrer au centre avec la Caméra VHS et faire un clic gauche.
+2. Attendre 200 ticks de développement. Ouvrir l'album : le cliché doit
+   reconnaître L'Écouteur et le dossier doit gagner une catégorie distincte.
+3. Refaire un cliché identique : aucun second déblocage de la même catégorie.
+4. En multijoueur, montrer la photo publique à B : son dossier ne doit pas
+   hériter de la catégorie de A. Recharger la sauvegarde conserve les preuves
+   personnelles, y compris après suppression volontaire du tirage.
+5. Quitter pendant une capture puis reprendre une autre session : un ancien
+   retour de capture ne doit ni envoyer ses pixels ni annuler une nouvelle photo.
+
+## 119. Serveur dédié et arrêt propre
+
+1. Avec Java 25 et les dépendances du projet, démarrer un serveur dédié dans
+   un dossier d'essai distinct, lié seulement à `127.0.0.1`.
+2. Attendre `Done`, puis envoyer `list`, `save-all flush`, et `stop`, en
+   attendant la réponse de chaque commande.
+3. Attendu : le mod charge sans erreur de classe client, la console répond,
+   tous les mondes sont enregistrés et le processus se termine normalement.
+4. Relancer avec le même dossier pour vérifier le rechargement de ce monde.
+
+Un serveur vide ne valide pas une partie à plusieurs. Les tests de latence,
+de confidentialité des perceptions et de synchronisation sonore demandent
+encore des clients connectés.
+
+# Confort et persistance 0.22.0 — validation partielle
+
+Les procédures suivantes décrivent les résultats attendus ; seuls les
+contrôles listés ici ont été observés. La compilation, les ressources et
+**305 tests dans 59 suites** ont réussi, sans échec.
+
+| Contrôle observé | Résultat |
+|---|---|
+| Client A sans OP, connecté au serveur dédié local | K ouvre le menu |
+| Doux puis Annuler, réouverture | Valeurs Immersion conservées, aucun fichier personnel créé |
+| Doux puis Appliquer, réouverture | Valeurs Doux conservées, fichier personnel correct |
+| Configurations de base client A et serveur | Empreintes inchangées après ces manipulations |
+| Interface française | Vérifiée et capturée en fenêtre 960×540 |
+| Passage au stade 6, badge initialement absent | Aucun octroi, sans révocation préalable |
+| Rituel normal déclenché par un vrai clic | Accalmie à 47 668 ticks après sauvegarde forcée, puis 47 403 après arrêt propre ; badge de confrontation toujours absent |
+| Redémarrage du serveur et du client A, reconnexion sans OP | Doux conservé ; horloge 10 104→10 576, accalmie 47 403→46 931 : exactement 472 ticks consommés, sans réarmement ; badge toujours absent |
+
+Le serveur a signalé un retard de 2 056 ms (41 ticks) à la connexion ; ce
+contrôle ne démontre pas un maintien constant à 20 TPS. Le client B a échoué
+deux fois avant connexion, y compris après une relance contrôlée, avec une
+violation d'accès native dans GLFW (`glfw.dll+0x10fa1`, `pollEvents` ; dernier
+rapport `hs_err_pid20052.log`). Aucune frame Penumbra n'apparaît dans la trace
+observée ; l'origine reste indéterminée. Aucun second joueur n'a rejoint :
+**l'essai simultané à deux clients n'est pas validé**.
+L'interface anglaise, les petites dimensions GUI, le duel complet en 0.22.0,
+la survie longue et la latence Internet ne sont pas déclarés validés.
+
+## 120. Menu personnel, application et limites
+
+1. Sans permission opérateur, ouvrir **K** en jeu. Vérifier les huit réglages,
+   les infobulles, les trois préréglages, puis le clavier et la souris en
+   français et en anglais à 320×180 GUI et à une taille supérieure.
+2. Réassigner K dans les contrôles. Le chat et les écrans ouverts doivent
+   consommer leurs saisies sans ouvrir le menu, même après leur fermeture.
+3. Modifier plusieurs valeurs et choisir Doux, puis Annuler ou Échap.
+   Attendu : aucun changement actif ni fichier écrit. Refaire puis Appliquer :
+   effet immédiat et valeurs conservées à la réouverture et après redémarrage.
+   `penumbra-client.json` change ; `penumbra.json` reste inchangé.
+4. Tester un fichier client incomplet, invalide et une écriture impossible.
+   Attendu : défauts neutres pour les clés absentes, erreur lisible pour les
+   échecs, pas de publication des changements si la sauvegarde échoue.
+5. Couper un effet dans la configuration de base : aucun réglage local ni
+   préréglage Immersion ne doit le réactiver. Activer mouvement réduit avec
+   grain/rémanences/lumière variable autorisés individuellement : ces effets
+   restent coupés, mais leurs choix restent mémorisés à la désactivation du mode.
+6. Vérifier secousses, FOV et respiration du zoom, animations VHS et flashs.
+   Photos et contre-mesures du duel restent utilisables avec les flashs bloqués.
+   Masquer les visages ne masque pas les créatures ni ne change leurs dégâts.
+7. Tester chaque volume à 0 %, 50 % et 100 %, y compris une nappe déjà lancée.
+   Attendu : aucune amplification de base ; ambiances limitées aux nappes/cœur,
+   sons soudains limités aux sons de sursaut couverts. Pas, indices et sons
+   Minecraft restent indépendants. Aucun son de démonstration n'est joué par le menu.
+8. Vérifier la vraie pause solo, puis le même menu sur un serveur à deux
+   clients : le serveur continue, les choix de A ne modifient pas ceux de B
+   ni le comportement des créatures ou la fréquence des événements.
+
+## 121. Accalmie persistante et horloge commune
+
+1. Obtenir réellement l'accalmie d'un rituel ou d'une victoire sur un monde
+   d'essai. Attendu : durée initiale de 48 000 ticks, puis consommation selon
+   les ticks du monde principal, pas le temps mural.
+2. Quitter puis rejoindre avant expiration. Le temps restant doit être
+   conservé, sans repartir à 48 000 ; aucun badge ou victoire n'est réattribué.
+3. Arrêter le serveur, attendre, puis relancer : le temps hors ligne avec le
+   serveur arrêté n'est pas décompté. Sur un serveur qui continue à avancer
+   pendant l'absence du joueur, les ticks écoulés sont au contraire décomptés.
+4. Changer de dimension : la même horloge est utilisée, sans prolongation ni
+   expiration artificielle. Vérifier aussi l'expiration normale et la reprise
+   des événements. Les sons vanilla ne sont pas censés être supprimés.
+5. Sur une copie d'essai, `/penumbra tension 90` doit annuler le calme restant,
+   y compris après reconnexion. Réserver cette commande à la fin du contrôle.
+
+## 122. Badge de victoire et anciennes sauvegardes
+
+1. Sur un joueur sans badge `confrontation`, atteindre le stade 6 : aucun
+   octroi. Interrompre un préambule ou un duel : toujours aucun octroi.
+2. Gagner le duel avec les badges activés : attribution du badge, marqueur de
+   victoire et compteur enregistrés. Recharger conserve ces données sans
+   seconde attribution. Refaire avec les badges coupés sur un autre joueur.
+3. Charger une sauvegarde où le badge a déjà été obtenu selon l'ancienne règle :
+   il reste acquis. Ce cas ne valide pas l'attribution initiale de la nouvelle règle.
+
+# Parcours de l'histoire 0.23.0 — validation ciblée
+
+La compilation finale, la validation des ressources et les tests ont réussi :
+**347 tests dans 68 suites, sans échec**. Les observations en jeu confirmées
+le 22 octobre 2026 se limitent aux cas suivants ; les sections 123 à 128
+restent un protocole, et ne sont pas déclarées intégralement exécutées.
+
+| Contrôle observé | Résultat |
+|---|---|
+| Arrivée en survie sans OP | Un Relevé remis ; suivi personnel ouvert aux étapes 0 puis 5 |
+| Rituel au stade 5, sans caméra | Refus lisible, sceau conservé |
+| Un vrai clic avec caméra dans l'inventaire et une seule offrande | Préambule puis reflet et indications du duel ; stade 6, `sanctum_ritual=1`, `structure_ash_sanctum=1` ; badge du rituel présent et badge final absent (capture 09:57:40) |
+| Abandon du duel par éloignement | Acteur disparu, aucune victoire finale accordée |
+| Coffre original du sanctuaire préparé vide, table de butin retirée, clic à main vide | Coffre ouvert toujours vide et page « L'immobilité » accordée, sans régénération du butin (message 09:59:29, capture 09:59:37) |
+| Sauvegarde forcée, arrêt propre, redémarrage et reconnexion | Lecture NBT après sauvegarde : stade 6, rituel 1, `method_stillness`, remise du carnet et aucune victoire ; après reconnexion : un carnet, caméra, aucun sceau, coffre vide, guide « La dernière rencontre » et 2/14 notes (page et observation de créature) |
+
+La sauvegarde a été forcée à 10:00:08, l'arrêt propre s'est terminé avec le code
+0 à 10:00:39, le redémarrage a eu lieu à 10:01:16 et la reconnexion à 10:01:42.
+Le guide de reprise a été capturé à 10:02:47. Ces contrôles avec un seul
+client ne valident ni deux joueurs
+simultanés, ni le déroulement naturel de tous les chapitres, ni un duel complet.
+Les inventaires pleins, les autres états du guide et les autres cas ci-dessous
+doivent encore être distingués des preuves automatisées disponibles.
+
+## 123. Remise personnelle du Relevé et inventaire plein
+
+1. Connecter un joueur encore inconnu de ce monde, avec `journalEnabled=true`,
+   sans permission opérateur. Attendu : un Relevé dans l'inventaire, un message
+   expliquant clic droit, enquête personnelle, refabrication et K ; aucun écran
+   ne s'ouvre automatiquement. Répéter en survie et en créatif.
+2. Préparer un autre joueur d'essai dont l'inventaire est plein avant sa première
+   remise, sans Relevé. Attendu : message demandant une place, aucun livre jeté
+   au sol, aucun objet remplacé. Libérer une place sans quitter le serveur :
+   le Relevé doit arriver au prochain contrôle, dans environ 40 ticks.
+3. Répéter le cas plein en créatif : la remise ne doit pas être considérée
+   comme acquise tant que le livre n'est pas réellement dans l'inventaire.
+   Ne pas confondre un retour positif d'insertion avec une livraison visible.
+4. Quitter alors que la remise est encore en attente, puis rejoindre et libérer
+   une place. Le droit au livre doit être conservé. Après une remise réussie,
+   plusieurs reconnexions et un redémarrage du serveur ne donnent ni double
+   livre ni nouveau message de bienvenue. Tester aussi un joueur qui possédait
+   déjà un Relevé avant la mise à jour : son exemplaire suffit.
+5. Après livraison, perdre volontairement le livre dans ce monde d'essai :
+   une reconnexion ne doit pas le remplacer. Combiner un livre et une poche
+   d'encre pour en refaire un ; vérifier la recette dans le livre de recettes
+   après obtention d'un livre. Les découvertes personnelles restent présentes.
+6. Sur une configuration sans journal, aucune remise ni invitation à libérer
+   une place. Réactiver le journal puis rejoindre avec un joueur qui ne l'a
+   jamais reçu : sa première remise doit rester possible.
+
+## 124. Suivi personnel, étapes et fin de l'histoire
+
+1. Ouvrir le Relevé d'un nouveau joueur : les premiers feuillets sont
+   « Votre enquête », avant le frontispice de Warrick. Ils indiquent refuge,
+   repos, exploration et boussole, sans annoncer les objectifs des étapes
+   suivantes. Vérifier français et anglais, petite et grande interface,
+   pagination au clavier/souris et retour au début avec Début.
+2. Dans le monde d'essai, utiliser `/penumbra story set <0–6>` pour contrôler
+   chaque état d'affichage. Fermer puis rouvrir le livre après chaque changement :
+   il reçoit un nouvel instantané du serveur, sans prétendre évoluer en direct.
+
+| Étape du joueur | Indication attendue |
+|---|---|
+| 0 | Refuge avec lit, pauses nocturnes, anomalie ou poste d'observation |
+| 1 | Continuer ses activités et repérer plusieurs manifestations d'imitation |
+| 2 | Deux pauses immobiles distinctes d'environ 10 s au même endroit, nuit/pénombre ; repos sur 2 et visiteur au refuge distingués |
+| 3 | Maison décalée déjà visitée par d'autres toujours utile ; copie personnelle comme autre voie si autorisée |
+| 4 | Rencontres avec l'Hôte et observations personnelles sur 4 |
+| 5 | Caméra VHS et Sceau de cendre au sanctuaire ; distinction avec le Sceau de bannissement |
+| 6, sans victoire | Reprise possible, caméra en main principale, immobilité/cadrage, clic gauche à l'ouverture, trois brèches |
+| Victoire acquise | Épilogue, poursuite libre du jeu et accalmie temporaire ; aucun retour artificiel au début |
+
+3. Pour l'étape 2, réaliser les pauses et les repos plutôt que seulement forcer
+   le stade. Vérifier séparément les compteurs de lits et la présence de l'Hôte
+   au refuge. Pour l'étape 4, comparer les observations affichées aux données
+   serveur. Le suivi ne doit pas inventer les découvertes d'un autre joueur.
+4. Régler `storyEnabled=false` : message explicite d'histoire désactivée,
+   sans objectif impossible. Avec `imperfectCopiesEnabled=false`, l'étape 3
+   doit orienter vers la Maison décalée sans promettre une copie personnelle.
+5. Le simple passage au stade 6 ne doit jamais afficher la victoire. Gagner
+   réellement le duel, ou charger une sauvegarde d'essai d'une victoire déjà
+   vérifiée : l'épilogue reste affiché après rechargement. Il explique que
+   l'ambiance peut revenir après environ 40 minutes au rythme du monde.
+6. Prêter le même exemplaire du Relevé à un autre joueur : ses propres pages,
+   compteurs et objectifs apparaissent. Reprendre le livre ne modifie aucun
+   des deux historiques. Les notes de caméra n'annoncent ni pellicule à acheter
+   ni charges limitées : clic gauche, puis environ deux secondes entre prises.
+
+## 125. Pages personnelles dans les coffres déjà pillés
+
+1. Avec A, vider les coffres naturels d'un poste d'observation, d'une Maison
+   décalée, d'un Sanctuaire et d'un puits ; conserver leurs positions exactes.
+   Tester les variantes existantes, notamment les deux profondeurs du puits.
+2. Avec B, arrivé plus tard et sans ces pages, faire un vrai clic droit sur
+   chacun des coffres restés en place. Attendu : message de page retrouvée et
+   page personnelle lisible, même si le coffre est vide ; aucun remplissage du
+   coffre, aucun objet retiré à A et aucun changement de son Relevé.
+3. Réouvrir avec B : pas de seconde attribution ni progression supplémentaire.
+   Vérifier aussi B sans Relevé en main, puis avec un exemplaire refabriqué :
+   la connaissance appartient au joueur et reste consultable ensuite.
+4. Ouvrir un coffre ordinaire proche, un coffre déplacé ou un coffre aux mêmes
+   coordonnées dans une autre dimension : aucune page ne doit être accordée.
+   Une structure doit encore être connue du registre et le coffre à sa place
+   exacte. La destruction du coffre n'entraîne pas de récupération à distance.
+5. La page physique du butin continue de fonctionner. Si cette page est déjà
+   connue du lecteur, son utilisation ne consomme pas un duplicata. Recharger
+   le serveur conserve les quatre connaissances de B sans modifier celles de A.
+
+## 126. Maison décalée, coopération et copie personnelle
+
+1. Avec deux joueurs à l'étape 3, faire découvrir la même Maison décalée à A
+   puis à B. Chaque découverte personnelle doit permettre sa progression ;
+   le passage de A ne valide ni n'épuise celui de B. Refaire avec les copies
+   personnelles désactivées et avec une maison dont le coffre est déjà vide.
+2. Faire découvrir la maison à B avant l'étape 3. Une fois ce stade atteint,
+   la découverte déjà enregistrée reste valable lors de l'évaluation suivante ;
+   B n'a pas à trouver une deuxième maison pour satisfaire cette condition.
+3. Avec les copies activées, vérifier également la voie de la copie personnelle.
+   Les conditions de terrain et de protection des constructions restent actives :
+   l'alternative Maison décalée ne doit pas les contourner.
+4. Contrôler le calendrier de copie sur un joueur éligible : première tentative
+   après environ deux minutes, nouvelle tentative après environ une minute en
+   cas de refus, délai de trois jours conservé après une construction réussie.
+   Déconnecter/reconnecter entre les tentatives ne doit pas repousser sans fin
+   la première possibilité. Noter les ticks et la condition d'éligibilité.
+
+## 127. Premier rituel final avec une seule offrande
+
+1. En survie dans un monde d'essai, placer le joueur au stade 5 et lui donner
+   exactement un Sceau de cendre, sans Caméra VHS dans son inventaire. Cliquer
+   le pilier d'un sanctuaire : message demandant la caméra, sceau conservé,
+   aucun préambule lancé ni autel consommé pour ce joueur.
+2. Ajouter une Caméra VHS à l'inventaire et recommencer. Attendu : une seule
+   offrande est consommée ; le même préambule valide le stade 6 puis ouvre
+   directement le duel. Aucun deuxième sceau ni second clic rituel ne doit être
+   nécessaire, et l'accalmie normale ne doit pas annoncer une fausse fin.
+3. Prendre la caméra en main principale et tenter les trois ouvertures. Réserver
+   le marqueur de victoire et le badge de confrontation à une victoire réelle.
+   Le badge propre au rituel ne doit pas être confondu avec celui du duel.
+4. Tester un sanctuaire utilisé plus tôt dans l'histoire par ce même joueur :
+   au stade 5, une nouvelle offrande avec caméra peut déclencher la finale.
+   Un rituel ancien suivi d'un événement sans lien avec l'autel ne doit pas,
+   à lui seul, faire passer du stade 5 au stade 6.
+5. Interrompre avant la victoire, puis revenir avec une nouvelle offrande :
+   reprise possible au même autel. Tester également un placement impossible
+   de la copie : message d'échec, aucun faux succès ni accalmie de récompense,
+   et possibilité de retenter lorsque le terrain est valide.
+6. En créatif, refaire les contrôles fonctionnels en notant que le sceau n'est
+   pas consommé par conception. Ce cas ne valide pas le coût en survie ; les
+   contrôles de rythme à faible TPS ne valident pas l'équilibrage à 20 TPS.
+
+## 128. Historique au-delà des anciennes limites de sauvegarde
+
+1. Exécuter les tests ciblés `JournalKnowledgeTest` : 300 identités distinctes
+   gardent pages et observations après trois cycles NBT ; les anciens formats
+   chargent toutes les identités, ignorent les identifiants inconnus et retirent
+   les doublons sans effacer les premières entrées.
+2. Exécuter `PenumbraPersistentStateTest` : plus de 256 marqueurs, dont victoire
+   et remise du Relevé pour 400 identités, survivent aux rechargements. Vérifier
+   aussi une ancienne liste dont le marqueur de victoire se trouve après la
+   256e entrée ; ne pas remplacer cette vérification par une liste courte.
+3. Sur une copie de sauvegarde, contrôler qu'un compteur personnel de victoire
+   réellement enregistré peut restaurer un ancien marqueur perdu. Un simple
+   stade 6, un autre joueur vainqueur ou un compteur nul ne doit pas suffire.
+4. Compléter par démarrage, sauvegarde et arrêt propre d'un serveur utilisant
+   un jeu de données d'essai volumineux, puis comparer les données rechargées.
+   Les tests de codec ne constituent pas à eux seuls un essai serveur de charge.
+   Ce contrôle ne supprime pas les limites distinctes du registre des structures.
+
+## 129. 0.24.0 — absence d'images et réglages personnels
+
+Ces sections constituent un protocole à exécuter, pas un compte rendu de QA.
+Utiliser un monde isolé et le même JAR 0.24.0 côté serveur et clients. Noter
+la version, le mode de jeu, les réglages, les TPS et le nombre réel de clients.
+
+1. Charger une ancienne configuration autorisant les visages et rémanences.
+   Déclencher les anciens types `screamer`, `apparition`, `lunge_screamer` et
+   les variantes nommées. Attendu : aucun visage dans le HUD, aucune rémanence
+   de visage ni écran noir de screamer ; les sons prévus restent possibles.
+2. Ouvrir K : trois préréglages et six réglages individuels, dont quatre
+   interrupteurs et deux volumes. Aucun bouton Visages ou Rémanences. Vérifier
+   petite interface, navigation, Appliquer, Annuler et persistance au redémarrage.
+3. Activer mouvement réduit : aucun déplacement de caméra provoqué par
+   `impact`. Régler Sons soudains à zéro : vérifier séparément Hôte,
+   Observateur, contact du Rampant et contact de L'Écouteur. Leurs animations
+   et les règles du serveur restent actives.
+4. Tester `jumpscareFrequency=0`, puis recharger la configuration : les
+   retours de contact n'ajoutent ni cri soudain ni secousse. Distinguer les
+   bruits ordinaires de déplacement des sons de contact.
+
+## 130. Hôte et Observateur : charge, esquive et recul
+
+1. Préparer un sol plat, plusieurs blocs de hauteur libre et un joueur en
+   survie. Utiliser `spawnhost` ou `watcher test` pour le diagnostic ; si l'acteur
+   est repositionné par console, le noter. Cela ne valide pas le placement naturel.
+2. Regarder l'Hôte jusqu'à sa réaction. Pour l'Observateur, rester à plus de
+   huit blocs et soutenir le regard selon `watcherStareSeconds`. Attendu : tête
+   inclinée et préparation des bras, puis approche du véritable modèle 3D.
+3. Rester immobile sur un essai : un seul contact, cri issu de la créature,
+   éventuelle secousse courte sans image, puis recul visible pendant environ
+   36 ticks avant dissolution. En créatif, ne pas considérer l'absence de dégâts
+   comme une preuve d'esquive.
+4. Recommencer en se décalant latéralement pendant la préparation. La créature
+   doit garder son point d'arrivée initial ; hors de portée à la fin, aucun dégât.
+5. Interposer un mur ou gagner un couvert. Vérifier la trajectoire entière,
+   notamment les angles et passages trop bas : aucune traversée et aucun contact
+   derrière le mur. Répéter près d'une limite de chunk chargé.
+6. Bloquer le recul avec un obstacle : la créature peut rester en pose de
+   retrait jusqu'à son expiration ; elle ne traverse ni le mur ni le joueur.
+   Contrôler également dalles, escaliers et bords de plateforme.
+
+## 131. Caméra physique et poursuites interrompues
+
+1. Avec une caméra en main principale, photographier un Hôte, un Observateur
+   puis un Rampant proches pendant leur préparation ou attaque. Attendu :
+   interruption et retrait visible, sans seconde attaque de la même manifestation.
+2. Répéter à 12 blocs puis au-delà, près de l'axe du viseur puis hors du
+   demi-angle de 50°. Le zoom ne doit pas augmenter la portée de défense.
+3. Masquer la tête en laissant le torse visible : flash efficace si un
+   échantillon du corps reste cadré et accessible. Ajouter ensuite un mur plein
+   puis du verre entre le joueur et tout le corps : le rayon physique est bloqué.
+4. Photographier une créature d'un autre joueur : aucune répulsion attribuée
+   à cette photo. Les observations photographiques et la défense sont distinctes.
+5. Interrompre une vraie poursuite enregistrée de l'Hôte : vérifier que
+   l'acteur recule, que le suivi de poursuite du directeur se termine et que
+   le délai de récupération prévu s'applique. Ne pas remplacer le recul par
+   une suppression immédiate de l'entité.
+6. Tester la recharge, un paquet de déclencheur rejeté, une déconnexion et
+   un changement de dimension : aucune répulsion provenant d'une vieille capture.
+   Refaire le duel final pour vérifier que ses trois ouvertures restent nécessaires.
+
+## 132. Scènes de coffre, de lecture et de refuge
+
+1. Ouvrir un coffre ou Le Relevé pendant quelques secondes puis fermer.
+   Dans un contexte éligible, vérifier le déclenchement après fermeture et
+   l'absence de scène nouvelle pendant la lecture. La probabilité normale
+   implique de distinguer un tirage sans scène d'une régression.
+2. Répéter après une ouverture inférieure à 30 ticks, une lecture supérieure
+   à 600 ticks et un passage par les réglages. Aucun ancien piège ne doit être
+   déclenché. Tester les transitions entre album et lecteur de photo.
+3. Retourner au refuge avec un encadrement ou un angle réellement disponible.
+   Pour la variante de retour, vérifier observation, retrait, court silence,
+   bruit provenant d'une autre position puis présence à cette position.
+4. Refuser les placements : plafond trop bas, sol dangereux, eau/lave, bord du
+   monde, chunk absent, joueur voisin. Attendu : aucun acteur coincé, aucun
+   bloc modifié et aucune image utilisée en remplacement.
+5. Ouvrir un menu pendant une scène active, mourir, dormir, passer en spectateur,
+   changer de dimension ou se déconnecter : la scène doit s'arrêter, sans
+   réapparition tardive après reprise. Un flash annule aussi sa suite prévue.
+6. Avec deux clients réellement connectés, vérifier que l'Hôte de scène,
+   ses indices privés et sa dissolution ne sont présentés qu'au propriétaire.
+   Vérifier séparément les créatures ordinaires partagées et l'annulation si
+   l'autre joueur entre dans l'espace protégé de la scène.
+
+## 133. Rampant, couvert et L'Écouteur
+
+1. Faire apparaître un Rampant sur un plafond valide. Passer loin dessous
+   ou derrière un mur : pas de chute immédiate. Entrer dans la zone proche :
+   avertissement bref ; sortir pendant cet avertissement annule le décrochage.
+2. Rester dans la zone lors d'un second essai : chute puis contact seulement
+   si les corps se rejoignent et la vue est dégagée. Tester un saut esquivé et
+   un obstacle, puis le flash caméra et la lumière.
+3. Rompre la vue du Rampant : sa recherche se dirige vers la position connue,
+   sans suivre chaque mouvement caché. Vérifier sa fin de recherche et le départ,
+   y compris après une remontée sur une paroi.
+4. Attirer L'Écouteur par du bruit derrière un obstacle : son atténué et
+   recherche possibles, mais pas de nouvelle charge sur ce seul bruit masqué.
+   En vue dégagée, vérifier avertissement, approche, silence et couvert comme
+   moyens d'échapper au contact. Une recherche bloquée ne dure pas indéfiniment.
+5. À deux joueurs, le bruit de B peut attirer une créature partagée mais ne
+   doit pas autoriser un coup sur son propriétaire A resté silencieux.
+
+## 134. Silence, provenance sonore et limites de validation
+
+1. Pendant une nouvelle scène, écouter l'arrêt bref des nappes et du cœur
+   suivis par Penumbra. Les pas, les cris spatiaux et les sons Minecraft doivent
+   rester audibles. Vérifier la reprise puis la déconnexion sans boucle résiduelle.
+2. Déplacer l'auditeur autour de la créature : son contact doit garder son
+   origine réelle, sans double cri au centre de l'écran. Pour une scène privée,
+   le voisin ne doit pas recevoir ce son.
+3. Comparer solo, serveur local et latence réelle, si disponible. Mesurer
+   séparément la fluidité de l'approche, les collisions, le timing du son et
+   le ressenti de surprise. Aucun test automatique ne garantit un sursaut humain.
+4. Consigner les contrôles réellement exécutés, les configurations et les
+   captures disponibles. Un essai forcé ne valide pas le rythme naturel d'une
+   campagne ; un client local ne valide pas deux joueurs ni la latence Internet.

@@ -37,8 +37,6 @@ import java.util.UUID;
 public class JournalKnowledge extends SavedData {
 
     private static final String DATA_NAME = "penumbra_journal";
-    /** Nombre maximal de joueurs suivis (éviction FIFO au-delà). */
-    private static final int MAX_PLAYERS = 256;
 
     /** Codec : deux listes d'identifiants par joueur, tout est optionnel. */
     public static final Codec<JournalKnowledge> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -72,9 +70,6 @@ public class JournalKnowledge extends SavedData {
     private static Map<UUID, List<JournalEntry>> load(Map<UUID, List<String>> source) {
         Map<UUID, List<JournalEntry>> loaded = new LinkedHashMap<>();
         for (Map.Entry<UUID, List<String>> player : source.entrySet()) {
-            if (loaded.size() >= MAX_PLAYERS) {
-                break;
-            }
             List<JournalEntry> entries = new ArrayList<>();
             for (String id : player.getValue()) {
                 JournalEntry entry = JournalEntry.byId(id);
@@ -135,17 +130,8 @@ public class JournalKnowledge extends SavedData {
             return false;
         }
         list.add(entry);
-        evict(target);
         setDirty();
         return true;
-    }
-
-    /** Éviction FIFO du joueur suivi le plus anciennement. */
-    private static void evict(Map<UUID, List<JournalEntry>> target) {
-        while (target.size() > MAX_PLAYERS) {
-            UUID oldest = target.keySet().iterator().next();
-            target.remove(oldest);
-        }
     }
 
     /** État de lecture complet du carnet pour ce joueur. */

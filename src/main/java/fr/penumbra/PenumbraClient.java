@@ -1,6 +1,7 @@
 package fr.penumbra;
 
 import fr.penumbra.client.light.DynamicLights;
+import fr.penumbra.client.config.ClientComfortScreen;
 import fr.penumbra.client.PenumbraClientNet;
 import fr.penumbra.client.ambient.AmbientFearManager;
 import fr.penumbra.client.ambient.PerceptionOverlayRenderer;
@@ -40,6 +41,7 @@ public class PenumbraClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        ClientComfortScreen.register();
         PhotoItemRendering.register();
         // Ordre imposé par SPEC §4.2.
         EntityRendererRegistry.register(PenumbraEntities.HOST, HostEntityRenderer::new);

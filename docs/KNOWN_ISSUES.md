@@ -1,11 +1,226 @@
-# Problèmes connus — Penumbra 0.18.0
+# Problèmes connus — Penumbra 0.24.0
+
+## 0.24.0 — validation ciblée
+
+- **390 tests dans 76 suites ont réussi**, sans échec, erreur ni test ignoré,
+  avec `test validatePenumbraResources build` après les corrections de terrain,
+  de rendu et de mort pendant une attaque.
+- Dans un monde isolé, un vrai clic caméra a fait reculer l’Hôte avant sa
+  disparition, sans dégâts au joueur. Les positions ont été relevées côté
+  serveur et l’alignement au sol a été contrôlé visuellement.
+- Le Rampant est resté au plafond après 40 ticks hors de sa zone, a averti
+  pendant 12 ticks au passage du joueur sous lui, puis est tombé et a touché.
+- Une charge de l’Hôte armée par le regard a été esquivée en décalant le joueur
+  de trois blocs pendant sa préparation. Le corps a reculé puis disparu ; la
+  santé est restée exactement identique.
+- La suppression d’un Hôte pendant sa préparation ne provoque plus de coup
+  posthume : après `/kill` et 40 ticks, aucun acteur ne reste et la santé est
+  inchangée. La pose finale du Rampant au plafond et les six réglages du menu K
+  ont aussi été contrôlés visuellement.
+- Ces essais utilisent **un seul client**, des placements par console et des
+  pas de simulation ; le recul au flash a été observé à 5 TPS. Ils ne valident
+  ni une campagne complète ni l’équilibrage d’une partie à plusieurs. Les
+  essais interrompus par gel réseau, timeout ou mob vanilla ne sont pas comptés.
+- Les nouvelles scènes sont personnelles : leur Hôte, leurs sons privés et
+  leurs particules sont réservés à leur propriétaire. Les créatures ordinaires
+  restent des entités partagées. Les autres joueurs proches peuvent empêcher
+  ou annuler une scène ; jouer groupé ne garantit donc pas de la voir.
+- Un terrain étroit, un plafond trop bas, des liquides ou un emplacement
+  dangereux peuvent empêcher la scène. Le refus n'est pas remplacé par une
+  image à l'écran. Les scènes de refuge exigent un encadrement ou un angle
+  utilisable ; un champ vide ne suffit pas.
+- Une fermeture de lecteur doit suivre une occupation d'environ 1,5 à 30 s.
+  Une consultation très brève, une longue lecture, un passage par les réglages,
+  un signal périmé ou une autre dimension ne doivent pas libérer un ancien piège.
+  Le directeur et la probabilité de déclenchement s'appliquent encore : fermer
+  un coffre ne promet pas une apparition à chaque essai.
+- Le flash physique a une portée de 12 blocs et un demi-angle de 50°, sans
+  extension due au zoom. Il ne repousse que les Hôtes, Observateurs et Rampants
+  du photographe, avec un rayon dégagé vers une partie du corps. Les règles
+  propres au reflet de la confrontation et à L'Absent restent distinctes.
+- Les trajectoires et le recul doivent encore être contrôlés en jeu sur les
+  dalles, escaliers, bords de falaise et avec une latence réseau réelle.
+  Si le recul est bloqué, la créature peut rester en pose de retrait jusqu'à
+  la fin de sa durée plutôt que franchir l'obstacle.
+- La brève coupure sonore vise les nappes et battements suivis par Penumbra ;
+  elle ne coupe ni le système audio, ni tous les sons Minecraft, ni ceux d'un
+  autre mod. Les six réglages personnels de confort ne changent pas la difficulté.
+- Le même JAR **0.24.0** est nécessaire côté serveur et chaque client pour
+  ces paquets et états synchronisés. La présence de noms de paquets ou d'assets
+  hérités ne constitue pas une garantie de compatibilité avec un client ancien.
+
+Le [guide de l'horreur physique](PHYSICAL_HORROR_FR.md) décrit les règles de jeu ;
+les contrôles à exécuter se trouvent en fin de [protocole](TEST_PROTOCOL.md).
+
+## 0.23.0 — résultats et limites de validation
+
+- **347 tests dans 68 suites ont réussi**, sans échec, avec la compilation
+  finale et la validation des ressources. Les tests couvrent notamment les
+  transitions, l'isolation des lecteurs, les paquets et les rechargements NBT.
+  Ils ne valident pas à eux seuls une campagne complète.
+- En jeu, l'arrivée d'un joueur en survie **sans permission opérateur** a
+  confirmé la remise d'un seul Relevé. Le suivi personnel a été ouvert aux
+  étapes 0 puis 5 ; cela ne signifie pas que tout le parcours intermédiaire
+  a été joué naturellement.
+- Au stade 5, le clic rituel sans caméra a été refusé avec le message attendu
+  et le Sceau de cendre conservé. Avec la caméra dans l'inventaire, **un vrai
+  clic et une seule offrande ont lancé le préambule puis la confrontation** :
+  reflet et indications de duel visibles, stade 6, compteur `sanctum_ritual=1`
+  et découverte `structure_ash_sanctum=1`. Le badge du rituel est présent,
+  celui de la victoire finale reste absent. Le début de la rencontre a été
+  capturé le 22 octobre 2026 à 09:57:40 ; aucun duel complet n'est déclaré.
+- Un éloignement a ensuite interrompu le duel et fait disparaître son acteur,
+  sans badge final. Dans le même essai, le coffre original du sanctuaire a été
+  vidé et sa table de butin retirée. Un vrai clic à main vide a ouvert le coffre
+  toujours vide et accordé la page « L'immobilité » (message à 09:59:29, capture
+  à 09:59:37), sans régénérer de butin. Ce contrôle avec un seul client ne
+  constitue pas encore une validation entre deux joueurs simultanés.
+- **La persistance a été vérifiée après une vraie sauvegarde forcée, un arrêt
+  propre et un redémarrage.** Après la sauvegarde de 10:00:08, la lecture NBT
+  confirme le stade 6, `sanctum_ritual=1`, la page `method_stillness`, le marqueur
+  de remise du carnet et l'absence de victoire. Le serveur s'est arrêté à
+  10:00:39 avec le code 0, a redémarré à 10:01:16, puis le joueur s'est reconnecté
+  à 10:01:42 : un seul carnet, caméra conservée, aucun sceau et coffre toujours
+  vide. Le Relevé rouvert affiche « La dernière rencontre » avec les consignes
+  de reprise et 2/14 notes (la page et une observation de créature accumulée),
+  capturé à 10:02:47. Le duel interrompu n'a pas été transformé en victoire.
+- Les remises différées avec inventaire plein en survie/créatif, tous les
+  états du guide, la découverte coopérative et les autres interruptions
+  demandent encore leurs contrôles en jeu. Aucun duel complet
+  de la 0.23.0, aucune campagne de survie entière ni validation de latence
+  Internet ou de deux clients simultanés n'est revendiqué ici.
+- La récupération personnelle d'une page exige un coffre encore présent à
+  la position exacte d'une structure enregistrée. Un coffre détruit ou déplacé
+  et une structure sortie du registre ne sont pas réparés automatiquement.
+  Cette règle ne régénère ni les objets partagés ni les Sceaux de cendre.
+- Les plafonds de 256 des connaissances du Relevé et des marqueurs persistants
+  ont été retirés. Une victoire dont un ancien marqueur a été perdu peut être
+  reconnue à partir de son compteur personnel conservé ; un simple stade 6
+  ne suffit pas. La mise à jour n'invente pas des pages déjà perdues dans une
+  ancienne sauvegarde. Les limites distinctes du registre des structures restent.
+- Le guide décrit les mécanismes activés : couper les événements ou la
+  génération des structures peut toujours empêcher une progression naturelle.
+  Les réglages de confort locaux ne coupent pas ces mécanismes.
+- Le paquet d'ouverture du Relevé transporte maintenant le suivi personnel :
+  installer la même version **0.23.0** côté serveur et sur tous les clients.
+  La préversion publique demeure 0.19.0 ; la 0.23.0 est préparée localement.
+
+## 0.22.0 — résultats historiques et limites encore pertinentes
+
+- **305 tests dans 59 suites ont réussi**, sans échec ; compilation et
+  validation des ressources réussies. Cela ne remplace pas les contrôles en jeu.
+- Sur un client A connecté à un serveur dédié local **sans permission
+  opérateur**, K ouvre le menu. Choisir Doux puis Annuler conserve les valeurs
+  Immersion à la réouverture et ne crée pas de fichier. Appliquer Doux conserve
+  ensuite les valeurs à la réouverture et écrit le bon fichier personnel.
+  Les empreintes des configurations de base de A et du serveur restent identiques.
+  Après arrêt et redémarrage du serveur et de A, K conserve aussi Doux, sans OP.
+- L'interface française a été vérifiée et capturée en fenêtre 960×540.
+  L'interface anglaise et les plus petites dimensions GUI restent à vérifier.
+- Le passage au stade 6 par commande serveur n'a pas accordé le badge à un
+  joueur qui ne le possédait pas, sans révocation préalable. Un rituel normal
+  déclenché par un vrai clic a ensuite accordé l'accalmie : 47 668 ticks après
+  sauvegarde forcée, 47 403 après arrêt propre. Le badge de confrontation
+  restait absent. Après redémarrage et reconnexion, l'horloge est passée de
+  10 104 à 10 576 ticks et l'accalmie de 47 403 à 46 931 : exactement 472 ticks
+  consommés, sans réarmement. Le badge reste absent.
+- Un avertissement serveur de retard de 2 056 ms (41 ticks) a été relevé à
+  la connexion. Ces contrôles ne prouvent pas un maintien constant à 20 TPS.
+- Dans cet environnement d'essai, le client B a échoué deux fois avant
+  connexion, y compris après une relance contrôlée : violation d'accès native
+  dans GLFW (`glfw.dll+0x10fa1`, `pollEvents` ; dernier rapport
+  `hs_err_pid20052.log`). La trace observée ne contient aucune frame Penumbra ;
+  l'origine n'est pas établie. **Aucun second joueur n'a rejoint le serveur :
+  l'essai à deux clients simultanés n'est pas validé.**
+- Aucun duel complet de la 0.22.0, équilibrage en longue survie ou essai de
+  latence Internet n'est revendiqué. La première attribution du badge après
+  victoire reste à vérifier en jeu.
+- Le menu ne change que la présentation locale. Il ne réduit ni les dégâts
+  ni la fréquence des scènes. Il met le solo en pause, mais pas le multijoueur.
+  Le mode mouvement réduit prime sur les options visuelles qu'il coupe ; les
+  valeurs individuelles restent mémorisées. La configuration de base conserve
+  ses interdictions, même avec le préréglage Immersion.
+- Les deux volumes ne constituent pas un volume général du mod : Ambiances
+  couvre les nappes et le cœur suivis, Sons soudains les sons de sursaut
+  couverts. Les pas, indices et sons Minecraft gardent leurs réglages propres.
+- **La limite d'accalmie de session de la 0.21.1 est corrigée.** Les 48 000
+  ticks sont sauvegardés et décomptés avec l'horloge du monde principal, commune
+  aux dimensions. Ils s'écoulent pendant l'absence du joueur si le serveur
+  avance, mais pas quand il est arrêté. Forcer une tension de 90 ou plus annule
+  volontairement ce calme pour les diagnostics.
+- Le badge de confrontation demande désormais la victoire. Les badges déjà
+  obtenus restent acquis ; une sauvegarde où il existait déjà ne permet pas
+  de valider sa première attribution selon la nouvelle règle.
+- Ces essais utilisaient la même version **0.22.0** côté serveur et clients ;
+  pour la version actuelle, suivre l'exigence de compatibilité indiquée plus haut.
+
+## 0.21.1 — résultats historiques
+
+- La photographie de L'Écouteur a été vérifiée en jeu à vitesse normale :
+  capture, développement, identification dans l'album et ajout au dossier,
+  passé d'une à deux preuves connues. Le rechargement du dossier a été vérifié.
+- Un serveur dédié vide a démarré, sauvegardé et arrêté proprement trois fois,
+  dont un rechargement du même monde. Le dernier essai inclut la correction
+  de visibilité du reflet. Cela ne valide pas les interactions entre
+  plusieurs clients, la latence ni une longue partie de survie.
+- Le préambule interrompu par un éloignement de plus de 40 blocs a pu être
+  relancé sur le même autel. Les autres interruptions ont des tests de
+  session ; elles restent à reproduire dans toutes les conditions de jeu.
+- Le duel a abouti à une victoire après le flash final, en créatif à 5 puis
+  1 tick par seconde. La sauvegarde quittée contient le marqueur de victoire
+  et un compteur passé de zéro à un. Après rechargement en jeu avec la
+  compilation finale, nouvelle sauvegarde et sortie, le marqueur reste actif
+  et le compteur reste à un. Le badge était préexistant : sa première
+  attribution n'est pas validée par cet essai. L'équilibrage en survie à
+  vitesse normale reste également à éprouver.
+- La compilation finale, les tests et la validation des ressources ont
+  réussi. Le dernier ajout du message de confirmation des fragments dans le
+  chat a été relu et compilé ; aucun nouveau duel n'a été joué après cet ajout.
+- **Limite historique corrigée en 0.22.0 :** en 0.21.1, la reconnexion
+  terminait l'accalmie restante, tandis que le marqueur de victoire persistait.
+- Les prises de vue tardives d'une ancienne connexion sont désormais ignorées.
+  Les conditions de reconnexion pendant une capture et les différences de
+  pilotes graphiques restent à éprouver sur plusieurs machines.
+- Aucun gain de FPS chiffré ni test subjectif complet du mixage sonore n'est
+  revendiqué pour cette mise à jour.
+
+## 0.21.0 — limites des essais
+
+- Le duel, l'enquête et la gestion sonore ont des tests automatisés. Les
+  longues parties de survie, la latence multijoueur et les mélanges de mods
+  restent à éprouver ; les tests de règles ne mesurent pas l'équilibrage réel.
+- La confrontation exige un terrain où le reflet peut se tenir. Si aucun
+  emplacement chargé avec sol et espace ne convient, elle ne force ni les
+  chunks ni le passage dans un mur.
+- Le dossier est personnel, même dans la vue des photos publiques. Le lire
+  ne met pas le monde en pause. Une ancienne preuve déjà perdue par la limite
+  du dossier ne peut pas être inventée à la mise à jour : elle devra être
+  photographiée de nouveau si aucun cliché correspondant n'est conservé.
+- Depuis la 0.21.0, le client et le serveur doivent utiliser la même version : le paquet
+  d'ouverture de l'album transporte désormais aussi le dossier personnel.
+- Le faux calme arrête les nappes et le cœur suivis par le client. Il ne coupe
+  pas les sons normaux du monde ni les sons positionnels d'une scène déjà lancée.
+
+## 0.20.0 — points à vérifier pendant les essais
+
+- Le nouveau rythme et les fenêtres d'esquive ont des tests automatisés, mais
+  l'équilibrage sur une longue partie, les latences multijoueurs et les
+  combinaisons de mods demandent encore des retours en jeu.
+- La boussole propose le camp, les sites inexplorés ou le site le plus proche.
+  Les sites ordinaires doivent déjà avoir été générés dans le monde ; elle ne
+  crée pas de structures et ne charge pas de chunks lointains. Le Bûcher est
+  l'exception : sa position est calculable avant d'y arriver.
+- « Inexploré » signifie non découvert par ce joueur. À l'approche d'un site,
+  sa découverte peut donc faire tourner l'aiguille vers le suivant. Le mode
+  « site le plus proche » permet de terminer sa fouille ou d'y revenir.
 
 ## Le Relevé et le Bûcher 0.18.0 — comportement attendu
 
-- **Un seul Bûcher par monde, et il peut ne pas exister.** Sa position est
-  dérivée de la graine ; si elle tombe en mer, aucun camp n'est généré et le
-  marqueur est posé quand même pour ne pas retester en boucle. Dans ce cas le
-  monde n'a pas de Relevé naturel — l'objet reste disponible en créatif.
+- **Un seul Bûcher naturel par monde.** Depuis la 0.19.0, la recherche déplace
+  son site vers la terre ferme si le tirage initial tombe en mer. Un monde
+  entièrement océanique peut néanmoins rester sans site viable. Depuis la
+  0.23.0, la remise personnelle et la recette du Relevé permettent de le lire
+  sans dépendre de la présence ou du butin de ce camp.
 - **La fumée apparaît avant le camp**, et c'est voulu. Le panache est émis en
   altitude dès qu'un joueur est à moins de 480 blocs ; le camp au sol, lui, ne
   se construit qu'à cent blocs et seulement si le chunk est déjà chargé. Voir de
@@ -21,7 +236,8 @@
 - **Les quatre pages arrachées sont garanties**, une par structure, dans le
   premier pool de leur loot table. Un coffre déjà pillé avant 0.18.0 ne
   contiendra pas la sienne : la table n'est tirée qu'à la première ouverture.
-  Il faudra en trouver un autre.
+  Depuis la 0.23.0, l'ouverture du coffre à sa position enregistrée permet
+  néanmoins à chaque lecteur de retrouver sa page sans régénérer le butin.
 - Une page arrachée s'absorbe **sans posséder le carnet**, et une page déjà
   glissée n'est jamais consommée. Une page dont le composant `penumbra:page_id`
   est absent ou inconnu reste inerte dans l'inventaire au lieu de disparaître.

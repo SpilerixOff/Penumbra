@@ -5,7 +5,7 @@ import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.entity.HostEntity;
-import fr.penumbra.entity.watcher.WatcherEntity;
+import fr.penumbra.journal.StructurePageDiscovery;
 import fr.penumbra.network.PenumbraNetworking;
 import fr.penumbra.registry.PenumbraItems;
 import fr.penumbra.registry.PenumbraParticles;
@@ -30,7 +30,6 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -99,6 +98,7 @@ public final class PenumbraStructures {
     public static void register() {
         ServerChunkEvents.CHUNK_GENERATE.register(PenumbraStructures::onChunkGenerate);
         UseBlockCallback.EVENT.register(PenumbraStructures::onUseBlock);
+        StructurePageDiscovery.register();
     }
 
     public static void onServerStopped(MinecraftServer server) {
@@ -353,25 +353,45 @@ public final class PenumbraStructures {
         if (!stack.is(PenumbraItems.ASH_SIGIL)) {
             return InteractionResult.PASS;
         }
+        if (ConfrontationManager.isActive(player.getUUID())) {
+            serverPlayer.sendOverlayMessage(Component.translatable("penumbra.ritual.busy"));
+            return InteractionResult.SUCCESS;
+        }
+        int stage = StoryManager.getStage(serverPlayer);
+        boolean alreadyWon = ConfrontationManager.isWon(serverPlayer);
+        // A ritual performed earlier must not exhaust the altar before recognition.
+        boolean retryFinale = SanctumRitualRules.summonsConfrontation(stage, alreadyWon);
         StructureTracker tracker = StructureTracker.get(serverLevel.getServer());
         Optional<StructureTracker.Entry> sanctum =
-                tracker.findSanctumAt(serverPlayer.getUUID(), serverLevel.dimension(), hitResult.getBlockPos());
+                tracker.findSanctumAt(serverPlayer.getUUID(), serverLevel.dimension(),
+                        hitResult.getBlockPos(), retryFinale);
         if (sanctum.isEmpty()) {
             return InteractionResult.PASS;
         }
+        if (SanctumRitualRules.needsCamera(stage, alreadyWon, hasCamera(serverPlayer))) {
+            serverPlayer.sendSystemMessage(Component.translatable("penumbra.confrontation.need_camera"));
+            return InteractionResult.SUCCESS;
+        }
+        BlockPos pos = hitResult.getBlockPos();
+        ConfrontationManager.Prelude prelude =
+                ConfrontationManager.beginPrelude(serverLevel, serverPlayer, pos);
+        if (prelude == null) return InteractionResult.SUCCESS;
         if (!player.getAbilities().instabuild) {
             stack.shrink(1);
         }
-        BlockPos pos = hitResult.getBlockPos();
-        tracker.markSanctumActivated(serverPlayer.getUUID(), sanctum.get());
-        runRitualFinale(serverLevel, serverPlayer, pos);
+        runRitualFinale(serverLevel, serverPlayer, pos, sanctum.get(), prelude);
         return InteractionResult.SUCCESS;
+    }
+
+    private static boolean hasCamera(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (player.getInventory().getItem(slot).is(PenumbraItems.BINOCULARS)) return true;
+        }
+        return false;
     }
 
     // ================= 0.5.0 : finale du rituel =================
 
-    /** Rayon de dissolution des entités d'horreur au début du rituel. */
-    private static final double RITUAL_PURGE_RADIUS = 64.0;
     /** Durée de l'accalmie post-rituel (2 jours de jeu — puis il réapprend). */
     private static final long RITUAL_CALM_TICKS = 48000L;
 
@@ -382,7 +402,7 @@ public final class PenumbraStructures {
      * règles apprises : de tout le mod, l'Hôte n'est JAMAIS resté visible face
      * au joueur — ici, une seule fois, il vient se montrer.
      * <ol>
-     *   <li>t0 : toute entité d'horreur à ≤ 64 blocs se dissout en cendre ;
+     *   <li>t0 : les acteurs temporaires du participant à ≤ 112 blocs se dissolvent ;
      *       silence total (aucun son : le vide APRÈS le retrait) ;</li>
      *   <li>t+3 s : quatre murmures convergent, un par point cardinal ;</li>
      *   <li>t+7 s : l'Hôte apparaît à 8 blocs FACE au joueur, figé (DORMANT),
@@ -396,25 +416,9 @@ public final class PenumbraStructures {
      * Tous les sons passent en priorité (hors budget audio ordinaire ; un
      * doublon strictement identique du même tick peut être fusionné).
      */
-    private static void runRitualFinale(ServerLevel level, ServerPlayer player, BlockPos pos) {
-        // t0 — retrait : la cendre rappelle la cendre.
-        AABB purgeBox = player.getBoundingBox().inflate(RITUAL_PURGE_RADIUS);
-        for (HostEntity host : level.getEntitiesOfClass(HostEntity.class, purgeBox)) {
-            if (!host.isOwnedBy(player)) {
-                continue;
-            }
-            level.sendParticles(PenumbraParticles.ASH_MOTE,
-                    host.getX(), host.getY() + 1.3, host.getZ(), 24, 0.4, 0.8, 0.4, 0.01);
-            host.discard();
-        }
-        for (WatcherEntity watcher : level.getEntitiesOfClass(WatcherEntity.class, purgeBox)) {
-            if (!watcher.isOwnedBy(player)) {
-                continue;
-            }
-            level.sendParticles(PenumbraParticles.ASH_MOTE,
-                    watcher.getX(), watcher.getY() + 1.2, watcher.getZ(), 24, 0.4, 0.9, 0.4, 0.01);
-            watcher.discard();
-        }
+    private static void runRitualFinale(ServerLevel level, ServerPlayer player, BlockPos pos,
+                                       StructureTracker.Entry sanctum, ConfrontationManager.Prelude prelude) {
+        // The reservation already removed only this participant's active actors.
         player.sendSystemMessage(Component.translatable("penumbra.ritual.silence"));
 
         // t+3 s — quatre murmures convergents, un par point cardinal.
@@ -425,6 +429,7 @@ public final class PenumbraStructures {
             double dist = 24.0 - i * 5.0; // 24, 19, 14, 9 blocs : ils approchent
             Vec3 at = player.position().add(Math.cos(angle) * dist, 0.0, Math.sin(angle) * dist);
             HorrorDirector.runLater(level, 60 + i * 25, () -> {
+                if (!ConfrontationManager.isPreludeValid(prelude)) return;
                 ServerPlayer target = server.getPlayerList().getPlayer(playerId);
                 if (target != null && target.isAlive() && target.level() == level) {
                     PenumbraNetworking.sendSoundPriority(target,
@@ -435,6 +440,7 @@ public final class PenumbraStructures {
 
         // t+7 s — l'unique face-à-face du mod.
         HorrorDirector.runLater(level, 140, () -> {
+            if (!ConfrontationManager.isPreludeValid(prelude)) return;
             ServerPlayer target = server.getPlayerList().getPlayer(playerId);
             if (target == null || !target.isAlive() || target.level() != level) {
                 return;
@@ -450,7 +456,8 @@ public final class PenumbraStructures {
             double hx = target.getX() + flat.x * 8.0;
             double hz = target.getZ() + flat.z * 8.0;
             BlockPos ritualSpot = findRitualStandingSpot(level, hx, target.getY(), hz);
-            if (host != null && ritualSpot != null) {
+            if (host != null && ritualSpot != null
+                    && ConfrontationManager.safePreludePlacement(level, host, ritualSpot)) {
                 host.snapTo(ritualSpot.getX() + 0.5, ritualSpot.getY(), ritualSpot.getZ() + 0.5,
                         (float) (Math.atan2(target.getZ() - hz, target.getX() - hx)
                                 * net.minecraft.util.Mth.RAD_TO_DEG) - 90.0f, 0.0f);
@@ -458,12 +465,14 @@ public final class PenumbraStructures {
                 host.setNoAi(true);
                 host.setInvulnerable(true);
                 host.setMaxLifetimeTicks(200);
+                if (!ConfrontationManager.trackPreludeActor(prelude, host)) return;
                 host.getLookControl().setLookAt(target, 30.0f, 30.0f);
                 PenumbraNetworking.sendSoundPriority(target, PenumbraSounds.HEARTBEAT,
                         target.position(), 0.5f, 0.9f);
                 // t+13 s — libération.
                 java.util.UUID hostId = host.getUUID();
                 HorrorDirector.runLater(level, 120, () -> {
+                    if (!ConfrontationManager.isPreludeValid(prelude)) return;
                     ServerPlayer end = server.getPlayerList().getPlayer(playerId);
                     if (level.getEntity(hostId) instanceof HostEntity bound && bound.isAlive()) {
                         level.sendParticles(PenumbraParticles.ASH_MOTE,
@@ -471,8 +480,8 @@ public final class PenumbraStructures {
                                 96, 0.5, 1.2, 0.5, 0.02);
                         bound.discard();
                     }
-                    if (end != null && end.isAlive() && end.level() == level) {
-                        finishRitual(level, end, pos);
+                    if (end != null && ConfrontationManager.finishPrelude(prelude)) {
+                        finishRitual(level, end, pos, sanctum);
                     }
                 });
             } else {
@@ -481,9 +490,10 @@ public final class PenumbraStructures {
                 }
                 // Aucun emplacement valide : la libération arrive sans face-à-face.
                 HorrorDirector.runLater(level, 120, () -> {
+                    if (!ConfrontationManager.isPreludeValid(prelude)) return;
                     ServerPlayer end = server.getPlayerList().getPlayer(playerId);
-                    if (end != null && end.isAlive() && end.level() == level) {
-                        finishRitual(level, end, pos);
+                    if (end != null && ConfrontationManager.finishPrelude(prelude)) {
+                        finishRitual(level, end, pos, sanctum);
                     }
                 });
             }
@@ -515,17 +525,23 @@ public final class PenumbraStructures {
     }
 
     /** Clôture du rituel : son de libération, accalmie, découverte, badge, messages. */
-    private static void finishRitual(ServerLevel level, ServerPlayer player, BlockPos pos) {
-        // 1.0 — au stade final, le rituel ne libère plus : il convoque.
-        if (ConfrontationManager.tryBegin(level, player, pos)) {
-            return;
+    private static void finishRitual(ServerLevel level, ServerPlayer player, BlockPos pos,
+                                     StructureTracker.Entry sanctum) {
+        // The same offering completes recognition and starts the duel, before calm/rewards.
+        SanctumRitualRules.Completion completion = SanctumRitualRules.complete(
+                StoryManager.getStage(player), ConfrontationManager.isWon(player),
+                () -> StoryManager.noteDiscovery(player, StoryManager.KEY_SANCTUM_RITUAL),
+                () -> ConfrontationManager.tryBegin(level, player, pos));
+        if (completion == SanctumRitualRules.Completion.NO_SPACE) {
+            player.sendSystemMessage(Component.translatable("penumbra.confrontation.no_space"));
+            return; // A failed summon remains retryable and gives no normal ritual reward.
         }
+        StructureTracker.get(level.getServer()).markSanctumActivated(player.getUUID(), sanctum);
+        PenumbraBadges.grant(player, "sanctum_ritual");
+        if (completion == SanctumRitualRules.Completion.SUMMONED) return;
         PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.RITUAL_RELEASE,
                 Vec3.atCenterOf(pos), 1.0f, 1.0f);
         HorrorDirector.applyPostRitualCalm(player, RITUAL_CALM_TICKS);
-        StoryManager.noteDiscovery(player, "sanctum_ritual");
-        // Phase 4 : badge « Cendre et serment ».
-        PenumbraBadges.grant(player, "sanctum_ritual");
         player.sendSystemMessage(Component.translatable("penumbra.structure.ritual_done"));
         // L'épilogue n'est pas une fin : après l'accalmie, il réapprend.
         player.sendSystemMessage(Component.translatable("penumbra.ritual.epilogue"));

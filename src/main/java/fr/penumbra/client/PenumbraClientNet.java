@@ -1,8 +1,12 @@
 package fr.penumbra.client;
 
 import fr.penumbra.PenumbraMod;
+import net.minecraft.resources.Identifier;
 import fr.penumbra.client.ambient.ClientTensionState;
+import fr.penumbra.client.ambient.AmbientFearManager;
+import fr.penumbra.client.ambient.SceneScreenTracker;
 import fr.penumbra.client.jumpscare.JumpscareManager;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.network.PenumbraNetworking;
 import net.fabricmc.api.EnvType;
@@ -28,6 +32,9 @@ public final class PenumbraClientNet {
      * Enregistre les deux récepteurs S2C globaux. Appelé depuis {@code PenumbraClient#onInitializeClient()}.
      */
     public static void register() {
+        SceneScreenTracker.register();
+        ClientPlayNetworking.registerGlobalReceiver(PenumbraNetworking.SceneHushS2CPacket.TYPE,
+                (packet, context) -> context.client().execute(() -> AmbientFearManager.hush(packet.ticks())));
         ClientPlayNetworking.registerGlobalReceiver(
                 PenumbraNetworking.HorrorSoundS2CPacket.TYPE,
                 (packet, context) -> context.client().execute(() -> playHorrorSound(packet)));
@@ -47,10 +54,10 @@ public final class PenumbraClientNet {
                             }
                         }));
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
             JumpscareManager.reset();
             ClientTensionState.reset();
-        });
+        }));
     }
 
     /**
@@ -78,8 +85,11 @@ public final class PenumbraClientNet {
         if (packet.soundId().equals(PenumbraMod.id("host_stinger"))
                 || packet.soundId().equals(PenumbraMod.id("chase_stinger"))
                 || packet.soundId().equals(PenumbraMod.id("screamer_shriek"))
-                || packet.soundId().equals(PenumbraMod.id("fake_creeper"))) {
-            volume = Math.min(1.0f, volume * PenumbraConfig.get().jumpscareVolume);
+                || packet.soundId().equals(PenumbraMod.id("fake_creeper"))
+                || packet.soundId().equals(PenumbraMod.id("listener_lock"))
+                || packet.soundId().equals(Identifier.withDefaultNamespace("entity.spider.death"))) {
+            volume = ClientComfort.suddenVolume(
+                    Math.min(1.0f, volume * PenumbraConfig.get().jumpscareVolume));
         }
         SoundSource source = packet.soundId().equals(PenumbraMod.id("binoculars_on"))
                 || packet.soundId().equals(PenumbraMod.id("binoculars_off"))

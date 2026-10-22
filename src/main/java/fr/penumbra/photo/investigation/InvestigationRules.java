@@ -3,6 +3,7 @@ package fr.penumbra.photo.investigation;
 import fr.penumbra.director.sequence.LinkedSceneType;
 import fr.penumbra.photo.PhotoEvidence;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -14,6 +15,24 @@ import java.util.List;
 public final class InvestigationRules {
 
     private InvestigationRules() {
+    }
+
+    /** Les relations inconnues restent cachées ; une paire complète remplace sa piste. */
+    public static List<InvestigationLead> partialLeads(
+            Collection<PhotoEvidence> discoveredEvidence) {
+        EnumSet<PhotoEvidence> discovered = normalize(discoveredEvidence);
+        List<InvestigationLead> leads = new ArrayList<>();
+        for (InvestigationClue clue : InvestigationClue.values()) {
+            if (discovered.containsAll(clue.requiredEvidence())) {
+                continue;
+            }
+            for (PhotoEvidence observed : discovered) {
+                if (clue.requiredEvidence().contains(observed)) {
+                    leads.add(new InvestigationLead(clue, observed));
+                }
+            }
+        }
+        return List.copyOf(leads);
     }
 
     public static List<InvestigationClue> unlockedClues(

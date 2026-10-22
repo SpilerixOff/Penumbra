@@ -196,10 +196,16 @@ public class StructureTracker extends SavedData {
      * |dz|≤1 et -1≤dy≤3 autour de l'ancre.
      */
     public Optional<Entry> findSanctumAt(UUID playerId, ResourceKey<Level> dimension, BlockPos clicked) {
+        return findSanctumAt(playerId, dimension, clicked, false);
+    }
+
+    /** A final confrontation can be retried on a previously used altar. */
+    public Optional<Entry> findSanctumAt(UUID playerId, ResourceKey<Level> dimension,
+                                       BlockPos clicked, boolean allowCompleted) {
         for (Entry entry : this.entries) {
             if (!entry.type().equals(StructureType.ASH_SANCTUM.id())
                     || !entry.dimension().equals(dimension)
-                    || hasCompletedRitual(playerId, entry)) {
+                    || !allowCompleted && hasCompletedRitual(playerId, entry)) {
                 continue;
             }
             int dx = Math.abs(clicked.getX() - entry.pos().getX());

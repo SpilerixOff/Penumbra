@@ -4,8 +4,10 @@ import fr.penumbra.PenumbraMod;
 import fr.penumbra.badge.PenumbraBadges;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.copy.CopyManager;
+import fr.penumbra.copy.CopyTracker;
 import fr.penumbra.data.PenumbraPersistentState;
 import fr.penumbra.director.sequence.LinkedSceneManager;
+import fr.penumbra.director.encounter.PhysicalEncounterManager;
 import fr.penumbra.entity.HostBehavior;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.event.HorrorEvent;
@@ -18,6 +20,7 @@ import fr.penumbra.registry.PenumbraSounds;
 import fr.penumbra.refuge.RefugeContaminationManager;
 import fr.penumbra.refuge.RefugeContaminationModel;
 import fr.penumbra.story.StoryManager;
+import fr.penumbra.story.ConfrontationManager;
 import fr.penumbra.story.StoryStage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -82,6 +85,8 @@ public final class HorrorDirector {
     private static final int PROFILE_INTERVAL_TICKS = 20;
     /** Cadence de sélection des événements (5 s). */
     private static final int SELECTION_INTERVAL_TICKS = 100;
+    /** Repos court après dégâts, manque d'air ou autre vulnérabilité immédiate. */
+    private static final Map<UUID, Long> VULNERABILITY_COOLDOWN_UNTIL = new HashMap<>();
     /** Délai après la seconde manifestation de crise avant l'entrée en faux calme (30 s). */
     private static final int FALSE_CALM_DELAY_TICKS = 600;
     /** Durée du faux calme : 45 secondes, assez marquée sans étouffer la partie. */
@@ -292,10 +297,6 @@ public final class HorrorDirector {
             // 0.16.0 : les Échos exigent que l'imitation soit déjà en place.
             Map.entry("action_echo", 3),
             Map.entry("false_rain", 3));
-    /** Intervalle entre deux tentatives de copie imparfaite, par joueur (10 min, Phase 3). */
-    private static final long COPY_CHECK_INTERVAL_TICKS = 12000L;
-    /** Probabilité d'une tentative de copie à chaque échéance (Phase 3 : 15 %). */
-    private static final float COPY_BUILD_CHANCE = 0.15f;
     /** Les 7 types de réactions jumelles (SPEC2 §4), ordre stable pour le tirage pondéré. */
     private static final List<String> BINO_REACTION_TYPES = List.of(
             "freeze", "head_turn", "vanish_on_unzoom", "approach_between",
@@ -326,8 +327,6 @@ public final class HorrorDirector {
     private static final Set<UUID> FALSE_CALM_SCHEDULED = new HashSet<>();
     /** Joueurs attendant l'unique rupture contrôlée après leur vrai silence. */
     private static final Set<UUID> FALSE_CALM_BREAK_PENDING = new HashSet<>();
-    /** Pause de TOUS les événements automatiques (finale post-rituel). */
-    private static final Map<UUID, Long> AUTOMATIC_EVENT_PAUSE_UNTIL = new HashMap<>();
     /** Dernier déclenchement de chaque événement, par joueur (cooldowns individuels). */
     private static final Map<UUID, Map<String, Long>> LAST_EVENT_RUNS = new HashMap<>();
     /** Nombre de scènes audio consécutives, remis à zéro par tout effet visuel/physique. */
@@ -366,9 +365,8 @@ public final class HorrorDirector {
     /** Dernier état de sommeil observé (détection du réveil). */
     private static final Map<UUID, Boolean> WAS_SLEEPING = new HashMap<>();
     /** Dernier état d'inventaire observé (détection de l'ouverture). */
-    private static final Map<UUID, Boolean> WAS_INVENTORY_OPEN = new HashMap<>();
-    /** Dernier tick de tentative de copie imparfaite, par joueur (Phase 3). */
-    private static final Map<UUID, Long> LAST_COPY_CHECK = new HashMap<>();
+    private record RecentChest(BlockPos pos, ServerLevel level, long openedAt) { }
+    private static final Map<UUID, RecentChest> RECENT_CHESTS = new HashMap<>();
     /** 0.5.0 : dernier ordinal d'état synchronisé au client, par joueur. */
     private static final Map<UUID, Integer> LAST_SYNCED_STATE = new HashMap<>();
     /** Commande de test ayant explicitement terminé la grâce de ce joueur. */
@@ -423,10 +421,24 @@ public final class HorrorDirector {
                 : server.getPlayerList().getPlayers();
         long gameTime = server.overworld().getGameTime();
         for (ServerPlayer player : tickPlayers) {
+            if (!player.isAlive() || isVulnerable(player)) {
+                VULNERABILITY_COOLDOWN_UNTIL.put(player.getUUID(),
+                        gameTime + DirectorPacingRules.RECOVERY_TICKS);
+            }
             if (player.isSpectator() || !player.isAlive()) {
                 continue;
             }
             PlayerHorrorProfile profile = data.profile(player.getUUID());
+            if (profilePhase) refreshPostRitualCalm(data, profile, gameTime);
+            if (ConfrontationManager.isActive(player.getUUID())
+                    || PhysicalEncounterManager.isActive(player.getUUID())) {
+                // The finale has its own signals and recovery windows. Keep
+                // the client synchronized without starting unrelated scenes.
+                if (profilePhase || selectionPhase) {
+                    syncTensionIfNeeded(player, profile, gameTime, selectionPhase);
+                }
+                continue;
+            }
             profile.tickBehavior(player);
             if (profilePhase) {
                 profile.decayTension(TENSION_DECAY_PER_SECOND);
@@ -438,7 +450,6 @@ public final class HorrorDirector {
                 tickRefugeReturn(player, profile, gameTime);
                 tickSleepWake(player);
                 tickInventoryScare(player, profile);
-                tickCopyCheck(player, gameTime);
             }
             if (profilePhase) {
                 syncTensionIfNeeded(player, profile, gameTime, false);
@@ -447,6 +458,7 @@ public final class HorrorDirector {
                 // Découverte réelle d'une copie (et non simple construction), à
                 // cadence bornée : une vérification toutes les cinq secondes.
                 CopyManager.tickDiscovery(player);
+                tickCopyCheck(player);
                 tickLongQuiet(player, profile, gameTime);
                 tickNaturalChase(player, profile, gameTime);
                 trySelectEvent(player, profile, gameTime);
@@ -468,7 +480,7 @@ public final class HorrorDirector {
      */
     private static void tickCrisisContagion(ServerPlayer player, PlayerHorrorProfile profile, long gameTime) {
         if (!PenumbraConfig.get().multiplayerContent
-                || currentState(player.getUUID(), profile.tension(), gameTime) != TensionState.CRISIS
+                || perceivedState(player.getUUID(), profile, gameTime) != TensionState.CRISIS
                 || !(player.level() instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -491,7 +503,7 @@ public final class HorrorDirector {
      */
     private static void syncTensionIfNeeded(ServerPlayer player, PlayerHorrorProfile profile,
                                             long gameTime, boolean force) {
-        int ordinal = currentState(player.getUUID(), profile.tension(), gameTime).ordinal();
+        int ordinal = perceivedState(player.getUUID(), profile, gameTime).ordinal();
         Integer last = LAST_SYNCED_STATE.get(player.getUUID());
         if (force || last == null || last != ordinal) {
             LAST_SYNCED_STATE.put(player.getUUID(), ordinal);
@@ -508,10 +520,10 @@ public final class HorrorDirector {
      * profil persisté — seul l'éphémère est purgé.
      */
     public static void onPlayerDisconnect(UUID playerId) {
+        VULNERABILITY_COOLDOWN_UNTIL.remove(playerId);
         FALSE_CALM_UNTIL.remove(playerId);
         FALSE_CALM_SCHEDULED.remove(playerId);
         FALSE_CALM_BREAK_PENDING.remove(playerId);
-        AUTOMATIC_EVENT_PAUSE_UNTIL.remove(playerId);
         LAST_EVENT_RUNS.remove(playerId);
         CONSECUTIVE_AUDIO_EVENTS.remove(playerId);
         GLOBAL_COOLDOWN_UNTIL.remove(playerId);
@@ -528,8 +540,7 @@ public final class HorrorDirector {
         LOOKBACK_TIMES.remove(playerId);
         LAST_NEAR_REFUGE.remove(playerId);
         WAS_SLEEPING.remove(playerId);
-        WAS_INVENTORY_OPEN.remove(playerId);
-        LAST_COPY_CHECK.remove(playerId);
+        RECENT_CHESTS.remove(playerId);
         LAST_SYNCED_STATE.remove(playerId);
         GRACE_BYPASSED.remove(playerId);
         IMMEDIATE_SELECTION_PENDING.remove(playerId);
@@ -544,10 +555,10 @@ public final class HorrorDirector {
      * ensuite dans la même JVM (tests, serveur intégré ou redémarrage à chaud).
      */
     public static void onServerStopped(MinecraftServer server) {
+        VULNERABILITY_COOLDOWN_UNTIL.clear();
         FALSE_CALM_UNTIL.clear();
         FALSE_CALM_SCHEDULED.clear();
         FALSE_CALM_BREAK_PENDING.clear();
-        AUTOMATIC_EVENT_PAUSE_UNTIL.clear();
         LAST_EVENT_RUNS.clear();
         CONSECUTIVE_AUDIO_EVENTS.clear();
         GLOBAL_COOLDOWN_UNTIL.clear();
@@ -565,8 +576,7 @@ public final class HorrorDirector {
         LOOKBACK_TIMES.clear();
         LAST_NEAR_REFUGE.clear();
         WAS_SLEEPING.clear();
-        WAS_INVENTORY_OPEN.clear();
-        LAST_COPY_CHECK.clear();
+        RECENT_CHESTS.clear();
         LAST_SYNCED_STATE.clear();
         GRACE_BYPASSED.clear();
         IMMEDIATE_SELECTION_PENDING.clear();
@@ -585,8 +595,11 @@ public final class HorrorDirector {
 
     /** État de tension d'un joueur, faux calme inclus. */
     public static TensionState getState(MinecraftServer server, UUID playerId) {
-        PlayerHorrorProfile profile = PenumbraPersistentState.get(server).profile(playerId);
-        return currentState(playerId, profile.tension(), server.overworld().getGameTime());
+        PenumbraPersistentState data = PenumbraPersistentState.get(server);
+        PlayerHorrorProfile profile = data.profile(playerId);
+        long now = server.overworld().getGameTime();
+        refreshPostRitualCalm(data, profile, now);
+        return perceivedState(playerId, profile, now);
     }
 
     /** Vrai si la grâce naturelle est écoulée ou a été terminée par une commande. */
@@ -667,11 +680,11 @@ public final class HorrorDirector {
      * Fixe la tension d'un joueur (bornée 0–100 par le profil). Comme cette
      * méthode est utilisée par la commande administrateur, atteindre UNEASE
      * termine la grâce pour rendre le test observable ; CRISIS annule aussi
-     * les silences/cooldowns transitoires déjà armés.
+     * les silences/cooldowns déjà armés, y compris l'accalmie persistante du rituel.
      */
     public static void setTension(ServerPlayer player, float value) {
-        PlayerHorrorProfile profile = PenumbraPersistentState.get(player.level().getServer())
-                .profile(player.getUUID());
+        PenumbraPersistentState data = PenumbraPersistentState.get(player.level().getServer());
+        PlayerHorrorProfile profile = data.profile(player.getUUID());
         profile.addTension(value - profile.tension());
         UUID playerId = player.getUUID();
         if (value >= TensionState.UNEASE.threshold) {
@@ -682,7 +695,7 @@ public final class HorrorDirector {
             FALSE_CALM_UNTIL.remove(playerId);
             FALSE_CALM_SCHEDULED.remove(playerId); // invalide aussi la tâche différée
             FALSE_CALM_BREAK_PENDING.remove(playerId);
-            AUTOMATIC_EVENT_PAUSE_UNTIL.remove(playerId);
+            profile.clearPostRitualCalm();
             GLOBAL_COOLDOWN_UNTIL.remove(playerId);
             CRISIS_MANIFESTATION_COUNTS.remove(playerId);
             long now = player.level().getGameTime();
@@ -691,6 +704,7 @@ public final class HorrorDirector {
             profile.directorMemory(ensureDirectorMemory(profile, now)
                     .withLastManifestation(now - Math.max(1L, deadline), now));
         }
+        data.setDirty();
     }
 
     /**
@@ -703,7 +717,9 @@ public final class HorrorDirector {
         PenumbraPersistentState data = PenumbraPersistentState.get(player.level().getServer());
         UUID playerId = player.getUUID();
         data.resetProfile(playerId);
+        VULNERABILITY_COOLDOWN_UNTIL.remove(playerId);
         StoryManager.reset(player);
+        CopyTracker.get(player.level()).resetAttempts(playerId);
         RefugeContaminationManager.restoreLoadedForOwner(
                 player.level().getServer(), playerId);
         LinkedSceneManager.onPlayerDisconnect(player.level().getServer(), playerId);
@@ -712,7 +728,6 @@ public final class HorrorDirector {
         FALSE_CALM_UNTIL.remove(playerId);
         FALSE_CALM_SCHEDULED.remove(playerId);
         FALSE_CALM_BREAK_PENDING.remove(playerId);
-        AUTOMATIC_EVENT_PAUSE_UNTIL.remove(playerId);
         LAST_EVENT_RUNS.remove(playerId);
         CONSECUTIVE_AUDIO_EVENTS.remove(playerId);
         // Phase 2 : purge de l'état transitoire.
@@ -730,8 +745,8 @@ public final class HorrorDirector {
         LOOKBACK_TIMES.remove(playerId);
         LAST_NEAR_REFUGE.remove(playerId);
         WAS_SLEEPING.remove(playerId);
-        WAS_INVENTORY_OPEN.remove(playerId);
-        LAST_COPY_CHECK.remove(playerId);
+        RECENT_CHESTS.remove(playerId);
+        PhysicalEncounterManager.onPlayerDisconnect(player.level().getServer(), playerId);
         LAST_SYNCED_STATE.remove(playerId);
         GRACE_BYPASSED.remove(playerId);
         IMMEDIATE_SELECTION_PENDING.remove(playerId);
@@ -855,6 +870,8 @@ public final class HorrorDirector {
         host.setBehavior(HostBehavior.CHASING);
         host.setTarget(player);
         ACTIVE_CHASES.put(playerId, host.getUUID());
+        profile.directorMemory(ensureDirectorMemory(profile, player.level().getGameTime())
+                .recordIncidental(player.level().getGameTime()));
         profile.addTension(CHASE_TENSION_GAIN * Math.max(0f, PenumbraConfig.get().horrorIntensity));
         debugLog("Poursuite démarrée contre {}", player.getGameProfile().name());
         return true;
@@ -873,16 +890,8 @@ public final class HorrorDirector {
      * {@code /penumbra chase} reste possible (forçage administrateur assumé).
      */
     public static boolean canStartChase(ServerPlayer player) {
-        if (!PenumbraConfig.get().chasesEnabled || isInGlobalCooldown(player) || isInFalseCalm(player)) {
+        if (!PenumbraConfig.get().chasesEnabled || !automaticEscalationAvailable(player)) {
             return false;
-        }
-        UUID activeId = ACTIVE_CHASES.get(player.getUUID());
-        if (activeId != null && player.level() instanceof ServerLevel level) {
-            Entity active = level.getEntityInAnyDimension(activeId);
-            if (active instanceof HostEntity host && host.isAlive()) {
-                return false;
-            }
-            ACTIVE_CHASES.remove(player.getUUID()); // entrée obsolète après décharge/discard anormal
         }
         if (!physicalManifestationAllowed(player)) {
             return false;
@@ -1058,8 +1067,18 @@ public final class HorrorDirector {
         }
     }
 
-    /** Vrai tant que le cooldown global post-poursuite du joueur est actif. */
+    /** A successful flash ends only this registered chase, preserving the visible recoil. */
+    public static void onChaseRepelled(ServerPlayer player, HostEntity host) {
+        if (!ACTIVE_CHASES.remove(player.getUUID(), host.getUUID())) return;
+        long now = player.level().getGameTime();
+        long until = now + Math.max(0, PenumbraConfig.get().postChaseCooldownTicks);
+        GLOBAL_COOLDOWN_UNTIL.merge(player.getUUID(), until, Math::max);
+        if (player.isAlive()) PenumbraBadges.grant(player, "survivor");
+    }
+
+    /** Cooldown post-poursuite ou récompense de calme persistante propre au joueur. */
     public static boolean isInGlobalCooldown(ServerPlayer player) {
+        if (isAutomaticEventPaused(player)) return true;
         Long until = GLOBAL_COOLDOWN_UNTIL.get(player.getUUID());
         return until != null && player.level().getGameTime() < until;
     }
@@ -1076,30 +1095,32 @@ public final class HorrorDirector {
 
     /** Vrai pendant une pause scénarisée bloquant tout événement automatique. */
     private static boolean isAutomaticEventPaused(ServerPlayer player) {
-        Long until = AUTOMATIC_EVENT_PAUSE_UNTIL.get(player.getUUID());
-        if (until == null) {
-            return false;
-        }
-        if (player.level().getGameTime() < until) {
-            return true;
-        }
-        AUTOMATIC_EVENT_PAUSE_UNTIL.remove(player.getUUID());
-        return false;
+        MinecraftServer server = player.level().getServer();
+        PenumbraPersistentState data = PenumbraPersistentState.get(server);
+        PlayerHorrorProfile profile = data.profile(player.getUUID());
+        refreshPostRitualCalm(data, profile, server.overworld().getGameTime());
+        return profile.postRitualCalm().active();
+    }
+
+    private static void refreshPostRitualCalm(PenumbraPersistentState data,
+                                             PlayerHorrorProfile profile, long overworldGameTime) {
+        if (profile.advancePostRitualCalm(overworldGameTime)) data.setDirty();
     }
 
     /**
      * 0.5.0 : accalmie scriptée post-rituel (finale du Sanctuaire de cendre) —
-     * tension remise à zéro et cooldown global armé pour {@code calmTicks}
-     * (aucun événement agressif pendant cette fenêtre). L'épilogue n'est pas
+     * tension remise à zéro et silence persisté, borné à 48 000 ticks de jeu
+     * de l'Overworld (aucun événement automatique pendant cette fenêtre). L'épilogue n'est pas
      * la fin de l'horreur : à l'issue de l'accalmie, il réapprend.
      */
     public static void applyPostRitualCalm(ServerPlayer player, long calmTicks) {
-        PlayerHorrorProfile profile = profile(player);
+        MinecraftServer server = player.level().getServer();
+        PenumbraPersistentState data = PenumbraPersistentState.get(server);
+        PlayerHorrorProfile profile = data.profile(player.getUUID());
         profile.addTension(-profile.tension());
         UUID playerId = player.getUUID();
-        long until = player.level().getGameTime() + Math.max(0L, calmTicks);
-        GLOBAL_COOLDOWN_UNTIL.put(playerId, until);
-        AUTOMATIC_EVENT_PAUSE_UNTIL.put(playerId, until);
+        profile.extendPostRitualCalm(server.overworld().getGameTime(), calmTicks);
+        data.setDirty();
         FALSE_CALM_UNTIL.remove(playerId);
         FALSE_CALM_SCHEDULED.remove(playerId);
         FALSE_CALM_BREAK_PENDING.remove(playerId);
@@ -1589,9 +1610,10 @@ public final class HorrorDirector {
 
     // ================= Phase 2 : jumpscares retardés (SPEC2 §4/§6) =================
 
-    /** Un coffre vient d'être ouvert (UseBlockCallback, Agent_Events2) : arme chest_scare. */
+    /** Remember the container, but reveal a presence only after its screen closes. */
     public static void noteChestOpened(ServerPlayer player, BlockPos pos) {
-        armScare(player, "chest_scare", pos);
+        RECENT_CHESTS.put(player.getUUID(), new RecentChest(pos.immutable(), player.level(),
+                player.level().getGameTime()));
     }
 
     /**
@@ -1656,8 +1678,9 @@ public final class HorrorDirector {
                         ServerPlayer target = level.getServer().getPlayerList().getPlayer(owner);
                         if (target != null && target.isAlive()
                                 && target.level() == level
+                                && !ConfrontationManager.isActive(target.getUUID())
                                 && target.blockPosition().distSqr(anchor) <= 24.0 * 24.0) {
-                            PenumbraNetworking.sendJumpscare(target, "refuge_screamer", 0.92f);
+                            armScare(target, "refuge_scare", anchor, 10);
                         }
                     });
                 }
@@ -1679,7 +1702,7 @@ public final class HorrorDirector {
         if (!SCARE_IDS.contains(scareId)) {
             return false;
         }
-        executeScare(player, scareId, null);
+        if (!executeScare(player, scareId, null)) return false;
         long gameTime = player.level().getGameTime();
         PlayerHorrorProfile profile = profile(player);
         profile.markIncidental(scareId);
@@ -1700,9 +1723,14 @@ public final class HorrorDirector {
      *            joueur au moment du tir sinon.
      */
     private static void armScare(ServerPlayer player, String scareId, BlockPos pos) {
+        int delay = SCARE_MIN_DELAY_TICKS
+                + player.getRandom().nextInt(SCARE_MAX_DELAY_TICKS - SCARE_MIN_DELAY_TICKS + 1);
+        armScare(player, scareId, pos, delay);
+    }
+
+    private static void armScare(ServerPlayer player, String scareId, BlockPos pos, int delay) {
         long gameTime = player.level().getGameTime();
-        if (!PenumbraConfig.get().delayedJumpscaresEnabled || isInFalseCalm(player)
-                || isAutomaticEventPaused(player)
+        if (!PenumbraConfig.get().delayedJumpscaresEnabled || !automaticEscalationAvailable(player)
                 || !effectiveStageAtLeast(player,
                         currentState(player.getUUID(), profile(player).tension(), gameTime), 2)) {
             return;
@@ -1734,8 +1762,6 @@ public final class HorrorDirector {
             armed.remove(scareId, armToken);
             return;
         }
-        int delay = SCARE_MIN_DELAY_TICKS
-                + player.getRandom().nextInt(SCARE_MAX_DELAY_TICKS - SCARE_MIN_DELAY_TICKS + 1);
         BlockPos soundPos = pos == null ? null : pos.immutable();
         runLater(level, delay,
                 () -> fireScare(level, server, playerId, scareId, armToken, soundPos));
@@ -1768,8 +1794,8 @@ public final class HorrorDirector {
             return;
         }
         long gameTime = player.level().getGameTime();
-        if (isInGlobalCooldown(player) || isInFalseCalm(player) || isAutomaticEventPaused(player)) {
-            return; // anti-frustration : aucun scare pendant le cooldown post-poursuite
+        if (!automaticEscalationAvailable(player)) {
+            return; // revalider grâce, vulnérabilité, phase et respiration au tir réel
         }
         Long lastAny = LAST_SCARE_ANY.get(playerId);
         if (lastAny != null && gameTime - lastAny < SCARE_ANY_MIN_GAP_TICKS) {
@@ -1781,56 +1807,19 @@ public final class HorrorDirector {
         if (player.getRandom().nextFloat() >= chance) {
             return; // non déclenché : cooldowns non consommés
         }
-        executeScare(player, scareId, pos);
+        if (!executeScare(player, scareId, pos)) return;
         SCARE_TYPE_LAST.computeIfAbsent(playerId, key -> new HashMap<>()).put(scareId, gameTime);
         LAST_SCARE_ANY.put(playerId, gameTime);
         profile.markIncidental(scareId);
         profile.addTension(SCARE_TENSION_GAIN * Math.max(0f, PenumbraConfig.get().horrorIntensity));
+        profile.directorMemory(ensureDirectorMemory(profile, gameTime).recordIncidental(gameTime));
         debugLog("Scare retardé '{}' pour {} (tension {})",
                 scareId, player.getGameProfile().name(), profile.tension());
     }
 
-    /**
-     * Effet d'un scare : jumpscare client existant ("sting", "apparition",
-     * "fake_creeper" via JumpscareManager) + son positionné, au coffre/à la
-     * torche si une position a été capturée, sur le joueur sinon.
-     * Phase 4 : les sons accompagnant un jumpscare passent par
-     * {@code sendSoundPriority} — hors budget audio ordinaire ; seuls leurs
-     * doublons strictement identiques dans le même tick peuvent être fusionnés.
-     */
-    private static void executeScare(ServerPlayer player, String scareId, BlockPos pos) {
-        Vec3 at = pos != null ? Vec3.atCenterOf(pos) : player.position();
-        switch (scareId) {
-            case "chest_scare" -> {
-                PenumbraNetworking.sendJumpscare(player, "sting", 0.8f);
-                PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.HOST_WHISPER, at, 0.9f, 0.7f);
-            }
-            case "refuge_scare" -> {
-                // Le packet "apparition" joue déjà le murmure chez la cible et
-                // le partage avec les voisins : ne pas le doubler ici.
-                PenumbraNetworking.sendJumpscare(player, "apparition", 0.85f);
-            }
-            case "torch_scare" -> {
-                PenumbraNetworking.sendJumpscare(player, "sting", 0.6f);
-                PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.TORCH_SPUTTER, at, 1.0f, 0.8f);
-            }
-            case "lookback_scare" -> {
-                PenumbraNetworking.sendJumpscare(player, "apparition", 0.7f);
-                Vec3 behind = player.position().subtract(player.getLookAngle().normalize().scale(1.5));
-                PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.BREATH_BEHIND, behind, 0.5f, 0.8f);
-            }
-            case "inventory_scare" -> {
-                PenumbraNetworking.sendJumpscare(player, "sting", 0.5f);
-                PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.HOST_WHISPER, at, 0.6f, 1.1f);
-            }
-            case "quiet_scare" -> {
-                PenumbraNetworking.sendJumpscare(player, "apparition", 0.6f);
-                PenumbraNetworking.sendSoundPriority(player, PenumbraSounds.SILENCE_DRONE, at, 0.4f, 1.0f);
-            }
-            default -> {
-                // id inconnu : ne peut survenir qu'en appel interne erroné
-            }
-        }
+    /** Start a real, finite world encounter; a failed placement spends no scare cooldown. */
+    private static boolean executeScare(ServerPlayer player, String scareId, BlockPos pos) {
+        return PhysicalEncounterManager.begin(player, scareId, pos);
     }
 
     // ================= Phase 2 : déclencheurs internes (SPEC2 §6) =================
@@ -1895,43 +1884,28 @@ public final class HorrorDirector {
      */
     private static void tickInventoryScare(ServerPlayer player, PlayerHorrorProfile profile) {
         UUID playerId = player.getUUID();
-        boolean open = PenumbraC2S.isInventoryOpen(playerId);
-        Boolean wasOpen = WAS_INVENTORY_OPEN.put(playerId, open);
-        if (wasOpen == null || wasOpen || !open) {
-            return;
-        }
+        long now = player.level().getGameTime();
+        RecentChest chest = RECENT_CHESTS.get(playerId);
+        if (chest != null && (chest.level() != player.level() || now < chest.openedAt()
+                || now - chest.openedAt() > 600)) RECENT_CHESTS.remove(playerId);
+        if (!PenumbraC2S.consumeSceneScreenClose(player)) return;
+        chest = RECENT_CHESTS.remove(playerId);
         float chance = INVENTORY_SCARE_BASE_CHANCE
                 + INVENTORY_SCARE_TENSION_SCALE * (profile.tension() / PlayerHorrorProfile.MAX_TENSION);
         if (player.getRandom().nextFloat() < chance) {
-            armScare(player, "inventory_scare", null);
+            boolean fromChest = chest != null && chest.level() == player.level()
+                    && chest.pos().distSqr(player.blockPosition()) <= 64;
+            armScare(player, fromChest ? "chest_scare" : "inventory_scare",
+                    fromChest ? chest.pos() : null, 6 + player.getRandom().nextInt(7));
         }
     }
 
-    /**
-     * Copies imparfaites (Phase 3) : tous les {@value #COPY_CHECK_INTERVAL_TICKS}
-     * ticks par joueur, probabilité de {@value #COPY_BUILD_CHANCE} de tenter
-     * {@code CopyManager.maybeBuildCopy} (garde-fous internes : config, stade
-     * d'histoire ≥ 3, cooldown 3 jours, isolement, site). La première
-     * observation initialise le suivi sans déclencher. O(1) par appel :
-     * une lecture/écriture de map, le reste est délégué.
-     */
-    private static void tickCopyCheck(ServerPlayer player, long gameTime) {
+    /** The persistent copy calendar is sampled at the five-second selection cadence. */
+    private static void tickCopyCheck(ServerPlayer player) {
         if (isInFalseCalm(player) || isAutomaticEventPaused(player)) {
             return;
         }
-        UUID playerId = player.getUUID();
-        Long last = LAST_COPY_CHECK.get(playerId);
-        if (last == null) {
-            LAST_COPY_CHECK.put(playerId, gameTime); // premier contact : suivi sans déclenchement
-            return;
-        }
-        if (gameTime - last < COPY_CHECK_INTERVAL_TICKS) {
-            return;
-        }
-        LAST_COPY_CHECK.put(playerId, gameTime);
-        if (player.getRandom().nextFloat() < COPY_BUILD_CHANCE) {
-            CopyManager.maybeBuildCopy(player);
-        }
+        CopyManager.maybeBuildCopy(player);
     }
 
     /**
@@ -2029,12 +2003,12 @@ public final class HorrorDirector {
             return;
         }
 
-        boolean globalCooldown = isInGlobalCooldown(player); // anti-frustration post-poursuite
         long manifestationGapTicks = (long) config.manifestationMaxGapSeconds * 20L;
         long persistentManifestation = directorMemory.pacing().lastManifestationTick();
-        boolean manifestationDue = arcDecision.hardManifestationDue()
+        boolean manifestationDue = pressurePhaseAllows(player)
+                && (arcDecision.hardManifestationDue()
                 || manifestationDue(persistentManifestation < 0L ? null : persistentManifestation,
-                gameTime, manifestationGapTicks);
+                gameTime, manifestationGapTicks));
         boolean immediateSelection = IMMEDIATE_SELECTION_PENDING.contains(playerId);
         boolean arcBeatDue = arcDecision.beatDue()
                 || directorMemory.arc().phase() == DirectorMemory.ArcPhase.DORMANT;
@@ -2047,9 +2021,8 @@ public final class HorrorDirector {
             minGap = Math.max(SELECTION_INTERVAL_TICKS, (long) Math.ceil(minGap
                     * HorrorArcEngine.gapMultiplier(directorMemory.arc().phase())));
         }
-        long lastDirected = directorMemory.pacing().lastDirectedTick();
-        if (!immediateSelection && !manifestationDue
-                && gameTime >= lastDirected && gameTime - lastDirected < minGap) {
+        if (!immediateSelection && !DirectorPacingRules.selectionGapElapsed(
+                directorMemory.pacing(), gameTime, minGap)) {
             return;
         }
         boolean hostCapOk = canSpawnHorrorEntityNear(player, DIRECTOR_SPAWN_GUARD_RADIUS);
@@ -2059,26 +2032,26 @@ public final class HorrorDirector {
             // Dette dure : uniquement des manifestations physiques. Les ids
             // récents sont permis, les cooldowns et garde-fous de placement restent.
             CandidatePool physical = buildCandidatePool(player, profile, state, gameTime,
-                    underground, globalCooldown, hostCapOk,
+                    underground, hostCapOk,
                     true, true, true, false);
             succeeded = runCandidatePool(player, profile, state, gameTime,
                     physical.events(), physical.weights());
             if (!succeeded) {
                 // Dernier recours visible, sans bloc ni entité : jamais un bruit.
                 succeeded = tryRunReliableVisualFallback(
-                        player, profile, state, gameTime, globalCooldown);
+                        player, profile, state, gameTime);
             }
         } else {
             int audioStreak = directorMemory.pacing().audioStreak();
             boolean skipAudio = audioStreak >= Math.max(1, config.maxConsecutiveAudioEvents);
             CandidatePool candidates = buildCandidatePool(player, profile, state, gameTime,
-                    underground, globalCooldown, hostCapOk,
+                    underground, hostCapOk,
                     false, false, false, skipAudio);
             if (candidates.isEmpty()) {
                 // Deuxième passe : un historique plein ne peut plus bloquer le
                 // directeur. L'id récent est fortement pénalisé, jamais gratuit.
                 candidates = buildCandidatePool(player, profile, state, gameTime,
-                        underground, globalCooldown, hostCapOk,
+                        underground, hostCapOk,
                         false, true, false, skipAudio);
             }
             succeeded = runCandidatePool(player, profile, state, gameTime,
@@ -2102,12 +2075,13 @@ public final class HorrorDirector {
      */
     private static CandidatePool buildCandidatePool(
             ServerPlayer player, PlayerHorrorProfile profile, TensionState state,
-            long gameTime, boolean underground, boolean globalCooldown,
+            long gameTime, boolean underground,
             boolean hostCapOk, boolean manifestationOnly, boolean allowRecent,
             boolean excludeReliableVisual, boolean skipAudio) {
         List<HorrorEvent> events = new ArrayList<>();
         List<Integer> weights = new ArrayList<>();
         Map<String, Long> lastRuns = profile.directorMemory().pacing().eventCooldowns();
+        boolean pressureAvailable = automaticSceneAvailable(player);
         for (HorrorEvent event : HorrorEvents.ALL) {
             String id = event.id();
             boolean preferredManifestation = isPreferredManifestation(id, underground);
@@ -2119,7 +2093,7 @@ public final class HorrorDirector {
                 continue;
             }
             if (!isEventUnlocked(player, id, state)
-                    || globalCooldown && isAggressiveEvent(id)) {
+                    || isPressureEvent(id) && !pressureAvailable) {
                 continue;
             }
             boolean recent = profile.wasRecent(id);
@@ -2166,8 +2140,8 @@ public final class HorrorDirector {
      */
     private static boolean tryRunReliableVisualFallback(
             ServerPlayer player, PlayerHorrorProfile profile, TensionState state,
-            long gameTime, boolean globalCooldown) {
-        if (globalCooldown || !PenumbraConfig.get().contextualScreamersEnabled) {
+            long gameTime) {
+        if (!automaticSceneAvailable(player) || !PenumbraConfig.get().contextualScreamersEnabled) {
             return false;
         }
         List<HorrorEvent> fallbacks = new ArrayList<>();
@@ -2301,24 +2275,23 @@ public final class HorrorDirector {
 
     /**
      * Variante réservée aux sélections automatiques. Les scènes lourdes sont
-     * coordonnées seulement lorsqu'un autre joueur actif se trouve réellement
-     * dans le groupe ; le solo et les commandes opérateur restent inchangés.
+     * espacées pour leur cible et coordonnées lorsqu'un autre joueur est proche.
+     * Les commandes opérateur utilisent directement runEvent.
      */
     private static boolean runAutomaticEvent(ServerPlayer player,
                                              PlayerHorrorProfile profile,
                                              HorrorEvent event,
                                              TensionState state,
                                              long gameTime) {
-        if (!usesGroupCoordination(event.id())) {
-            return runEvent(player, profile, event, state, gameTime);
-        }
-        if (!automaticSceneAvailable(player)) {
-            debugLog("Scène '{}' différée pour {} : groupe proche déjà occupé",
+        boolean coordinated = usesGroupCoordination(event.id());
+        if (isPressureEvent(event.id()) && !automaticSceneAvailable(player)
+                || coordinated && !localGroupSceneAvailable(player)) {
+            debugLog("Scène '{}' différée pour {} : respiration ou groupe déjà occupé",
                     event.id(), player.getGameProfile().name());
             return false;
         }
         boolean succeeded = runEvent(player, profile, event, state, gameTime);
-        if (succeeded) {
+        if (succeeded && coordinated) {
             recordAutomaticScene(player);
         }
         return succeeded;
@@ -2339,12 +2312,29 @@ public final class HorrorDirector {
     /**
      * Réservation en lecture pour les managers autonomes (Rampant, Absent,
      * Originel, Contrefait, Cavaleuse). Une commande forcée ne doit pas appeler
-     * cette API. Sans coéquipier proche, le comportement solo reste identique.
+     * cette API. La respiration personnelle s'applique aussi en solo.
      */
     public static boolean automaticSceneAvailable(ServerPlayer player) {
-        if (isInFalseCalm(player) || isAutomaticEventPaused(player)) {
+        if (!player.isAlive() || player.isSpectator() || !isGraceComplete(player)
+                || ConfrontationManager.isActive(player.getUUID())
+                || PhysicalEncounterManager.isActive(player.getUUID())
+                || PenumbraC2S.isScreenBlocking(player)
+                || PenumbraConfig.get().horrorIntensity <= 0f
+                || PenumbraConfig.get().eventFrequency <= 0f
+                || isInFalseCalm(player) || isAutomaticEventPaused(player)
+                || isInGlobalCooldown(player) || isRecovering(player)
+                || hasActiveChase(player) || !pressurePhaseAllows(player)) {
             return false;
         }
+        long now = player.level().getGameTime();
+        if (!DirectorPacingRules.sceneGapElapsed(
+                ensureDirectorMemory(profile(player), now).pacing(), now)) {
+            return false;
+        }
+        return localGroupSceneAvailable(player);
+    }
+
+    private static boolean localGroupSceneAvailable(ServerPlayer player) {
         if (!hasNearbyActivePlayer(player)) {
             return true;
         }
@@ -2358,8 +2348,11 @@ public final class HorrorDirector {
                 server.overworld().getGameTime());
     }
 
-    /** Enregistre uniquement une scène réellement créée pour un groupe proche. */
+    /** Enregistre une scène réelle dans le rythme personnel, puis dans le groupe proche. */
     public static void recordAutomaticScene(ServerPlayer player) {
+        long now = player.level().getGameTime();
+        PlayerHorrorProfile profile = profile(player);
+        profile.directorMemory(ensureDirectorMemory(profile, now).recordIncidental(now));
         if (!hasNearbyActivePlayer(player)) {
             return;
         }
@@ -2370,6 +2363,49 @@ public final class HorrorDirector {
         pacing.record(player.level().dimension().identifier().toString(),
                 position.x, position.y, position.z,
                 server.overworld().getGameTime());
+    }
+
+    private static boolean pressurePhaseAllows(ServerPlayer player) {
+        return !PenumbraConfig.get().adaptiveHorrorArcsEnabled
+                || DirectorPacingRules.allowsPressure(
+                ensureDirectorMemory(profile(player), player.level().getGameTime()).arc().phase());
+    }
+
+    private static boolean automaticEscalationAvailable(ServerPlayer player) {
+        return !player.isSleeping() && automaticSceneAvailable(player)
+                && (!PenumbraConfig.get().adaptiveHorrorArcsEnabled
+                || DirectorPacingRules.allowsEscalation(
+                profile(player).directorMemory().arc().phase()));
+    }
+
+    private static boolean isVulnerable(ServerPlayer player) {
+        return DirectorPacingRules.vulnerable(player.getHealth(), player.getMaxHealth(),
+                player.getFoodData().getFoodLevel(), player.getAirSupply(),
+                player.isOnFire(), player.hurtTime > 0);
+    }
+
+    private static boolean isRecovering(ServerPlayer player) {
+        if (isVulnerable(player)) {
+            return true;
+        }
+        Long until = VULNERABILITY_COOLDOWN_UNTIL.get(player.getUUID());
+        if (until != null && player.level().getGameTime() < until) {
+            return true;
+        }
+        VULNERABILITY_COOLDOWN_UNTIL.remove(player.getUUID());
+        return false;
+    }
+
+    private static boolean hasActiveChase(ServerPlayer player) {
+        UUID activeId = ACTIVE_CHASES.get(player.getUUID());
+        if (activeId != null && player.level() instanceof ServerLevel level) {
+            Entity active = level.getEntityInAnyDimension(activeId);
+            if (active instanceof HostEntity host && host.isAlive()) {
+                return true;
+            }
+            ACTIVE_CHASES.remove(player.getUUID());
+        }
+        return false;
     }
 
     /** Ordre tournant partagé par les managers autonomes, stable dans un cycle. */
@@ -2418,6 +2454,15 @@ public final class HorrorDirector {
 
     private static boolean isEventUnlocked(ServerPlayer player, String eventId, TensionState state) {
         return effectiveStageAtLeast(player, state, minimumStageForEvent(eventId));
+    }
+
+    /** Le calme persistant doit aussi calmer l'ambiance client et les consommateurs externes. */
+    static TensionState perceivedState(UUID playerId, PlayerHorrorProfile profile, long gameTime) {
+        if (profile.postRitualCalm().advanceTo(gameTime).active()
+                || DirectorPacingRules.falseCalmActive(profile.directorMemory().arc(), gameTime)) {
+            return TensionState.FALSE_CALM;
+        }
+        return currentState(playerId, profile.tension(), gameTime);
     }
 
     /**
@@ -2540,6 +2585,12 @@ public final class HorrorDirector {
     /** Classification pure du filtre anti-frustration post-poursuite. */
     static boolean isAggressiveEvent(String eventId) {
         return AGGRESSIVE_EVENT_IDS.contains(eventId);
+    }
+
+    /** Inclut les apparitions et stings que l'ancien filtre agressif omettait. */
+    static boolean isPressureEvent(String eventId) {
+        return isAggressiveEvent(eventId) || countsAsManifestation(eventId)
+                || MAJOR_JUMPSCARE_EVENTS.contains(eventId) || "fake_creeper".equals(eventId);
     }
 
     /** Classification pure des succès montrant réellement un Hôte. */

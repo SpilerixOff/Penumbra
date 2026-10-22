@@ -34,12 +34,20 @@ public final class RampantRenderer
     }
 
     @Override
+    protected void scale(RampantRenderState state, PoseStack poseStack) {
+        // Cancel the vanilla 24px ground offset in the model's rotated local frame.
+        super.scale(state, poseStack);
+        poseStack.translate(0.0f, 1.5f, 0.0f);
+    }
+
+    @Override
     public void extractRenderState(
             RampantEntity entity, RampantRenderState state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.phase = entity.getRampantPhase();
         state.attachment = entity.getAttachment();
         state.phaseTicks = entity.getVisualPhaseTicks(partialTick);
+        state.ambushWarning = entity.isAmbushWarning();
     }
 
     @Override
@@ -55,8 +63,14 @@ public final class RampantRenderer
         float attachmentBlend = attached ? 1.0f
                 : 1.0f - MonsterAnimationMath.smootherstep(state.phaseTicks / 8.0f);
         switch (state.attachment) {
-            case RampantEntity.ATTACHMENT_CEILING ->
-                    poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f * attachmentBlend));
+            case RampantEntity.ATTACHMENT_CEILING -> {
+                // Bent legs reach 0.39 blocks above the root (0.44 while climbing).
+                // Keep their tips below the ceiling, then ease back during the drop.
+                float ceilingOffset = state.phase == RampantEntity.PHASE_CLIMBING
+                        ? 0.55f : 0.60f;
+                poseStack.translate(0.0f, ceilingOffset * attachmentBlend, 0.0f);
+                poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f * attachmentBlend));
+            }
             case RampantEntity.ATTACHMENT_NORTH ->
                     poseStack.mulPose(Axis.XP.rotationDegrees(90.0f * attachmentBlend));
             case RampantEntity.ATTACHMENT_SOUTH ->
@@ -77,8 +91,8 @@ public final class RampantRenderer
             return super.getShadowRadius(state)
                     * MonsterAnimationMath.smootherstep(state.phaseTicks / 8.0f);
         }
-        return state.phase == RampantEntity.PHASE_CLINGING
-                || state.phase == RampantEntity.PHASE_CLIMBING
-                ? 0.0f : super.getShadowRadius(state);
+        // A small real shadow offers a clue before looking up, where the cave light permits it.
+        if (state.phase == RampantEntity.PHASE_CLINGING) return state.ambushWarning ? 0.32f : 0.22f;
+        return state.phase == RampantEntity.PHASE_CLIMBING ? 0.16f : super.getShadowRadius(state);
     }
 }

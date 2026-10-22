@@ -9,4 +9,8 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 public final class WatcherRenderState extends LivingEntityRenderState {
     public boolean lunging;
     public float lungeProgress;
+    public boolean windingUp;
+    public float windupProgress;
+    public boolean recovering;
+    public float recoveryProgress;
 }

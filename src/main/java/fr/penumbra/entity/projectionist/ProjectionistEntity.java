@@ -167,6 +167,7 @@ public final class ProjectionistEntity extends Monster {
         }
         ServerPlayer owner = owner(level);
         if (owner == null || !owner.isAlive() || owner.isSpectator()
+                || owner.isRemoved() || owner.isSleeping()
                 || distanceToSqr(owner) > OWNER_RADIUS * OWNER_RADIUS) {
             vanish(level);
             return;

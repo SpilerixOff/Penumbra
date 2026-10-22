@@ -10,6 +10,7 @@ import fr.penumbra.content.NarrativeItems;
 import fr.penumbra.director.DelayedTaskScheduler;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.director.sequence.LinkedSceneManager;
+import fr.penumbra.director.encounter.PhysicalEncounterManager;
 import fr.penumbra.entity.absent.AbsentEntities;
 import fr.penumbra.entity.absent.AbsentManager;
 import fr.penumbra.entity.absent.KnownIdentities;
@@ -50,6 +51,7 @@ import fr.penumbra.registry.PenumbraSounds;
 import fr.penumbra.refuge.RefugeContaminationManager;
 import fr.penumbra.story.ConfrontationManager;
 import fr.penumbra.story.StoryManager;
+import fr.penumbra.story.StoryOnboarding;
 import fr.penumbra.structure.PenumbraStructures;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -118,11 +120,13 @@ public class PenumbraMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(FauxMobManager::onServerStopping);
         ServerTickEvents.END_SERVER_TICK.register(ConfrontationManager::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(HorrorDirector::onServerTick);
+        ServerTickEvents.END_SERVER_TICK.register(PhysicalEncounterManager::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(LinkedSceneManager::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(DelayedTaskScheduler::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(IndividualPerceptionManager::onServerTick);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             HorrorDirector.onServerStopped(server);
+            PhysicalEncounterManager.onServerStopped(server);
             LinkedSceneManager.onServerStopped(server);
             DelayedTaskScheduler.onServerStopped(server);
             IndividualPerceptionManager.onServerStopped(server);
@@ -172,8 +176,10 @@ public class PenumbraMod implements ModInitializer {
         // familier plutôt que sous celui du témoin (0.19.0).
         ServerPlayConnectionEvents.JOIN.register(
                 (handler, sender, server) -> KnownIdentities.remember(handler.player));
+        StoryOnboarding.register();
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             HorrorDirector.onPlayerDisconnect(handler.player.getUUID());
+            PhysicalEncounterManager.onPlayerDisconnect(server, handler.player.getUUID());
             LinkedSceneManager.onPlayerDisconnect(server, handler.player.getUUID());
             IndividualPerceptionManager.onPlayerDisconnect(server, handler.player.getUUID());
             OriginelManager.onPlayerDisconnect(handler.player.getUUID());

@@ -1,22 +1,31 @@
-# Installation de Penumbra 0.19.0
+# Installation de Penumbra 0.24.0
+
+Téléchargez **`penumbra-0.24.0.jar`** sur la
+[page de la préversion 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0).
+Les archives de sources et le fichier `-sources.jar` servent au développement.
+Le pack ZIP accompagne le JAR avec des guides et des résultats de vérification :
+il s'installe manuellement et ne s'importe pas comme un modpack.
 
 ## Prérequis
 
 | Composant | Version |
 |---|---|
 | Minecraft | **26.1.2** |
-| Fabric Loader | **0.19.3 ou plus récent compatible** |
-| Fabric API | **0.155.2+26.1.2 ou plus récent compatible** |
-| Java | **25 ou plus récent compatible** |
+| Fabric Loader | **0.19.3** |
+| Fabric API | **0.155.2+26.1.2** |
+| Java | **25** |
+
+Ce tableau indique les versions utilisées pour la préparation et les essais.
+Fabric API doit être téléchargé et installé séparément.
 
 ## Client / partie solo
 
 1. Installez Minecraft 26.1.2 et lancez-le une fois.
 2. Installez Fabric Loader pour Minecraft 26.1.2 depuis
    <https://fabricmc.net/use/installer/>.
-3. Placez Fabric API et **`penumbra-0.19.0.jar`** dans le dossier `mods/` de
+3. Placez Fabric API et **`penumbra-0.24.0.jar`** dans le dossier `mods/` de
    l'instance.
-4. Lancez le profil Fabric. Le journal doit annoncer `penumbra 0.19.0` puis
+4. Lancez le profil Fabric. Le journal doit annoncer `penumbra 0.24.0` puis
    `Penumbra initialisé`.
 
 Au premier démarrage, `config/penumbra.json` est créé. Les effets sensibles
@@ -24,12 +33,25 @@ peuvent être adoucis avant de jouer : `screamersEnabled: false`,
 `cameraShakeEnabled: false`, `distortionEnabled: false`, `fogEnabled: false`,
 puis baisse de `jumpscareVolume` et `jumpscareFrequency`.
 
+En jeu, **K** ouvre les réglages personnels de mouvement, flashs, grain,
+scintillement et les deux volumes. **Appliquer** les enregistre dans
+`config/penumbra-client.json`, sans modifier les règles du serveur.
+Les images de visages et écrans noirs de screamer sont retirés en 0.24.0.
+
 ## Serveur multijoueur
 
-Installez le même JAR Penumbra et Fabric API dans `mods/` sur le serveur **et
+Installez le même JAR **Penumbra 0.24.0** et Fabric API dans `mods/` sur le serveur **et
 sur chaque client**. La configuration serveur pilote la sélection des
 événements et les modifications du monde ; les options de rendu, de zoom et
-de volume sont aussi lues localement par chaque client.
+de volume sont aussi lues localement par chaque client. Ne mélangez pas les
+versions de Penumbra entre serveur et clients.
+
+**Limite de validation :** la 0.24.0 a passé 390 tests automatisés dans 76 suites,
+la compilation et la validation des ressources. Ses essais en jeu utilisent
+un seul client connecté à un serveur local et des outils de diagnostic.
+Les règles multijoueurs décrites ci-dessous sont implémentées, mais la 0.24.0
+n'a pas encore été éprouvée avec deux clients simultanés, une campagne complète
+ou une latence distante. Voir les [problèmes connus](KNOWN_ISSUES.md).
 
 Le serveur dédié peut démarrer sans interface graphique. Chaque joueur conserve
 un profil de tension et une progression narrative distincts, même si certaines
@@ -41,6 +63,12 @@ pas, ne la percute pas et n'entend pas ses pas, alors que les manifestations
 physiques ordinaires et leurs sons spatiaux conservent les règles multijoueur
 précédentes.
 
+En 0.24.0, les Hôtes des nouvelles scènes personnelles, leurs sons privés et
+leurs particules sont également réservés au joueur concerné. Les créatures
+ordinaires restent partagées ; la proximité d'autres joueurs peut empêcher
+ou annuler une scène personnelle. Ce comportement demande encore un essai
+avec deux clients simultanés.
+
 Les scènes automatiques lourdes sont espacées de 4 secondes entre joueurs
 distants d'au plus 32 blocs, avec une priorité tournante. Les groupes plus
 éloignés et les dimensions différentes restent indépendants. Les sons d'une
@@ -49,15 +77,25 @@ scène sont positionnés et peuvent être partagés avec un compagnon situé à
 au propriétaire de la scène. Les commandes opérateur forcées ne sont pas
 bridées par cette coordination.
 
-## Mise à jour depuis 0.1–0.12.0
+## Mise à jour vers 0.24.0
 
 1. Arrêtez complètement le jeu ou le serveur et sauvegardez le monde.
 2. Retirez l'ancien JAR Penumbra du dossier `mods/` ; ne conservez qu'une seule
    version.
-3. Ajoutez `penumbra-0.19.0.jar` et relancez.
+3. Ajoutez `penumbra-0.24.0.jar` et vérifiez les dépendances du tableau.
+4. En multijoueur, mettez à jour le serveur et tous les clients avant de relancer.
+
+Conservez les sauvegardes, photos et fichiers de configuration existants.
+Le menu personnel utilise `config/penumbra-client.json` depuis la 0.22.0 ;
+les anciens réglages Visages et Rémanences ne peuvent pas réactiver ces images.
+Les scénarios de migration anciens ci-dessous décrivent leur comportement
+historique ; ils ne constituent pas une nouvelle validation de toutes ces
+sauvegardes avec la 0.24.0.
+
+### Historique des migrations de 0.1 à 0.19.0
 
 Les anciens `penumbra.json` sont complétés automatiquement avec les nouvelles
-clés. Pour la migration actuelle, une copie `penumbra.json.pre-v5.bak` est
+clés. Pour la migration vers le schéma 5, une copie `penumbra.json.pre-v5.bak` est
 conservée avant modification. La
 clé historique `storyMode` est reprise dans `storyEnabled` si cette dernière
 n'existait pas. Les sauvegardes de monde antérieures restent lisibles ; les
@@ -95,12 +133,12 @@ sauvegardée dans le monde et les données existantes ne demandent aucune conver
 
 ## Désinstallation
 
-Sauvegardez le monde, arrêtez le jeu puis retirez `penumbra-0.19.0.jar`.
+Sauvegardez le monde, arrêtez le jeu puis retirez `penumbra-0.24.0.jar`.
 Les données persistantes deviennent inertes, les objets Penumbra peuvent
 disparaître des inventaires et les restaurations différées ne s'exécuteront
 plus. Les structures composées de blocs vanilla restent dans le monde.
-Vous pouvez ensuite supprimer `config/penumbra.json` si vous ne souhaitez pas
-conserver les réglages.
+Vous pouvez ensuite supprimer `config/penumbra.json` et
+`config/penumbra-client.json` si vous ne souhaitez pas conserver les réglages.
 
 ## Diagnostic rapide
 

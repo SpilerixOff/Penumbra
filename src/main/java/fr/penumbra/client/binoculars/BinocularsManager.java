@@ -6,6 +6,7 @@ import org.lwjgl.glfw.GLFW;
 
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.network.PenumbraC2S;
 import fr.penumbra.registry.PenumbraItems;
 import fr.penumbra.registry.PenumbraSounds;
@@ -153,9 +154,10 @@ public final class BinocularsManager {
             });
         });
 
-        // Déconnexion : purge immédiate des états locaux. Aucun FOV à restaurer :
+        // Déconnexion : purge sur le thread client. Aucun FOV à restaurer :
         // le mixin Camera ne persiste jamais rien.
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> resetAll(client));
+        ClientPlayConnectionEvents.DISCONNECT.register(
+                (handler, client) -> client.execute(() -> resetAll(client)));
     }
 
     private BinocularsManager() {
@@ -251,7 +253,7 @@ public final class BinocularsManager {
         }
         PenumbraConfig config = PenumbraConfig.get();
         double factor = 1.0 + (sessionZoom - 1.0) * progress;
-        if (config.binocularsBreathingMotion) {
+        if (config.binocularsBreathingMotion && ClientComfort.motionAllowed()) {
             double breath = Math.sin(Util.getMillis() * (Math.PI * 2.0) / BREATH_PERIOD_MS);
             factor *= 1.0 + BREATH_ZOOM_AMPLITUDE * config.binocularsBreathingStrength * progress * breath;
         }
@@ -271,7 +273,7 @@ public final class BinocularsManager {
      */
     public static float getBreathOffsetX() {
         PenumbraConfig config = PenumbraConfig.get();
-        if (!config.binocularsBreathingMotion) {
+        if (!config.binocularsBreathingMotion || !ClientComfort.motionAllowed()) {
             return 0.0f;
         }
         float progress = getProgress();
@@ -291,7 +293,7 @@ public final class BinocularsManager {
      */
     public static float getBreathOffsetY() {
         PenumbraConfig config = PenumbraConfig.get();
-        if (!config.binocularsBreathingMotion) {
+        if (!config.binocularsBreathingMotion || !ClientComfort.motionAllowed()) {
             return 0.0f;
         }
         float progress = getProgress();

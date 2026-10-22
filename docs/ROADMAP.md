@@ -1,8 +1,163 @@
 # Feuille de route de Penumbra
 
-## État actuel — 0.18.0
+## État actuel — 0.24.0, préversion publique et validation ciblée
 
-Les incréments publiés sont intégrés :
+La [préversion publique **0.24.0**](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0)
+rassemble les évolutions depuis la 0.19.0 :
+suppression des images de screamer et rémanences, charges et recul en 3D,
+scènes personnelles après fermeture d'un lecteur ou retour au refuge,
+embuscades du Rampant et contre-jeu par la caméra. Le menu K présente six
+réglages, après retrait des boutons Visages et Rémanences.
+
+Le build final `test validatePenumbraResources build` a réussi avec **390 tests
+dans 76 suites**, sans échec, erreur ni test ignoré. Les essais ciblés ont confirmé
+le recul caméra, le déclenchement du Rampant et une esquive de charge de l’Hôte.
+Ils ont utilisé **un seul client connecté à un serveur local**, des placements
+de diagnostic et des pas de simulation ; le recul caméra a été observé à 5 TPS.
+Ces essais ne valident ni une campagne complète, ni deux clients simultanés,
+ni l'équilibrage à vitesse normale. Ce résultat ne garantit pas un effet de
+surprise chez tous les joueurs.
+Voir le [guide de l'horreur physique](PHYSICAL_HORROR_FR.md), les sections
+129 à 134 du [protocole](TEST_PROTOCOL.md) et les [limites](KNOWN_ISSUES.md).
+
+Restent prioritaires : jeu naturel Hôte/Observateur, couverts et verre,
+flash avec tête masquée et torse visible, scènes privées avec deux clients,
+transitions de menus, sons soudains désactivés et tenue des délais sous latence.
+La caméra ne repousse pas L'Écouteur et ne remplace pas les trois ouvertures
+du duel final ; ses règles propres restent distinctes.
+
+## Livraison historique — 0.23.0, validation ciblée
+
+La version publique reste 0.19.0. Les versions 0.20.0 à 0.23.0 sont préparées
+localement. La 0.23.0 rend l'enquête accessible à un nouveau joueur sur un
+serveur déjà exploré et clarifie sa progression jusqu'au rituel final. La
+compilation finale, la validation des ressources et les tests ont réussi :
+**347 tests dans 68 suites, sans échec**. Les premiers contrôles en jeu ont
+confirmé l'arrivée en survie sans OP, la remise d'un carnet, le guide aux étapes
+0 et 5 et le refus du rituel sans caméra sans consommer le sceau. Avec caméra,
+un clic et une seule offrande ont ensuite ouvert le duel, sans victoire finale.
+Le coffre original du sanctuaire, vidé pour l'essai, a accordé sa page sans
+régénérer de butin. Après sauvegarde forcée, arrêt propre et redémarrage,
+l'étape, la page et la remise unique du carnet persistent ; le guide propose
+de reprendre la rencontre, sans victoire inventée. Ces vérifications et les
+résultats historiques ci-dessous ne valident pas une campagne entière, un
+duel complet en 0.23.0, deux clients simultanés ou la latence Internet.
+
+| Version | Évolution locale |
+|---|---|
+| 0.19.0 | Première préversion publique et sélection terrestre du Bûcher |
+| 0.20.0 | Respiration du directeur, contre-jeu de l'Hôte et de l'Écouteur, boussole et lecture du Relevé |
+| 0.21.0 | Dossier d'enquête, nappes sonores suivies et variées, duel en trois étapes, éclairage regroupé |
+| 0.21.1 | Isolation et reprise du rituel, reflet gardé visible pendant son déplacement, confirmation durable des fragments, captures liées à la bonne connexion |
+| 0.22.0 | Menu personnel K, huit réglages et trois préréglages locaux ; accalmie sauvegardée ; badge de confrontation réservé à la victoire — validation ciblée, limites documentées |
+| 0.23.0 | Relevé remis individuellement et refabricable, suivi personnel de l'histoire, pages récupérables dans les coffres déjà pillés, alternative Maison décalée, finale en une offrande éligible, historique préservé au-delà des anciennes limites — validation ciblée et rechargement contrôlé |
+| 0.24.0 | Surprises physiques sans visage HUD, scènes personnelles, charges esquivables et recul, embuscades du Rampant, flash défensif, poursuites bornées, six réglages de confort — validation ciblée, limites documentées |
+
+## 0.23.0 — implémentation et validation ciblée
+
+- Chaque nouveau joueur reçoit le Relevé une fois dans le monde. Un inventaire
+  plein retarde la remise sans jeter le livre ; une recette livre + poche d'encre
+  permet de remplacer un exemplaire perdu sans effacer l'enquête.
+- Les premiers feuillets suivent les données personnelles envoyées par le
+  serveur : prochaine piste, repos/visiteur au refuge, observations, contrôle
+  de la caméra et épilogue après victoire. Les réglages d'histoire et de copies
+  désactivées sont expliqués, sans annoncer les étapes futures.
+- Un nouveau lecteur peut retrouver sa page en ouvrant le coffre exact d'une
+  structure enregistrée, même vidé par un autre joueur. Le butin partagé reste
+  intact. La Maison décalée offre une alternative à la copie personnelle pour
+  l'étape 3 ; le calendrier des tentatives de copie persiste aux reconnexions.
+- Au stade 5, une caméra est requise avant consommation du sceau. Une seule
+  offrande mène à la confrontation ; un rituel effectué plus tôt n'épuise pas
+  l'autel pour la finale et ne la déclenche pas sur un événement sans rapport.
+- Les connaissances et marqueurs personnels ne sont plus tronqués aux anciennes
+  limites de 256. Les tests couvrent plusieurs centaines d'identités, les
+  rechargements NBT et la récupération d'une victoire historiquement enregistrée.
+- Compilation finale, ressources et 347 tests dans 68 suites validés. En jeu :
+  arrivée en survie sans OP, remise d'un seul carnet, suivi aux étapes 0 et 5,
+  puis refus du rituel sans caméra avec conservation du sceau confirmés.
+  Un clic avec caméra et une seule offrande ont ensuite fait apparaître le
+  reflet et les indications du duel, au stade 6 : badge du rituel présent,
+  badge final absent. L'abandon par éloignement a retiré le reflet. Le coffre
+  du sanctuaire vidé pour l'essai a accordé sa page sans régénérer le butin.
+  Après sauvegarde forcée et redémarrage contrôlé, le stade 6, la page retrouvée
+  et la remise unique sont conservés : un carnet, la caméra, aucun sceau,
+  coffre toujours vide et guide de reprise. Aucun duel complet 0.23.0 ni essai
+  à deux clients simultanés n'est revendiqué. Les sections 123 à 128 du
+  protocole distinguent les résultats observés des contrôles non exécutés.
+
+## 0.22.0 — implémentation et validation partielle
+
+- Écran de confort sans permission opérateur, brouillon Appliquer/Annuler,
+  préréglages et fichier distinct `penumbra-client.json`. Les limites de la
+  configuration de base restent prioritaires ; aucune règle serveur ne change.
+- Réductions visuelles applicables immédiatement et volumes séparés des sons
+  soudains et des nappes/cœur. Le mouvement réduit coupe les effets concernés
+  sans effacer les choix individuels.
+- Accalmie de 48 000 ticks sauvegardée, avec une horloge commune aux dimensions :
+  elle continue hors présence du joueur si le monde avance, mais pas pendant
+  l'arrêt du serveur. Une tension forcée à 90 ou plus l'annule pour le diagnostic.
+- Badge de confrontation accordé à la victoire, sans retirer les anciennes
+  attributions. Les sections 120 à 122 du protocole couvrent les contrôles attendus.
+
+Déjà vérifié : K sans permission opérateur sur un client connecté au serveur
+dédié local ; Annuler Doux conserve Immersion sans créer de fichier ; Appliquer
+Doux écrit les préférences et les conserve à la réouverture. Les configurations
+de base du client et du serveur gardent leurs empreintes. Le menu français a
+été capturé en fenêtre 960×540. Le stade 6 n'accorde pas le badge à un joueur
+qui ne l'avait pas. Un vrai rituel normal a accordé une accalmie sauvegardée.
+Après arrêt puis redémarrage du serveur et du client A, Doux reste actif ;
+l'accalmie passe de 47 403 à 46 931 ticks pour 472 ticks de monde écoulés,
+sans réarmement ni attribution du badge.
+
+## Étapes accomplies pour la 0.21.1
+
+- Le préambule et le duel suspendent les autres scènes du participant ; le
+  nettoyage reste limité à ses propres apparitions. Les tentatives sont liées
+  à la session, avec annulation définitive des effets différés après abandon.
+- Le cycle photographie → développement → album → dossier a été vérifié avec
+  L'Écouteur à 20 ticks par seconde. Le dossier est passé d'une à deux preuves
+  connues et son rechargement a été contrôlé.
+- Un éloignement pendant le préambule a interrompu la tentative ; le même
+  autel a accepté une nouvelle tentative au retour.
+- Le duel a été joué jusqu'à la victoire après le flash final. La sauvegarde
+  contient le marqueur de victoire et le compteur est passé de zéro à un.
+  Après rechargement, nouvelle sauvegarde et sortie avec la compilation
+  finale, le marqueur reste actif et le compteur reste à un.
+  Cet essai en créatif, à 5 puis 1 tick par seconde, valide le chemin
+  fonctionnel, pas son équilibrage à vitesse normale. Le badge était déjà
+  présent : cet essai ne prouve pas sa première attribution.
+- Trois essais de serveur dédié vide ont couvert démarrage, sauvegarde et
+  arrêt propre, dont un rechargement du même monde. Le dernier inclut la
+  correction de visibilité du reflet ; aucun client n'y était connecté.
+- La compilation finale, les tests et la validation des ressources ont
+  réussi avec le message de confirmation des fragments dans le chat.
+  Cet ajout a été relu et compilé, sans rejouer un nouveau duel après son ajout.
+- La limite de session de l'accalmie constatée alors est corrigée dans la
+  0.22.0 ; sa nouvelle persistance a été vérifiée après redémarrage du serveur.
+
+## Prochaines vérifications
+
+- Compléter la QA 0.23.0 : inventaire plein en survie/créatif, suivi aux autres
+  étapes, découverte coopérative et interruptions restantes. Jouer la campagne
+  naturellement puis le duel complet en survie ; les transitions automatisées
+  et le démarrage du duel vérifié ne remplacent pas ces essais.
+- Terminer les contrôles 0.22.0 : menu anglais et petites dimensions GUI,
+  effets immédiats et première attribution du badge.
+  Diagnostiquer le crash natif GLFW du client B, reproduit avant connexion
+  lors de deux lancements, puis vérifier l'isolation entre deux clients
+  simultanés. Ce contrôle n'a pas pu être réalisé.
+- Rejouer le duel en survie à 20 ticks par seconde, vérifier l'attribution
+  initiale du badge et les autres causes d'interruption en conditions de jeu.
+- Éprouver les captures lors d'une reconnexion et les scènes de plusieurs
+  joueurs simultanés, avec latence et différentes combinaisons de mods.
+
+Ensuite : parties de survie longues, essais avec plusieurs clients et
+évaluation du confort directement en jeu. Les nouveaux objectifs de terrain
+viendront après vérification de la progression actuelle.
+
+## Historique jusqu'à 0.18.0
+
+Les incréments historiques sont intégrés aux sources :
 
 | Version | Livré |
 |---|---|
@@ -100,18 +255,21 @@ tirage et applique ses arcs, cooldowns et quotas au nouveau contenu.
   **Partiellement livré en 0.17.0** : `perceptionGrainEnabled`,
   `peripheralAfterimagesEnabled` et `perceptionIntensity` sont indépendants du
   voile et de la dérive de FOV.
-- Interface de configuration client optionnelle, rechargement sûr et indication
-  claire des options locales ou serveur.
-- Mode mouvement réduit, variante sans visage photoréaliste, contrôle séparé
-  des sons brusques et rappel de contenu au premier lancement.
+- Interface locale de confort : livrée en 0.22.0, avec validation ciblée et
+  limites documentées dans les problèmes connus ; six réglages en 0.24.0 après
+  suppression des images de visages et des rémanences.
+  L'interface complète des règles serveur et des autres options reste à étudier.
+- Mouvement réduit et volumes séparés : implémentés dans le menu personnel.
+  Retrait des images de visages : implémenté en 0.24.0. Le rappel de contenu
+  au premier lancement reste à étudier.
 - Sous-titres testés en contexte, pas seulement présents dans les fichiers de
   langue.
 
 ## Après 0.13.0 — multijoueur individualisé
 
-- Étendre prudemment le filtre de perception validé par le faux compagnon à une
-  variante de l'Hôte ou de l'Observateur, avec un budget distinct et des tests de
-  fuite réseau avant toute généralisation.
+- Variante personnelle de l'Hôte : implémentée pour les nouvelles scènes de
+  la 0.24.0 avec budget distinct ; les essais de fuite réseau à deux clients
+  restent nécessaires. Une variante personnelle de l'Observateur reste à étudier.
 - Évaluer des scènes où deux témoins reçoivent des versions contradictoires d'un
   même événement sans créer deux entités physiques concurrentes.
 - Clarifier tension individuelle, tension partagée et contenu coopératif via

@@ -64,6 +64,8 @@ class PenumbraNetworkingTest {
         assertTrue(PenumbraNetworking.isKnownJumpscare("rampant_screamer"));
         assertTrue(PenumbraNetworking.isKnownJumpscare("absent_screamer"));
         assertTrue(PenumbraNetworking.isKnownJumpscare("chorus_screamer"));
+        assertTrue(PenumbraNetworking.isKnownJumpscare("listener_screamer"));
+        assertTrue(PenumbraNetworking.isKnownJumpscare("impact"));
         assertFalse(PenumbraNetworking.isKnownJumpscare("forged_packet"));
     }
 }

@@ -4,6 +4,7 @@ import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.absent.AbsentEntity;
 import fr.penumbra.entity.fauxmob.FauxMobManager;
 import fr.penumbra.entity.contrefait.ContrefaitEntity;
+import fr.penumbra.entity.listener.ListenerEntity;
 import fr.penumbra.entity.originel.OriginelEntity;
 import fr.penumbra.entity.projectionist.ProjectionistEntity;
 import fr.penumbra.entity.rampant.RampantEntity;
@@ -68,7 +69,8 @@ public final class PhotoEvidenceDetector {
         // filtre Monster ci-dessus. Le détecteur passe avant la dissolution du
         // flash : le cliché prouve que ce qui vient de disparaître n'était pas réel.
         for (Mob possessed : FauxMobManager.possessedMobsIn(level)) {
-            if (!possessed.broadcastToPlayer(photographer)
+            if (!possessed.isAlive() || possessed.isRemoved()
+                    || !possessed.broadcastToPlayer(photographer)
                     || possessed.isInvisibleTo(photographer)) {
                 continue;
             }
@@ -136,6 +138,40 @@ public final class PhotoEvidenceDetector {
         return List.copyOf(targets);
     }
 
+    /** A flash must reach a visible part of the actual body, not merely its UUID. */
+    public static List<Mob> detectPhysicalFlashTargets(ServerPlayer photographer) {
+        ServerLevel level = photographer.level();
+        List<Mob> targets = new ArrayList<>();
+        for (Mob mob : level.getEntitiesOfClass(Mob.class,
+                photographer.getBoundingBox().inflate(PhysicalFlashRules.DISTANCE),
+                entity -> entity instanceof HostEntity || entity instanceof WatcherEntity
+                        || entity instanceof RampantEntity)) {
+            if (canFlashReach(photographer, mob)) targets.add(mob);
+        }
+        targets.sort(Comparator.comparingDouble(mob -> mob.distanceToSqr(photographer)));
+        return targets.stream().limit(8).toList();
+    }
+
+    /** Shared by selection and the actual reaction: visible torso or feet count too. */
+    public static boolean canFlashReach(ServerPlayer photographer, Mob mob) {
+        if (photographer == null || mob == null || !mob.isAlive() || mob.isRemoved()
+                || photographer.level() != mob.level() || !mob.broadcastToPlayer(photographer)
+                || mob.isInvisibleTo(photographer)) return false;
+        Vec3 eye = photographer.getEyePosition();
+        Vec3 look = photographer.getViewVector(1.0f).normalize();
+        for (Vec3 point : sampleTargets(mob)) {
+            Vec3 delta = point.subtract(eye);
+            double distance = delta.length();
+            double alignment = distance > 1.0E-6 ? look.dot(delta.scale(1 / distance)) : 1;
+            if (!PhysicalFlashRules.canRepel(distance, alignment, true)) continue;
+            boolean visible = photographer.level().clip(new ClipContext(eye, point,
+                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, photographer))
+                    .getType() == HitResult.Type.MISS;
+            if (visible) return true;
+        }
+        return false;
+    }
+
     static PhotoEvidence evidenceFor(Entity entity) {
         if (entity instanceof OriginelEntity) {
             return PhotoEvidence.ORIGINEL;
@@ -163,6 +199,9 @@ public final class PhotoEvidenceDetector {
         if (entity instanceof ScuttlerEntity) {
             return PhotoEvidence.SCUTTLER;
         }
+        if (entity instanceof ListenerEntity) {
+            return PhotoEvidence.LISTENER;
+        }
         return PhotoEvidence.NONE;
     }
 
@@ -182,6 +221,11 @@ public final class PhotoEvidenceDetector {
             double distance = delta.length();
             double alignment = distance <= 1.0E-6
                     ? 1.0 : look.dot(delta.scale(1.0 / distance));
+            // Un échantillon hors cadre ne peut devenir une preuve, même sans obstacle.
+            // Évite le parcours des blocs pour les sujets derrière le photographe.
+            if (!PhotoEvidenceRules.isFramed(distance, alignment, true, zoomFactor)) {
+                continue;
+            }
             boolean visible = level.clip(new ClipContext(eye, target,
                     ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, photographer))
                     .getType() == HitResult.Type.MISS;
@@ -204,6 +248,9 @@ public final class PhotoEvidenceDetector {
             double distance = delta.length();
             double alignment = distance <= 1.0E-6
                     ? 1.0 : look.dot(delta.scale(1.0 / distance));
+            if (!CameraFlashRules.isExposed(distance, alignment, true)) {
+                continue;
+            }
             boolean visible = level.clip(new ClipContext(eye, target,
                     ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, photographer))
                     .getType() == HitResult.Type.MISS;

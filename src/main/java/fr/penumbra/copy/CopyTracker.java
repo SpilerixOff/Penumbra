@@ -55,6 +55,30 @@ public class CopyTracker extends SavedData {
     private static final double MANNEQUIN_CLEANUP_RADIUS = 6.0;
     /** Tag persistant distinguant nos mannequins des porte-armures du joueur. */
     static final String MANNEQUIN_TAG = "penumbra.copy_mannequin";
+    /** First opportunity after reaching familiarity; failed sites are retried once a minute. */
+    static final long FIRST_ATTEMPT_DELAY_TICKS = 2_400L;
+    static final long RETRY_DELAY_TICKS = 1_200L;
+
+    private record Attempt(long remainingTicks, long observedTick, int tries) {
+        private static final Codec<Attempt> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.LONG.optionalFieldOf("remainingTicks", FIRST_ATTEMPT_DELAY_TICKS)
+                        .forGetter(Attempt::remainingTicks),
+                Codec.LONG.optionalFieldOf("observedTick", 0L).forGetter(Attempt::observedTick),
+                Codec.INT.optionalFieldOf("tries", 0).forGetter(Attempt::tries)
+        ).apply(instance, Attempt::new));
+
+        private Attempt {
+            remainingTicks = Math.max(0L, Math.min(FIRST_ATTEMPT_DELAY_TICKS, remainingTicks));
+            observedTick = Math.max(0L, observedTick);
+            tries = Math.max(0, tries);
+        }
+
+        private Attempt advance(long gameTime) {
+            long now = Math.max(0L, gameTime);
+            long elapsed = now >= observedTick ? now - observedTick : 0L;
+            return new Attempt(Math.max(0L, remainingTicks - elapsed), now, tries);
+        }
+    }
 
     /** Bloc posé par une copie : position, état remplacé et état posé. */
     public record PlacedBlock(BlockPos pos, BlockState previousState, BlockState placedState) {
@@ -85,7 +109,9 @@ public class CopyTracker extends SavedData {
             CopyRecord.CODEC.listOf().optionalFieldOf("copies", List.of())
                     .forGetter(tracker -> List.copyOf(tracker.copies)),
             Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("cooldowns", Map.of())
-                    .forGetter(tracker -> tracker.cooldowns)
+                    .forGetter(tracker -> tracker.cooldowns),
+            Codec.unboundedMap(Codec.STRING, Attempt.CODEC).optionalFieldOf("attempts", Map.of())
+                    .forGetter(tracker -> tracker.attempts)
     ).apply(instance, CopyTracker::new));
 
     // Persistance 26.1 (vérifié dans les sources 26.1.2) : SavedDataType est un record
@@ -95,14 +121,15 @@ public class CopyTracker extends SavedData {
 
     private final List<CopyRecord> copies;
     private final Map<String, Long> cooldowns;
+    private final Map<String, Attempt> attempts;
 
     /** Registre vierge (nouveau monde). */
     public CopyTracker() {
-        this(List.of(), Map.of());
+        this(List.of(), Map.of(), Map.of());
     }
 
     /** Constructeur utilisé par le Codec. */
-    private CopyTracker(List<CopyRecord> copies, Map<String, Long> cooldowns) {
+    private CopyTracker(List<CopyRecord> copies, Map<String, Long> cooldowns, Map<String, Attempt> attempts) {
         this.copies = new ArrayList<>();
         int first = Math.max(0, copies.size() - MAX_COPIES);
         for (int i = first; i < copies.size(); i++) {
@@ -115,14 +142,20 @@ public class CopyTracker extends SavedData {
         }
         this.cooldowns = new HashMap<>();
         for (Map.Entry<String, Long> entry : cooldowns.entrySet()) {
-            if (this.cooldowns.size() >= 128) {
-                break;
-            }
             try {
                 UUID.fromString(entry.getKey());
                 this.cooldowns.put(entry.getKey(), Math.max(0L, entry.getValue()));
             } catch (IllegalArgumentException ignored) {
                 // Entrée corrompue ignorée sans invalider toute la sauvegarde.
+            }
+        }
+        this.attempts = new HashMap<>();
+        for (Map.Entry<String, Attempt> entry : attempts.entrySet()) {
+            try {
+                UUID.fromString(entry.getKey());
+                this.attempts.put(entry.getKey(), entry.getValue());
+            } catch (IllegalArgumentException ignored) {
+                // Only actual player UUIDs belong in the persistent schedule.
             }
         }
     }
@@ -265,9 +298,51 @@ public class CopyTracker extends SavedData {
         return this.cooldowns.getOrDefault(playerId.toString(), 0L);
     }
 
+    public boolean cooldownElapsed(UUID playerId, long overworldGameTime) {
+        Long last = this.cooldowns.get(playerId.toString());
+        if (last == null) {
+            return true;
+        }
+        long now = Math.max(0L, overworldGameTime);
+        if (now < last) {
+            // A restored world clock must not lock a player out indefinitely.
+            this.cooldowns.put(playerId.toString(), now);
+            setDirty();
+            return false;
+        }
+        return now - last >= CopyManager.COOLDOWN_TICKS;
+    }
+
+    /** Claims one bounded attempt; reconnecting never starts a fresh waiting period. */
+    public boolean claimAttempt(UUID playerId, long overworldGameTime) {
+        String id = playerId.toString();
+        long now = Math.max(0L, overworldGameTime);
+        Attempt previous = this.attempts.get(id);
+        Attempt current = previous == null
+                ? new Attempt(FIRST_ATTEMPT_DELAY_TICKS, now, 0) : previous.advance(now);
+        boolean due = current.remainingTicks() == 0L;
+        if (due) {
+            current = new Attempt(RETRY_DELAY_TICKS, now,
+                    current.tries() == Integer.MAX_VALUE ? Integer.MAX_VALUE : current.tries() + 1);
+        }
+        if (!current.equals(previous)) {
+            this.attempts.put(id, current);
+            setDirty();
+        }
+        return due;
+    }
+
+    /** Explicit administrative reset; ordinary disconnects leave this schedule intact. */
+    public void resetAttempts(UUID playerId) {
+        if (this.attempts.remove(playerId.toString()) != null) {
+            setDirty();
+        }
+    }
+
     /** Enregistre le tick de construction d'une copie (départ du cooldown). */
     public void noteCopyBuilt(UUID playerId, long gameTime) {
         this.cooldowns.put(playerId.toString(), gameTime);
+        this.attempts.put(playerId.toString(), new Attempt(FIRST_ATTEMPT_DELAY_TICKS, gameTime, 0));
         setDirty();
     }
 

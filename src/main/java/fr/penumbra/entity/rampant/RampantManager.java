@@ -14,6 +14,8 @@ import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
@@ -75,7 +77,7 @@ public final class RampantManager {
             if (!HorrorDirector.automaticSceneAvailable(player)) {
                 continue;
             }
-            if (spawnAttached(player, NATURAL_ATTEMPTS) != null) {
+            if (spawnAttached(player, NATURAL_ATTEMPTS, true) != null) {
                 LAST_SPAWN_TICK.put(player.getUUID(), now);
                 HorrorDirector.recordAutomaticScene(player);
                 HorrorDirector.noteManifestation(player);
@@ -108,12 +110,12 @@ public final class RampantManager {
                 || RampantEntity.hasOwnedRampantNearby(level, player, OWNER_EXCLUSION_RADIUS)) {
             return null;
         }
-        return spawnAttached(player, FORCED_ATTEMPTS);
+        return spawnAttached(player, FORCED_ATTEMPTS, false);
     }
 
-    private static RampantEntity spawnAttached(ServerPlayer player, int attempts) {
+    private static RampantEntity spawnAttached(ServerPlayer player, int attempts, boolean hiddenArrival) {
         ServerLevel level = player.level();
-        AttachmentSpot spot = findAttachment(level, player, attempts);
+        AttachmentSpot spot = findAttachment(level, player, attempts, hiddenArrival);
         if (spot == null) {
             return null;
         }
@@ -121,6 +123,7 @@ public final class RampantManager {
         RampantEntity rampant = new RampantEntity(RampantEntities.RAMPANT, level);
         Vec3 position = Vec3.atBottomCenterOf(spot.airPos());
         rampant.snapTo(position.x, position.y, position.z, player.getYRot() + 180.0f, 0.0f);
+        if (!level.noCollision(rampant)) return null;
         rampant.finalizeSpawn(level, level.getCurrentDifficultyAt(spot.airPos()),
                 EntitySpawnReason.EVENT, null);
         rampant.beginClinging(player, position, player.blockPosition(), spot.attachment());
@@ -136,20 +139,22 @@ public final class RampantManager {
         return rampant;
     }
 
-    private static AttachmentSpot findAttachment(ServerLevel level, ServerPlayer player, int attempts) {
+    private static AttachmentSpot findAttachment(ServerLevel level, ServerPlayer player,
+                                                 int attempts, boolean hiddenArrival) {
         RandomSource random = player.getRandom();
         Vec3 look = player.getLookAngle();
         Vec3 flatLook = new Vec3(look.x, 0.0, look.z);
         double facing = flatLook.lengthSqr() < 1.0E-5
-                ? player.getYRot() * Mth.DEG_TO_RAD
+                ? player.getYRot() * Mth.DEG_TO_RAD + Math.PI / 2.0
                 : Math.atan2(flatLook.z, flatLook.x);
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
         for (int attempt = 0; attempt < attempts; attempt++) {
-            // Majoritairement dans les côtés et le dos : le joueur entend d'abord
-            // le décrochage, mais peut encore lever les yeux et le découvrir.
-            double angle = facing + Math.PI
-                    + (random.nextDouble() * 2.0 - 1.0) * Math.toRadians(115.0);
+            // The first candidates are ahead along the passage. A patient ambush
+            // behind a player walking away would otherwise almost never occur.
+            double angle = attempt < attempts * 2 / 3
+                    ? facing + (random.nextDouble() * 2.0 - 1.0) * Math.toRadians(65.0)
+                    : random.nextDouble() * Math.PI * 2.0;
             double distance = SPAWN_MIN_DISTANCE
                     + random.nextDouble() * (SPAWN_MAX_DISTANCE - SPAWN_MIN_DISTANCE);
             int x = Mth.floor(player.getX() + Math.cos(angle) * distance);
@@ -159,12 +164,22 @@ public final class RampantManager {
             for (int dy = 8; dy >= -7; dy--) {
                 cursor.set(x, centerY + dy, z);
                 AttachmentSpot spot = validateAttachment(level, cursor, random);
-                if (spot != null) {
+                if (spot != null && (!hiddenArrival || !visibleArrival(level, player, spot))) {
                     return spot;
                 }
             }
         }
         return null;
+    }
+
+    /** The camera may discover an ambush later; it must not witness its initial spawn. */
+    private static boolean visibleArrival(ServerLevel level, ServerPlayer player, AttachmentSpot spot) {
+        Vec3 point = Vec3.atBottomCenterOf(spot.airPos()).add(0.0, 0.38, 0.0);
+        Vec3 delta = point.subtract(player.getEyePosition());
+        if (delta.lengthSqr() < 1.0E-6) return true;
+        if (player.getLookAngle().dot(delta.normalize()) < 0.65) return false;
+        return level.clip(new ClipContext(player.getEyePosition(), point,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)).getType() == HitResult.Type.MISS;
     }
 
     private static AttachmentSpot validateAttachment(
@@ -180,9 +195,9 @@ public final class RampantManager {
         }
 
         BlockPos ceiling = air.above();
+        if (!level.isLoaded(ceiling)) return null;
         if (level.getBlockState(ceiling).isFaceSturdy(level, ceiling, Direction.DOWN)
-                && level.getFluidState(ceiling).isEmpty()
-                && random.nextFloat() < 0.72f) {
+                && level.getFluidState(ceiling).isEmpty()) {
             return new AttachmentSpot(air, RampantEntity.ATTACHMENT_CEILING);
         }
 
@@ -198,12 +213,6 @@ public final class RampantManager {
             }
         }
 
-        // Si le plafond était valide mais que le tirage privilégiait une paroi
-        // inexistante, il reste préférable de l'utiliser plutôt que d'échouer.
-        if (level.getBlockState(ceiling).isFaceSturdy(level, ceiling, Direction.DOWN)
-                && level.getFluidState(ceiling).isEmpty()) {
-            return new AttachmentSpot(air, RampantEntity.ATTACHMENT_CEILING);
-        }
         return null;
     }
 

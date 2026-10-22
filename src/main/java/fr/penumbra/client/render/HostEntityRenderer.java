@@ -1,5 +1,6 @@
 package fr.penumbra.client.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.entity.HostEntity;
 import net.fabricmc.api.EnvType;
@@ -32,10 +33,21 @@ public class HostEntityRenderer extends MobRenderer<HostEntity, HostRenderState,
     }
 
     @Override
+    protected void scale(HostRenderState state, PoseStack poseStack) {
+        // This model puts its feet at y=0; vanilla LivingEntityRenderer expects y=24px.
+        super.scale(state, poseStack);
+        poseStack.translate(0.0f, 1.5f, 0.0f);
+    }
+
+    @Override
     public void extractRenderState(HostEntity entity, HostRenderState state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.behavior = entity.getBehavior().ordinal();
         state.lunging = entity.isLunging();
         state.lungeProgress = entity.getLungeProgress(partialTick);
+        state.windingUp = entity.isWindingUp();
+        state.windupProgress = entity.getWindupProgress(partialTick);
+        state.recovering = entity.isRecovering();
+        state.recoveryProgress = entity.getRecoveryProgress(partialTick);
     }
 }

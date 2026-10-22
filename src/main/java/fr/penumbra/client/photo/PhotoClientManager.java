@@ -2,7 +2,7 @@ package fr.penumbra.client.photo;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import fr.penumbra.PenumbraMod;
-import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.client.config.ClientComfort;
 import fr.penumbra.client.binoculars.BinocularsManager;
 import fr.penumbra.network.PhotoNetworking;
 import fr.penumbra.photo.PhotoAlbumState;
@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
@@ -59,7 +60,9 @@ public final class PhotoClientManager {
             return InteractionResult.PASS;
         });
         ClientTickEvents.END_CLIENT_TICK.register(PhotoClientManager::tick);
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
+        // Fabric may deliver disconnect on Netty; photo textures belong to the render thread.
+        ClientPlayConnectionEvents.DISCONNECT.register(
+                (handler, client) -> client.execute(PhotoClientManager::reset));
 
         ClientPlayNetworking.registerGlobalReceiver(PhotoNetworking.PhotoDataS2C.TYPE,
                 (packet, context) -> context.client().execute(() -> PhotoClientStore.receive(packet)));
@@ -98,7 +101,7 @@ public final class PhotoClientManager {
                 }));
 
         HudElementRegistry.addLast(PenumbraMod.id("camera_flash"), (graphics, deltaTracker) -> {
-            if (flashTicks <= 0 || flashStrength <= 0.0f || !PenumbraConfig.get().flashesEnabled) {
+            if (flashTicks <= 0 || flashStrength <= 0.0f || !ClientComfort.flashesEnabled()) {
                 return;
             }
             Minecraft client = Minecraft.getInstance();
@@ -130,7 +133,8 @@ public final class PhotoClientManager {
 
     private static void capture(Minecraft client) {
         long now = Util.getMillis();
-        if (capturing || pendingSequence >= 0L || lastCaptureMillis != Long.MIN_VALUE
+        ClientPacketListener connection = client.getConnection();
+        if (connection == null || capturing || pendingSequence >= 0L || lastCaptureMillis != Long.MIN_VALUE
                 && now >= lastCaptureMillis && now - lastCaptureMillis < LOCAL_CAPTURE_COOLDOWN_MS
                 || !ClientPlayNetworking.canSend(PhotoNetworking.PhotoShutterC2S.TYPE)
                 || !ClientPlayNetworking.canSend(PhotoNetworking.PhotoCaptureC2S.TYPE)) {
@@ -174,20 +178,27 @@ public final class PhotoClientManager {
                         }
                     }
                 } catch (RuntimeException error) {
-                    failCapture(client, error);
+                    failCapture(client, connection, sequence, error);
                     return;
                 }
                 client.execute(() -> {
-                    capturing = false;
-                    if (pendingSequence == sequence) {
-                        pendingPixels = rgb;
-                        trySendAcceptedCapture();
+                    if (!isCurrentCapture(client, connection, sequence)) {
+                        return;
                     }
+                    capturing = false;
+                    pendingPixels = rgb;
+                    trySendAcceptedCapture();
                 });
             });
         } catch (RuntimeException error) {
-            failCapture(client, error);
+            failCapture(client, connection, sequence, error);
         }
+    }
+
+    /** A late GPU readback must never complete or cancel another capture/session. */
+    private static boolean isCurrentCapture(Minecraft client, ClientPacketListener connection,
+                                             long sequence) {
+        return client.getConnection() == connection && pendingSequence == sequence;
     }
 
     private static void receiveShutterResult(
@@ -236,9 +247,13 @@ public final class PhotoClientManager {
         }
     }
 
-    private static void failCapture(Minecraft client, RuntimeException error) {
-        PenumbraMod.LOGGER.warn("[Penumbra] Échec de capture photo", error);
+    private static void failCapture(Minecraft client, ClientPacketListener connection,
+                                      long sequence, RuntimeException error) {
         client.execute(() -> {
+            if (!isCurrentCapture(client, connection, sequence)) {
+                return;
+            }
+            PenumbraMod.LOGGER.warn("[Penumbra] Échec de capture photo", error);
             capturing = false;
             clearPendingCapture();
             if (client.player != null) {
@@ -250,7 +265,7 @@ public final class PhotoClientManager {
 
     private static void triggerFlash(PhotoNetworking.PhotoFlashS2C packet) {
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || !PenumbraConfig.get().flashesEnabled) {
+        if (client.player == null || !ClientComfort.flashesEnabled()) {
             return;
         }
         double dx = client.player.getX() - packet.x();
@@ -300,7 +315,7 @@ public final class PhotoClientManager {
     private static void reset() {
         capturing = false;
         lastCaptureMillis = Long.MIN_VALUE;
-        captureSequence = 0L;
+        // Keep tickets unique across reconnects, including queued shutter replies.
         clearPendingCapture();
         flashTicks = 0;
         flashStrength = 0.0f;

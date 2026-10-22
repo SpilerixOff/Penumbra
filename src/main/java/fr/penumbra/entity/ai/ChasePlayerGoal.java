@@ -2,6 +2,7 @@ package fr.penumbra.entity.ai;
 
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.HorrorDirector;
+import fr.penumbra.director.encounter.PhysicalEncounterManager;
 import fr.penumbra.entity.HostBehavior;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.network.PenumbraNetworking;
@@ -27,7 +28,7 @@ import net.minecraft.world.phys.Vec3;
  *       (HOST_STEP rapprochés + avancée au ralenti) — la seule attaque de mêlée
  *       du mod ; {@code MeleeAttackGoal} reste bloqué par les flags MOVE|LOOK
  *       de ce goal pendant toute la poursuite ;</li>
- *   <li>abandon si distance &gt; 48 blocs pendant 100 ticks ou durée &gt; 1200 ticks
+ *   <li>abandon si distance &gt; 48 blocs pendant 100 ticks ou durée &gt; 240 ticks
  *       → {@code HorrorDirector.endChase(player, random &lt; 0.4)}.</li>
  * </ul>
  */
@@ -46,7 +47,7 @@ public class ChasePlayerGoal extends Goal {
     /** Intervalle maximal entre deux recalculs de chemin. */
     private static final int REPATH_TICKS = 10;
     /** Durée maximale d'une poursuite avant abandon. */
-    private static final int MAX_CHASE_TICKS = 1200;
+    private static final int MAX_CHASE_TICKS = 240;
     /** Distance au-delà de laquelle l'abandon se cumule. */
     private static final double FAR_DISTANCE = 48.0;
     /** Ticks consécutifs au-delà de FAR_DISTANCE avant abandon. */
@@ -73,6 +74,7 @@ public class ChasePlayerGoal extends Goal {
     }
 
     private final HostEntity host;
+    private final HostPursuitMemory memory = new HostPursuitMemory();
     private ServerPlayer target;
     private Phase phase = Phase.STAGING;
     private int stagingTicks;
@@ -96,7 +98,8 @@ public class ChasePlayerGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (!isChaseBehavior() || !PenumbraConfig.get().chasesEnabled
+        if (!isChaseBehavior() || !PenumbraConfig.get().hostEnabled
+                || !PenumbraConfig.get().chasesEnabled || this.host.isLunging()
                 || !(this.host.level() instanceof ServerLevel serverLevel)) {
             return false;
         }
@@ -108,9 +111,12 @@ public class ChasePlayerGoal extends Goal {
     public boolean canContinueToUse() {
         return isChaseBehavior()
                 && PenumbraConfig.get().chasesEnabled
+                && PenumbraConfig.get().hostEnabled
                 && this.target != null
                 && this.target.isAlive()
                 && !this.target.isRemoved()
+                && !this.target.isSpectator()
+                && !this.target.isSleeping()
                 && this.host.isOwnedBy(this.target)
                 && this.target.level() == this.host.level();
     }
@@ -124,7 +130,13 @@ public class ChasePlayerGoal extends Goal {
         this.farTicks = 0;
         this.repathCooldown = 0;
         this.telegraphTicks = 0;
+        this.memory.reset();
         this.host.getNavigation().stop();
+    }
+
+    @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
     }
 
     @Override
@@ -148,11 +160,18 @@ public class ChasePlayerGoal extends Goal {
         this.chaseTicks++;
 
         // Abandons intelligents : durée maximale, ou cible hors zone chargée.
-        if (this.chaseTicks > MAX_CHASE_TICKS || !serverLevel.isLoaded(this.target.blockPosition())) {
-            abandon(serverLevel);
+        if (this.chaseTicks >= MAX_CHASE_TICKS || !serverLevel.isLoaded(this.target.blockPosition())) {
+            abandon(serverLevel, false);
             return;
         }
         double distance = this.host.distanceTo(this.target);
+        boolean visible = this.host.hasLineOfSight(this.target);
+        this.memory.observe(visible, this.target.getX(), this.target.getY(), this.target.getZ());
+        if (this.memory.escaped()) {
+            // Sustained cover is a successful escape, never a teleporting fake retreat.
+            abandon(serverLevel, false);
+            return;
+        }
         if (distance > FAR_DISTANCE) {
             if (++this.farTicks >= FAR_TICKS) {
                 abandon(serverLevel);
@@ -172,7 +191,7 @@ public class ChasePlayerGoal extends Goal {
     /** Phase d'ouverture : immobile, regard fixé sur le joueur. */
     private void tickStaging() {
         this.host.getNavigation().stop();
-        this.host.getLookControl().setLookAt(this.target, 30.0f, 30.0f);
+        lookAtLastSeen();
         if (++this.stagingTicks >= STAGING_TICKS) {
             this.phase = Phase.PURSUIT;
             this.repathCooldown = 0;
@@ -191,13 +210,13 @@ public class ChasePlayerGoal extends Goal {
             this.host.getNavigation().stop();
             return;
         }
-        this.host.getLookControl().setLookAt(this.target, 30.0f, 30.0f);
+        lookAtLastSeen();
         int pursuitTicks = Math.max(0, this.chaseTicks - STAGING_TICKS);
         double ramp = Math.min(1.0, pursuitTicks / (double) RAMP_TICKS);
         double speed = SPEED_START + (SPEED_END - SPEED_START) * ramp;
-        if (--this.repathCooldown <= 0 || this.host.getNavigation().isDone()) {
+        if (--this.repathCooldown <= 0) {
             this.repathCooldown = REPATH_TICKS;
-            moveToward(serverLevel, this.target.getX(), this.target.getY(), this.target.getZ(), speed);
+            moveTowardLastSeen(serverLevel, speed);
         }
     }
 
@@ -206,6 +225,13 @@ public class ChasePlayerGoal extends Goal {
      * rapprochés (volume et pitch montants), puis la frappe.
      */
     private void tickTelegraph(ServerLevel serverLevel) {
+        if (!this.host.hasLineOfSight(this.target)) {
+            this.host.getNavigation().stop();
+            this.host.setBehavior(HostBehavior.CHASING);
+            this.phase = Phase.PURSUIT;
+            this.repathCooldown = 0;
+            return;
+        }
         this.host.getLookControl().setLookAt(this.target, 60.0f, 60.0f);
         if (this.telegraphTicks % 5 == 0) {
             moveToward(serverLevel, this.target.getX(), this.target.getY(), this.target.getZ(),
@@ -249,19 +275,52 @@ public class ChasePlayerGoal extends Goal {
      */
     private void abandon(ServerLevel serverLevel) {
         boolean fakeRetreat = this.host.getRandom().nextFloat() < 0.4f;
+        abandon(serverLevel, fakeRetreat);
+    }
+
+    private void abandon(ServerLevel serverLevel, boolean fakeRetreat) {
+        // Directed private scenes own their recoil and cleanup; generic endChase
+        // could otherwise teleport this actor or broadcast its disappearance.
+        if (PhysicalEncounterManager.finishChase(this.target, this.host)) {
+            this.host.getNavigation().stop();
+            return;
+        }
         HorrorDirector.endChase(this.target, fakeRetreat);
         this.host.setBehavior(fakeRetreat ? HostBehavior.HIDING : HostBehavior.COOLDOWN);
         this.host.getNavigation().stop();
     }
 
-    /** HOST_STEP positionné, audible par tout joueur assez proche de l'Hôte. */
+    private void lookAtLastSeen() {
+        HostPursuitMemory.Position seen = this.memory.lastSeen();
+        if (seen != null) {
+            this.host.getLookControl().setLookAt(
+                    seen.x(), seen.y() + this.target.getEyeHeight(), seen.z(), 30.0f, 30.0f);
+        }
+    }
+
+    private void moveTowardLastSeen(ServerLevel level, double speed) {
+        HostPursuitMemory.Position seen = this.memory.lastSeen();
+        if (seen == null || this.memory.searchPointReached(
+                this.host.getX(), this.host.getY(), this.host.getZ())) {
+            this.host.getNavigation().stop();
+        } else {
+            moveToward(level, seen.x(), seen.y(), seen.z(), speed);
+        }
+    }
+
+    /** A private Host's steps must share the same owner-only audience as its body. */
     private void playStepSound(ServerLevel serverLevel) {
         Vec3 pos = this.host.position();
         float volume = Math.min(1.0f, 0.6f + 0.02f * this.telegraphTicks);
         float pitch = 0.9f + 0.01f * this.telegraphTicks;
         if (this.target.distanceTo(this.host) <= STEP_SOUND_RANGE) {
-            PenumbraNetworking.sendSound(
-                    this.target, PenumbraSounds.HOST_STEP, pos, volume, pitch);
+            if (this.host.isPrivateToOwner()) {
+                PenumbraNetworking.sendSoundDirectPriority(
+                        this.target, PenumbraSounds.HOST_STEP, pos, volume, pitch);
+            } else {
+                PenumbraNetworking.sendSoundPrioritySpatial(
+                        this.target, PenumbraSounds.HOST_STEP, pos, volume, pitch);
+            }
         }
     }
 
@@ -278,7 +337,7 @@ public class ChasePlayerGoal extends Goal {
     private ServerPlayer findNearestPlayer(ServerLevel serverLevel) {
         ServerPlayer owner = this.host.getOwnerPlayer();
         if (owner != null) {
-            return owner.distanceTo(this.host) <= DETECT_RANGE ? owner : null;
+            return eligible(owner) && owner.distanceTo(this.host) <= DETECT_RANGE ? owner : null;
         }
         // Une manifestation déjà liée ne doit jamais changer de joueur.
         if (this.host.hasOwner()) {
@@ -287,7 +346,7 @@ public class ChasePlayerGoal extends Goal {
         ServerPlayer nearest = null;
         double best = DETECT_RANGE;
         for (ServerPlayer player : serverLevel.players()) {
-            if (player.isSpectator() || !player.isAlive()) {
+            if (!eligible(player)) {
                 continue;
             }
             double dist = player.distanceTo(this.host);
@@ -300,5 +359,10 @@ public class ChasePlayerGoal extends Goal {
             this.host.setOwner(nearest);
         }
         return nearest;
+    }
+
+    private static boolean eligible(ServerPlayer player) {
+        return player.isAlive() && !player.isRemoved() && !player.isSpectator()
+                && !player.isSleeping();
     }
 }

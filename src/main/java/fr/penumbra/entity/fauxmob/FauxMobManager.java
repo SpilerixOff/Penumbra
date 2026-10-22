@@ -228,7 +228,9 @@ public final class FauxMobManager {
                 continue;
             }
             ServerPlayer owner = server.getPlayerList().getPlayer(session.ownerId);
-            if (owner == null || owner.level() != session.level) {
+            if (owner == null || owner.level() != session.level || !owner.isAlive()
+                    || owner.isRemoved() || owner.isSpectator()
+                    || owner.isSleeping()) {
                 // Propriétaire parti : la créature s'efface sans témoin ni effet.
                 mob.discard();
                 iterator.remove();
@@ -448,6 +450,19 @@ public final class FauxMobManager {
     public static int activeSessions(MinecraftServer server) {
         ServerState state = STATES.get(server);
         return state == null ? 0 : state.sessions.size();
+    }
+
+    /** Remove only the ritual participant's spawned disguises, without a reveal scare. */
+    public static void clearForRitual(ServerPlayer player) {
+        ServerState state = STATES.get(player.level().getServer());
+        if (state == null) return;
+        Iterator<Session> iterator = state.sessions.iterator();
+        while (iterator.hasNext()) {
+            Session session = iterator.next();
+            if (!session.ownerId.equals(player.getUUID())) continue;
+            if (session.level.getEntity(session.mobId) instanceof Mob mob) mob.discard();
+            iterator.remove();
+        }
     }
 
     /**

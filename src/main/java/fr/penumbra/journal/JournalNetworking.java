@@ -1,6 +1,9 @@
 package fr.penumbra.journal;
 
 import fr.penumbra.PenumbraMod;
+import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.story.ConfrontationManager;
+import fr.penumbra.story.StoryManager;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -11,6 +14,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Ouverture du Relevé (0.18.0) — un seul paquet, dans un seul sens.
@@ -21,7 +26,7 @@ import java.util.List;
  * n'a pas gagnées — au pire il ouvre un carnet vide.</p>
  *
  * <p>La charge utile est volontairement minuscule : la liste des identifiants
- * de pages entièrement lisibles, plus les deux champs du frontispice. Tous les
+ * de pages entièrement lisibles, plus un suivi personnel de l'histoire. Tous les
  * textes eux-mêmes vivent dans les fichiers de langue, côté client.</p>
  */
 public final class JournalNetworking {
@@ -36,8 +41,17 @@ public final class JournalNetworking {
      * @param progress    pages révélées, hors frontispice
      * @param total       pages révélables au total
      */
-    public record OpenJournalS2CPacket(List<String> readableIds, int progress, int total)
+    public record OpenJournalS2CPacket(List<String> readableIds, int progress, int total,
+                                       StoryGuide.Snapshot story)
             implements CustomPacketPayload {
+
+        public OpenJournalS2CPacket {
+            readableIds = List.copyOf(readableIds);
+            if (readableIds.size() > MAX_IDS) throw new IllegalArgumentException("Too many journal pages");
+            total = Math.clamp(total, 1, MAX_IDS);
+            progress = Math.clamp(progress, 0, total);
+            Objects.requireNonNull(story, "story");
+        }
 
         public static final CustomPacketPayload.Type<OpenJournalS2CPacket> TYPE =
                 new CustomPacketPayload.Type<>(PenumbraMod.id("open_journal"));
@@ -48,6 +62,7 @@ public final class JournalNetworking {
                         OpenJournalS2CPacket::readableIds,
                         ByteBufCodecs.VAR_INT, OpenJournalS2CPacket::progress,
                         ByteBufCodecs.VAR_INT, OpenJournalS2CPacket::total,
+                        STORY_CODEC, OpenJournalS2CPacket::story,
                         OpenJournalS2CPacket::new);
 
         @Override
@@ -55,6 +70,27 @@ public final class JournalNetworking {
             return TYPE;
         }
     }
+
+    private static final StreamCodec<RegistryFriendlyByteBuf, StoryGuide.Snapshot> STORY_CODEC =
+            new StreamCodec<>() {
+                @Override
+                public StoryGuide.Snapshot decode(RegistryFriendlyByteBuf buffer) {
+                    return new StoryGuide.Snapshot(buffer.readBoolean(), buffer.readVarInt(),
+                            buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
+                            buffer.readBoolean(), buffer.readVarInt());
+                }
+
+                @Override
+                public void encode(RegistryFriendlyByteBuf buffer, StoryGuide.Snapshot story) {
+                    buffer.writeBoolean(story.storyEnabled());
+                    buffer.writeVarInt(story.stage());
+                    buffer.writeBoolean(story.won());
+                    buffer.writeBoolean(story.copiesEnabled());
+                    buffer.writeVarInt(story.bedUses());
+                    buffer.writeBoolean(story.refugeSeen());
+                    buffer.writeVarInt(story.hostObservations());
+                }
+            };
 
     private JournalNetworking() {
     }
@@ -72,6 +108,13 @@ public final class JournalNetworking {
             return;
         }
         JournalKnowledge knowledge = JournalKnowledge.get(server);
+        PenumbraConfig config = PenumbraConfig.get();
+        Map<String, Integer> evidence = StoryManager.getCounters(player);
+        StoryGuide.Snapshot story = new StoryGuide.Snapshot(
+                config.storyEnabled, StoryManager.getStage(player), ConfrontationManager.isWon(player),
+                config.imperfectCopiesEnabled, evidence.getOrDefault(StoryManager.KEY_BED_USED, 0),
+                evidence.getOrDefault(StoryManager.KEY_REFUGE_HOST_SEEN, 0) > 0,
+                evidence.getOrDefault(StoryManager.KEY_HOST_OBSERVED, 0));
         List<String> readable = knowledge.readableIds(player.getUUID());
         if (readable.size() > MAX_IDS) {
             readable = readable.subList(0, MAX_IDS);
@@ -79,6 +122,6 @@ public final class JournalNetworking {
         ServerPlayNetworking.send(player, new OpenJournalS2CPacket(
                 readable,
                 knowledge.progress(player.getUUID()),
-                JournalEntry.discoverableCount()));
+                JournalEntry.discoverableCount(), story));
     }
 }
