@@ -1,8 +1,9 @@
 # Feuille de route de Penumbra
 
-## État actuel — 0.24.0, livraison locale et validation ciblée
+## État actuel — 0.24.0, préversion publique et validation ciblée
 
-La version publique reste **0.19.0**. La branche locale prépare la **0.24.0** :
+La [préversion publique **0.24.0**](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0)
+rassemble les évolutions depuis la 0.19.0 :
 suppression des images de screamer et rémanences, charges et recul en 3D,
 scènes personnelles après fermeture d'un lecteur ou retour au refuge,
 embuscades du Rampant et contre-jeu par la caméra. Le menu K présente six
@@ -11,7 +12,11 @@ réglages, après retrait des boutons Visages et Rémanences.
 Le build final `test validatePenumbraResources build` a réussi avec **390 tests
 dans 76 suites**, sans échec, erreur ni test ignoré. Les essais ciblés ont confirmé
 le recul caméra, le déclenchement du Rampant et une esquive de charge de l’Hôte.
-Ce résultat ne garantit pas un effet de surprise chez tous les joueurs.
+Ils ont utilisé **un seul client connecté à un serveur local**, des placements
+de diagnostic et des pas de simulation ; le recul caméra a été observé à 5 TPS.
+Ces essais ne valident ni une campagne complète, ni deux clients simultanés,
+ni l'équilibrage à vitesse normale. Ce résultat ne garantit pas un effet de
+surprise chez tous les joueurs.
 Voir le [guide de l'horreur physique](PHYSICAL_HORROR_FR.md), les sections
 129 à 134 du [protocole](TEST_PROTOCOL.md) et les [limites](KNOWN_ISSUES.md).
 

@@ -4,11 +4,11 @@
 
 Penumbra is a psychological horror mod for **Minecraft 26.1.2 on Fabric**. A persistent horror director builds tension from in-game events, then stages sounds, apparitions, pursuit and discoveries around each player.
 
-**Status: 0.19.0, early public testing.** Maintained by [SpilerixOff](https://github.com/SpilerixOff). On **21 October 2026**, the maintainer confirmed having tested solo and multiplayer; **208 automated tests passed** during release preparation. Feedback on longer sessions and different mod combinations is welcome.
+**Status: 0.24.0, public pre-release.** Maintained by [SpilerixOff](https://github.com/SpilerixOff). **390 automated tests in 76 suites passed**, together with the build and resource validation. Targeted in-game checks used **one client connected to a local server**, diagnostic placements and simulation controls. A complete campaign, simultaneous multiplayer and normal-speed balancing remain to be tested; earlier multiplayer reports do not validate this release. Feedback on longer sessions and different mod combinations is welcome.
 
-**[Download Penumbra 0.19.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.19.0)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
+**[Download Penumbra 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
 
-The first playable pre-release is available for download; no compilation is needed. / La première préversion jouable est disponible au téléchargement, sans compilation.
+The playable pre-release includes the changes from 0.20.0 through 0.24.0; no compilation is needed. / Cette préversion jouable rassemble les changements de la 0.20.0 à la 0.24.0, sans compilation.
 
 ## Play Penumbra
 
@@ -27,9 +27,9 @@ The first playable pre-release is available for download; no compilation is need
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
 
-## Build from source
+## What is new in 0.24.0
 
-This development branch prepares **0.24.0**: scares now use creatures in the
+**0.24.0** stages scares with creatures in the
 world, with visible preparation, committed charges, dodging and recoil. The
 face-image and blackout presentation has been removed, including for legacy
 scare packets. The Host, Watcher and Rampant can be repelled by a nearby,
@@ -53,12 +53,13 @@ its prelude onward. Interrupted attempts can be retried, and unfinished photo
 captures cannot affect a new session after reconnecting.
 It also includes 0.21.0's varied ambient audio, personal investigation dossier,
 staged final confrontation and dynamic-light optimizations, plus the pacing,
-counterplay and journal improvements from 0.20.0. The public download above
-remains **0.19.0** until a new release is published. See [the changelog](CHANGELOG.md).
+counterplay and journal improvements from 0.20.0. See [the changelog](CHANGELOG.md).
 
 Post-ritual calm lasts up to 48,000 world ticks, including time spent offline
 while the server runs. Stopping the server pauses that clock. It is not renewed
 on reconnect. See [known issues](docs/KNOWN_ISSUES.md).
+
+## Build from source
 
 The version pins in [gradle.properties](gradle.properties) are the source of truth:
 
@@ -87,11 +88,10 @@ For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [insta
 
 ## Horror effects and comfort
 
-The 0.24.0 source contains sudden sounds, approaching creatures, camera movement
+Penumbra 0.24.0 contains sudden sounds, approaching creatures, camera movement
 and visual distortion. It no longer draws full-screen horror faces, peripheral
 face images or screamer blackouts. Other visual flashes remain configurable and
-disabled by default (`flashesEnabled: false`). The public 0.19.0 download above
-has the older presentation. These settings are not a guarantee of comfort for
+disabled by default (`flashesEnabled: false`). These settings are not a guarantee of comfort for
 photosensitive players.
 
 Configuration is created at `config/penumbra.json`. With the game stopped, you can disable `screamersEnabled`, `cameraShakeEnabled`, `distortionEnabled` and `fogEnabled`, and lower `jumpscareVolume`, `jumpscareFrequency` and `perceptionIntensity`. The operator command `/penumbra profile gentle` applies a gentler preset; it does not turn off every effect. Client rendering settings and server event settings must be configured in their respective instances.
@@ -119,13 +119,13 @@ The repository carries the [MIT license](LICENSE). See [asset provenance and thi
 
 **Penumbra est un mod d'horreur psychologique pour Minecraft 26.1.2, sous Fabric.** Son directeur d'horreur fait monter la tension, organise les manifestations et conserve une progression propre à chaque joueur. Le projet est maintenu par **SpilerixOff**.
 
-La version **0.19.0 est ouverte aux premiers essais publics**. Le **21 octobre 2026**, le mainteneur a confirmé l'avoir testée en solo et en multijoueur ; **208 tests automatisés ont réussi** pendant la préparation de la publication. Les retours sur les parties longues et les différentes combinaisons de mods sont bienvenus.
+La **0.24.0 est une préversion publique**. **390 tests automatisés dans 76 suites ont réussi**, avec la compilation et la validation des ressources. Les essais ciblés en jeu utilisent **un seul client connecté à un serveur local**, des placements de diagnostic et des pas de simulation. Ils ne valident ni une campagne complète, ni deux clients simultanés, ni l'équilibrage à vitesse normale ; les anciens retours multijoueurs ne valent pas validation de cette version. Les retours sur les parties longues et les différentes combinaisons de mods sont bienvenus.
 
-Pour jouer, téléchargez le JAR du mod sur la [page Releases](https://github.com/SpilerixOff/Penumbra/releases), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
+Pour jouer, téléchargez le JAR de la [préversion 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
-Cette branche prépare la **0.24.0** : les sursauts reposent sur les créatures dans le monde, avec préparation visible, charge esquivable et recul. Les visages plaqués à l'écran, rémanences de visages et écrans noirs de screamer sont retirés. La caméra peut interrompre un Hôte, un Observateur ou un Rampant proche et cadré ; les fermetures de coffre ou de carnet et les retours au refuge peuvent ouvrir des scènes physiques. [Voir le guide de l'horreur physique](docs/PHYSICAL_HORROR_FR.md) et les [limites de validation](docs/KNOWN_ISSUES.md).
+Dans la **0.24.0**, les sursauts reposent sur les créatures dans le monde, avec préparation visible, charge esquivable et recul. Les visages plaqués à l'écran, rémanences de visages et écrans noirs de screamer sont retirés. La caméra peut interrompre un Hôte, un Observateur ou un Rampant proche et cadré ; les fermetures de coffre ou de carnet et les retours au refuge peuvent ouvrir des scènes physiques. [Voir le guide de l'horreur physique](docs/PHYSICAL_HORROR_FR.md) et les [limites de validation](docs/KNOWN_ISSUES.md).
 
-Le parcours personnel de la 0.23.0 est conservé : chaque arrivant reçoit Le Relevé, les coffres déjà pillés restent lisibles et le premier rituel final éligible conduit directement au duel. [Voir le parcours complet](docs/STORY_FLOW_FR.md). L'accalmie survit aux reconnexions et le badge final exige une victoire. Le téléchargement public ci-dessus reste la **0.19.0** jusqu'à la prochaine publication.
+Le parcours personnel de la 0.23.0 est conservé : chaque arrivant reçoit Le Relevé, les coffres déjà pillés restent lisibles et le premier rituel final éligible conduit directement au duel. [Voir le parcours complet](docs/STORY_FLOW_FR.md). L'accalmie survit aux reconnexions et le badge final exige une victoire.
 
 L'accalmie dure au plus 48 000 ticks du monde : un serveur actif continue de la décompter hors connexion ; un serveur arrêté la met en pause. La reconnexion ne la réinitialise pas. Voir les [problèmes connus](docs/KNOWN_ISSUES.md).
 
@@ -140,6 +140,6 @@ les changements. Ces choix réduisent les effets autorisés par la configuration
 de base et laissent les dégâts, la fréquence des événements et la progression
 du serveur inchangés.
 
-Le code 0.24.0 contient des sons soudains, des créatures qui approchent, des secousses et des distorsions. Les images de visages ont été retirées ; le téléchargement public 0.19.0 conserve son ancienne présentation. Les autres flashs sont désactivés par défaut. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
+Penumbra 0.24.0 contient des sons soudains, des créatures qui approchent, des secousses et des distorsions. Les images de visages ont été retirées. Les autres flashs sont désactivés par défaut. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
 
 Consultez le [manuel français](docs/MANUAL_FR.md), les [problèmes connus](docs/KNOWN_ISSUES.md) et le [guide de contribution](CONTRIBUTING.md). Les retours en français sont bienvenus. Licence : [MIT](LICENSE).
