@@ -60,6 +60,10 @@ public final class ListenerEntity extends Monster {
     /** Angle (degrés) vers lequel la tête est tendue : le bruit, pas le joueur. */
     private static final EntityDataAccessor<Float> DATA_HEAR_YAW =
             SynchedEntityData.defineId(ListenerEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> DATA_WARNING_AGE =
+            SynchedEntityData.defineId(ListenerEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_STRIKE =
+            SynchedEntityData.defineId(ListenerEntity.class, EntityDataSerializers.INT);
 
     /** Durée de vie maximale d'une scène : 100 s. Se figer est long, pas infini. */
     private static final int MAX_LIFETIME_TICKS = 2000;
@@ -110,6 +114,8 @@ public final class ListenerEntity extends Monster {
         super.defineSynchedData(builder);
         builder.define(DATA_BEHAVIOR, ListenerBehavior.SEEKING.ordinal());
         builder.define(DATA_HEAR_YAW, 0.0f);
+        builder.define(DATA_WARNING_AGE, 0);
+        builder.define(DATA_STRIKE, 0);
     }
 
     /** Aucun goal vanilla : la scène entière est pilotée par {@link #tick()}. */
@@ -137,7 +143,8 @@ public final class ListenerEntity extends Monster {
     /** Un coup autorisé devient un bruit ; il ne tue jamais la créature sur place. */
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        if (this.getBehavior() == ListenerBehavior.LEAVING) {
+        if (this.getBehavior() == ListenerBehavior.LEAVING
+                || this.getBehavior() == ListenerBehavior.STRIKING) {
             return false;
         }
         // Le coup EST un bruit : elle sait maintenant très précisément où vous êtes.
@@ -171,6 +178,16 @@ public final class ListenerEntity extends Monster {
         return this.entityData.get(DATA_HEAR_YAW);
     }
 
+    public float getWarningProgress(float partialTick) {
+        if (getBehavior() != ListenerBehavior.CLOSING) return 0.0f;
+        return Mth.clamp((entityData.get(DATA_WARNING_AGE) + Mth.clamp(partialTick, 0.0f, 1.0f))
+                / ListenerStrike.WARNING_TICKS, 0.0f, 1.0f);
+    }
+
+    public float getStrikeTicks(float partialTick) {
+        return ListenerStrike.elapsed(entityData.get(DATA_STRIKE), partialTick);
+    }
+
     public boolean isOwnedBy(ServerPlayer player) {
         return ownerUuid != null && ownerUuid.equals(player.getUUID());
     }
@@ -178,6 +195,8 @@ public final class ListenerEntity extends Monster {
     private void setBehavior(ListenerBehavior behavior) {
         if (this.getBehavior() != behavior) {
             this.entityData.set(DATA_BEHAVIOR, behavior.ordinal());
+            this.entityData.set(DATA_WARNING_AGE, 0);
+            this.entityData.set(DATA_STRIKE, 0);
             if (behavior == ListenerBehavior.SEEKING) this.seekingTicks = 0;
         }
     }
@@ -215,7 +234,8 @@ public final class ListenerEntity extends Monster {
         }
 
         if (sceneTicks % POLL_INTERVAL == 0
-                && this.getBehavior() != ListenerBehavior.LEAVING) {
+                && this.getBehavior() != ListenerBehavior.LEAVING
+                && this.getBehavior() != ListenerBehavior.STRIKING) {
             pollNoise(level, owner);
         }
 
@@ -224,6 +244,7 @@ public final class ListenerEntity extends Monster {
             case LISTENING -> tickListening(level);
             case CLOSING -> tickClosing(level, owner);
             case LEAVING -> tickLeaving(level);
+            case STRIKING -> tickStriking(level, owner);
         }
 
         tickVoice(level, owner);
@@ -291,6 +312,8 @@ public final class ListenerEntity extends Monster {
      * jamais la position exacte, seulement une zone.
      */
     private void hear(Vec3 source, boolean lockable) {
+        if (getBehavior() == ListenerBehavior.STRIKING
+                || getBehavior() == ListenerBehavior.LEAVING) return;
         this.pursuit.heardNoise();
         RandomSource random = this.getRandom();
         this.heardPoint = new Vec3(
@@ -308,7 +331,8 @@ public final class ListenerEntity extends Monster {
 
     /** Signale un bruit ponctuel extérieur (bloc cassé, chute, dégât). */
     void hearBurst(Vec3 source, double radius) {
-        if (this.getBehavior() == ListenerBehavior.LEAVING) {
+        if (this.getBehavior() == ListenerBehavior.LEAVING
+                || this.getBehavior() == ListenerBehavior.STRIKING) {
             return;
         }
         double distance = this.position().distanceTo(source);
@@ -378,6 +402,7 @@ public final class ListenerEntity extends Monster {
 
     private void tickClosing(ServerLevel level, ServerPlayer owner) {
         this.pursuit.tick();
+        this.entityData.set(DATA_WARNING_AGE, this.pursuit.warningAge());
         if (this.pursuit.exhausted()) {
             beginLeaving(level, owner);
             return;
@@ -406,7 +431,30 @@ public final class ListenerEntity extends Monster {
         }
         if (this.pursuit.canContact(radiusOf(owner), this.distanceTo(owner),
                 this.hasLineOfSight(owner))) {
+            // The arm now moves before damage. The owner can still sidestep,
+            // find cover or stop making noise during the committed sweep.
+            setBehavior(ListenerBehavior.STRIKING);
+            this.entityData.set(DATA_STRIKE, 1);
+            this.getNavigation().stop();
+            this.setDeltaMovement(this.getDeltaMovement().multiply(0.0, 1.0, 0.0));
+        }
+    }
+
+    private void tickStriking(ServerLevel level, ServerPlayer owner) {
+        int elapsed = this.entityData.get(DATA_STRIKE);
+        this.getNavigation().stop();
+        this.setDeltaMovement(this.getDeltaMovement().multiply(0.0, 1.0, 0.0));
+        this.pursuit.tick();
+        if (ListenerStrike.impactDue(elapsed) && !contactDone
+                && ListenerStrike.withinSweep(owner.getX() - this.getX(), owner.getZ() - this.getZ(), this.getYRot())
+                && this.pursuit.canContact(radiusOf(owner), this.distanceTo(owner),
+                        this.hasLineOfSight(owner))) {
             contact(level, owner);
+        }
+        if (ListenerStrike.complete(elapsed)) {
+            beginLeaving(level, owner);
+        } else {
+            this.entityData.set(DATA_STRIKE, elapsed + 1);
         }
     }
 
@@ -476,11 +524,13 @@ public final class ListenerEntity extends Monster {
                 this.getX(), this.getY() + 1.7, this.getZ(),
                 28, 0.36, 0.9, 0.36, 0.014);
         HorrorDirector.noteManifestation(owner);
-        beginLeaving(level, owner);
+        // Stay in STRIKING for the follow-through and recoil; damage is never
+        // repeated while the visible arm finishes its movement.
     }
 
     /** Clic sec d'écholocation, plus rapide pendant la charge. */
     private void tickVoice(ServerLevel level, ServerPlayer owner) {
+        if (this.getBehavior() == ListenerBehavior.STRIKING) return;
         int interval = switch (this.getBehavior()) {
             case CLOSING -> 7;
             case LISTENING -> 26;
@@ -501,6 +551,8 @@ public final class ListenerEntity extends Monster {
      * c'est la seule information dont le joueur a besoin pour comprendre la règle.
      */
     private void aimHeadAtNoise() {
+        // A committed sweep does not steer towards a moving player.
+        if (this.getBehavior() == ListenerBehavior.STRIKING) return;
         Vec3 target = heardPoint;
         if (this.getBehavior() == ListenerBehavior.LEAVING && leavePoint != null) {
             target = leavePoint;
@@ -514,9 +566,12 @@ public final class ListenerEntity extends Monster {
         }
         float yaw = (float) (Mth.atan2(delta.z, delta.x) * Mth.RAD_TO_DEG) - 90.0f;
         this.entityData.set(DATA_HEAR_YAW, Mth.wrapDegrees(yaw));
-        this.setYRot(yaw);
-        this.setYBodyRot(yaw);
-        this.setYHeadRot(yaw);
+        // Ears receive the target immediately, then head and trunk catch up.
+        // The target is still only a heard point, never an unseen player.
+        this.setYHeadRot(Mth.rotLerp(0.38f, this.getYHeadRot(), yaw));
+        float bodyYaw = Mth.rotLerp(0.16f, this.getYRot(), yaw);
+        this.setYRot(bodyYaw);
+        this.setYBodyRot(bodyYaw);
     }
 
     private ServerPlayer ownerPlayer(ServerLevel level) {

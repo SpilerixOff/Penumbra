@@ -1,4 +1,4 @@
-# Penumbra 0.25.0 — L'horreur dans le monde
+# Penumbra 0.26.0 — L'horreur dans le monde
 
 La 0.24.0 prépare des sursauts produits par les créatures et leur comportement.
 Le visage plaqué à l'écran, les rémanences de visages et le noir de screamer
@@ -7,6 +7,11 @@ Les descriptions suivantes portent sur le code implémenté ; les résultats
 d'essais sont suivis dans [les problèmes connus](KNOWN_ISSUES.md).
 
 ## Ce que le joueur rencontre
+
+La 0.26.0 donne aux huit autres monstres des gestes distincts, décrits avec
+leurs inspirations dans [le guide des animations](MONSTER_ANIMATIONS_FR.md).
+Les leurres restent inoffensifs ; les animations de contact suivent les états
+serveur et les règles de portée, de bruit ou de visibilité de chaque créature.
 
 Depuis la 0.25.0, l'Hôte prolonge un contact réussi par une prise physique :
 après s'être ramassé, il bondit en arc, plonge avec ses deux mains tendues,

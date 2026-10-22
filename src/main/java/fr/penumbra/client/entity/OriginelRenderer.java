@@ -1,5 +1,6 @@
 package fr.penumbra.client.entity;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.entity.originel.OriginelEntity;
 import net.fabricmc.api.EnvType;
@@ -34,10 +35,22 @@ public class OriginelRenderer extends MobRenderer<OriginelEntity, OriginelRender
     }
 
     @Override
+    protected void scale(OriginelRenderState state, PoseStack poseStack) {
+        super.scale(state, poseStack);
+        // The authored feet are at zero; vanilla's living model plane is 24px.
+        poseStack.translate(0.0f, 1.5f, 0.0f);
+    }
+
+    @Override
     public void extractRenderState(OriginelEntity entity, OriginelRenderState state,
                                    float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.caveAnimation = entity.isCaveAnimation();
-        state.lungeProgress = entity.getLungeProgress();
+        state.windingUp = entity.getManifestationMode() == OriginelEntity.ManifestationMode.WINDUP;
+        state.lunging = entity.getManifestationMode() == OriginelEntity.ManifestationMode.LUNGE;
+        state.recovering = entity.getManifestationMode() == OriginelEntity.ManifestationMode.RECOVERY;
+        state.windupProgress = entity.getWindupProgress(partialTick);
+        state.lungeProgress = entity.getLungeProgress(partialTick);
+        state.recoveryProgress = entity.getRecoveryProgress(partialTick);
     }
 }

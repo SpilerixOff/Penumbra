@@ -9,4 +9,10 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 public final class ContrefaitRenderState extends LivingEntityRenderState {
     public boolean lunging;
     public float lungeProgress;
+    public boolean observed;
+    public boolean windingUp;
+    public float windupProgress;
+    public boolean recovering;
+    public float recoveryProgress;
+    public float recoveryPose;
 }

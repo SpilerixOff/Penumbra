@@ -36,4 +36,15 @@ class OriginelTimingTest {
         assertEquals(220, OriginelTiming.caveSceneDurationTicks(80, 10));
         assertEquals(140, OriginelTiming.caveSceneDurationTicks(140, 1));
     }
+
+    @Test
+    void collisionSweepNeverSkipsABodySizedGapDuringTheFastFinalFrame() {
+        for (int length = 1; length <= 320; length++) {
+            double distance = length / 10.0;
+            int steps = OriginelTiming.collisionSteps(distance);
+            assertTrue(distance / steps <= OriginelTiming.COLLISION_STEP + 1.0E-9);
+        }
+        assertEquals(1, OriginelTiming.collisionSteps(Double.NaN));
+        assertEquals(1, OriginelTiming.collisionSteps(0));
+    }
 }

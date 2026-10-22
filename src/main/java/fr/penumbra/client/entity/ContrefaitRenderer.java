@@ -1,6 +1,7 @@
 package fr.penumbra.client.entity;
 
 import fr.penumbra.PenumbraMod;
+import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.entity.contrefait.ContrefaitEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -34,10 +35,23 @@ public class ContrefaitRenderer extends MobRenderer<ContrefaitEntity, Contrefait
     }
 
     @Override
+    protected void scale(ContrefaitRenderState state, PoseStack poseStack) {
+        super.scale(state, poseStack);
+        // Authored feet at zero, while vanilla LivingEntityRenderer uses 24 pixels.
+        poseStack.translate(0.0f, 1.5f, 0.0f);
+    }
+
+    @Override
     public void extractRenderState(ContrefaitEntity entity, ContrefaitRenderState state,
                                    float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.lunging = entity.isLunging();
         state.lungeProgress = entity.getLungeProgress(partialTick);
+        state.observed = entity.isObserved();
+        state.windingUp = entity.isWindingUp();
+        state.windupProgress = entity.getWindupProgress(partialTick);
+        state.recovering = entity.isRecovering();
+        state.recoveryProgress = entity.getRecoveryProgress(partialTick);
+        state.recoveryPose = entity.getRecoveryPose();
     }
 }

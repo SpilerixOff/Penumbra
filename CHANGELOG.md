@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.26.0] — Huit façons d'approcher
+
+- Animations distinctes pour l'Observateur, le Rampant, l'Écouteur, la Cavaleuse,
+  le Contrefait, le Projectionniste, l'Originel et l'Absent ; l'Hôte conserve sa prise.
+- Squelettes reliés et articulés, préparation, geste d'attaque et récupération
+  visibles, horloges synchronisées avec le serveur.
+- La Cavaleuse effectue une feinte sans dégâts ; le Projectionniste s'arme,
+  se déploie puis se replie sans blesser le joueur.
+- Les charges du Contrefait et de l'Originel s'engagent vers une position fixe
+  et vérifient les collisions ; esquive et obstacle peuvent empêcher le contact.
+- Le Rampant conserve une courte phase de crochet/rebond après le contact,
+  et l'Écouteur revérifie le bruit et la portée au moment de son balayage.
+
+Version de développement ; [recherche et choix](docs/MONSTER_ANIMATIONS_FR.md),
+[résultats et limites des essais](docs/KNOWN_ISSUES.md).
+
 ## [0.25.0] — La prise de l'Hôte
 
 - La charge déclenchée par le regard comprend un bond en arc, une plongée,

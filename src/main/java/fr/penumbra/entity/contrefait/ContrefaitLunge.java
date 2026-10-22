@@ -1,7 +1,13 @@
 package fr.penumbra.entity.contrefait;
 
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
 /** Calculs purs et état compact de la charge 3D du Contrefait. */
-final class ContrefaitLunge {
+public final class ContrefaitLunge {
+
+    public static final int WINDUP_TICKS = 8;
+    public static final int RECOVERY_TICKS = 18;
 
     static final int MIN_DURATION_TICKS = 8;
     static final int MAX_DURATION_TICKS = 12;
@@ -56,5 +62,27 @@ final class ContrefaitLunge {
         double progress = Math.max(0.0, Math.min(1.0,
                 elapsedTicks / (double) Math.max(1, durationTicks)));
         return progress * progress * (3.0 - 2.0 * progress);
+    }
+
+    /** Target is captured once: looking or stepping away cannot bend the attack. */
+    static Vec3 committedTarget(Vec3 start, Vec3 ownerFeet) {
+        Vec3 offset = ownerFeet.subtract(start).multiply(1.0, 0.0, 1.0);
+        double length = offset.length();
+        return length < 1.0E-5 ? start
+                : ownerFeet.subtract(offset.scale(Math.min(0.45, length) / length));
+    }
+
+    static Vec3 position(Vec3 start, Vec3 target, int elapsed, int duration) {
+        return start.lerp(target, easedProgress(elapsed, duration));
+    }
+
+    static int collisionSteps(double distance) {
+        if (!Double.isFinite(distance) || distance <= 0) return 1;
+        return Math.max(1, (int) Math.ceil(Math.min(distance, 128.0) / .20));
+    }
+
+    /** Reach stays inside a small margin of the actual bodies, including height. */
+    static boolean canHit(AABB attacker, AABB victim, boolean clearSight) {
+        return clearSight && attacker.inflate(0.22, 0.08, 0.22).intersects(victim);
     }
 }

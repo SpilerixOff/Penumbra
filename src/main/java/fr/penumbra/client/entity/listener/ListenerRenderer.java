@@ -8,6 +8,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 /** Renderer de L'Écouteur : ombre serrée sous une silhouette de 2,9 blocs. */
 @Environment(EnvType.CLIENT)
@@ -44,5 +45,8 @@ public final class ListenerRenderer
         super.extractRenderState(entity, state, partialTick);
         state.behavior = entity.getBehavior().ordinal();
         state.hearingYaw = entity.getHearingYaw();
+        state.hearingOffset = Mth.wrapDegrees(entity.getHearingYaw() - entity.getYHeadRot());
+        state.warningProgress = entity.getWarningProgress(partialTick);
+        state.strikeTicks = entity.getStrikeTicks(partialTick);
     }
 }

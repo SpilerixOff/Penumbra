@@ -125,9 +125,14 @@ class ListenerNoiseTest {
     @Test
     void behaviorIdsAreDefensiveAgainstCorruptedSyncedValues() {
         assertEquals(ListenerBehavior.SEEKING, ListenerBehavior.byId(0));
-        assertEquals(ListenerBehavior.LEAVING,
-                ListenerBehavior.byId(ListenerBehavior.values().length - 1));
+        // Existing wire ids remain stable; STRIKING was appended, not inserted.
+        assertEquals(ListenerBehavior.LEAVING, ListenerBehavior.byId(3));
+        assertEquals(ListenerBehavior.STRIKING, ListenerBehavior.byId(4));
+        for (ListenerBehavior behavior : ListenerBehavior.values()) {
+            assertEquals(behavior, ListenerBehavior.byId(behavior.ordinal()));
+        }
         assertEquals(ListenerBehavior.SEEKING, ListenerBehavior.byId(-1));
+        assertEquals(ListenerBehavior.SEEKING, ListenerBehavior.byId(ListenerBehavior.values().length));
         assertEquals(ListenerBehavior.SEEKING, ListenerBehavior.byId(999));
     }
 }

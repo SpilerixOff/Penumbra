@@ -2,6 +2,7 @@ package fr.penumbra.client.entity;
 
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.client.animation.MonsterAnimationMath;
+import fr.penumbra.client.animation.OriginelAnimation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.model.EntityModel;
@@ -33,41 +34,44 @@ public final class OriginelModel extends EntityModel<OriginelRenderState> {
 
     public OriginelModel(ModelPart root) {
         super(root);
-        this.head = root.getChild("head");
-        this.body = root.getChild("body");
-        this.rightArm = root.getChild("right_arm");
-        this.leftArm = root.getChild("left_arm");
-        this.rightLeg = root.getChild("right_leg");
-        this.leftLeg = root.getChild("left_leg");
+        ModelPart hips = root.getChild("hips");
+        this.body = hips.getChild("body");
+        this.head = this.body.getChild("head");
+        this.rightArm = this.body.getChild("right_arm");
+        this.leftArm = this.body.getChild("left_arm");
+        this.rightLeg = hips.getChild("right_leg");
+        this.leftLeg = hips.getChild("left_leg");
     }
 
     public static LayerDefinition createBodyLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
-        root.addOrReplaceChild("head",
+        PartDefinition hips = root.addOrReplaceChild("hips", CubeListBuilder.create(),
+                PartPose.offset(0.0f, -12.0f, 0.0f));
+        PartDefinition body = hips.addOrReplaceChild("body",
+                CubeListBuilder.create().texOffs(16, 16)
+                        .addBox(-4.0f, -12.0f, -2.0f, 8.0f, 12.0f, 4.0f),
+                PartPose.ZERO);
+        body.addOrReplaceChild("head",
                 CubeListBuilder.create().texOffs(0, 0)
                         .addBox(-4.0f, -8.0f, -4.0f, 8.0f, 8.0f, 8.0f),
-                PartPose.offset(0.0f, -24.0f, 0.0f));
-        root.addOrReplaceChild("body",
-                CubeListBuilder.create().texOffs(16, 16)
-                        .addBox(-4.0f, 0.0f, -2.0f, 8.0f, 12.0f, 4.0f),
-                PartPose.offset(0.0f, -24.0f, 0.0f));
-        root.addOrReplaceChild("right_arm",
+                PartPose.offset(0.0f, -12.0f, 0.0f));
+        body.addOrReplaceChild("right_arm",
                 CubeListBuilder.create().texOffs(40, 16)
                         .addBox(-4.0f, 0.0f, -2.0f, 4.0f, 12.0f, 4.0f),
-                PartPose.offset(-4.0f, -24.0f, 0.0f));
-        root.addOrReplaceChild("left_arm",
+                PartPose.offset(-4.0f, -12.0f, 0.0f));
+        body.addOrReplaceChild("left_arm",
                 CubeListBuilder.create().texOffs(40, 32)
                         .addBox(0.0f, 0.0f, -2.0f, 4.0f, 12.0f, 4.0f),
-                PartPose.offset(4.0f, -24.0f, 0.0f));
-        root.addOrReplaceChild("right_leg",
+                PartPose.offset(4.0f, -12.0f, 0.0f));
+        hips.addOrReplaceChild("right_leg",
                 CubeListBuilder.create().texOffs(0, 16)
                         .addBox(-2.0f, 0.0f, -2.0f, 4.0f, 12.0f, 4.0f),
-                PartPose.offset(-2.0f, -12.0f, 0.0f));
-        root.addOrReplaceChild("left_leg",
+                PartPose.offset(-2.0f, 0.0f, 0.0f));
+        hips.addOrReplaceChild("left_leg",
                 CubeListBuilder.create().texOffs(0, 32)
                         .addBox(-2.0f, 0.0f, -2.0f, 4.0f, 12.0f, 4.0f),
-                PartPose.offset(2.0f, -12.0f, 0.0f));
+                PartPose.offset(2.0f, 0.0f, 0.0f));
         return LayerDefinition.create(mesh, 64, 64);
     }
 
@@ -87,7 +91,6 @@ public final class OriginelModel extends EntityModel<OriginelRenderState> {
         this.head.xRot = state.xRot * Mth.DEG_TO_RAD - proximity * 0.035f;
         this.head.zRot = Mth.sin(time * 0.012f) * 0.018f;
         this.body.xRot = breath * 0.012f - proximity * 0.025f;
-        this.body.y = -24.0f - breath * 0.12f;
         this.body.zRot = Mth.sin(time * 0.009f + 0.7f) * 0.009f;
         this.rightArm.zRot = 0.035f + proximity * 0.025f;
         this.leftArm.zRot = -0.035f - proximity * 0.025f;
@@ -96,9 +99,10 @@ public final class OriginelModel extends EntityModel<OriginelRenderState> {
         this.rightLeg.xRot = proximity * 0.025f;
         this.leftLeg.xRot = -proximity * 0.020f;
 
-        if (state.lungeProgress > 0.0f) {
-            applyLunge(state.lungeProgress, time);
-        }
+        if (state.windingUp) applyAttackPose(OriginelAnimation.windup(state.windupProgress), state);
+        else if (state.lunging) applyAttackPose(OriginelAnimation.lunge(state.lungeProgress), state);
+        else if (state.recovering) applyAttackPose(OriginelAnimation.recovery(
+                state.recoveryProgress, state.lungeProgress), state);
     }
 
     private void applyDistantPose(float time) {
@@ -116,23 +120,17 @@ public final class OriginelModel extends EntityModel<OriginelRenderState> {
         }
     }
 
-    private void applyLunge(float progress, float time) {
-        MonsterAnimationMath.AttackPose pose =
-                MonsterAnimationMath.attackPose(progress);
-        float preparation = pose.anticipation();
-        float strike = pose.strike();
-        float impact = pose.impact();
-        this.body.xRot = 0.20f * preparation - 0.76f * strike;
-        this.body.y = -24.0f + 0.30f * preparation - 0.46f * strike;
-        this.head.xRot += 0.22f * preparation - 0.25f * strike;
-        this.head.zRot += Mth.sin(time * 4.6f) * 0.15f * impact;
-        this.rightArm.xRot = 0.34f * preparation - 2.56f * strike;
-        this.leftArm.xRot = 0.34f * preparation - 2.56f * strike;
-        this.rightArm.yRot = -0.16f * strike;
-        this.leftArm.yRot = 0.16f * strike;
-        this.rightArm.zRot = 0.04f + 0.23f * strike;
-        this.leftArm.zRot = -0.04f - 0.23f * strike;
-        this.rightLeg.xRot = -0.26f * preparation + 0.34f * strike;
-        this.leftLeg.xRot = 0.24f * preparation - 0.34f * strike;
+    private void applyAttackPose(OriginelAnimation.Pose pose, OriginelRenderState state) {
+        this.body.xRot = pose.torsoPitch();
+        this.body.zRot = pose.torsoRoll();
+        // The neck remains attached and exactly cancels the body's tilt.
+        this.head.xRot = state.xRot * Mth.DEG_TO_RAD - pose.torsoPitch();
+        this.head.zRot = -pose.torsoRoll();
+        this.rightArm.xRot = pose.rightArmPitch();
+        this.leftArm.xRot = pose.leftArmPitch();
+        this.rightArm.zRot = 0.045f;
+        this.leftArm.zRot = -0.045f;
+        this.rightLeg.xRot = pose.rightLegPitch();
+        this.leftLeg.xRot = pose.leftLegPitch();
     }
 }

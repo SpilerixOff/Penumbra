@@ -1,4 +1,4 @@
-# Protocole de test — Penumbra 0.1.0 à 0.25.0
+# Protocole de test — Penumbra 0.1.0 à 0.26.0
 
 Chaque étape indique le résultat attendu. Toute commande `/penumbra` requiert le niveau
 d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
@@ -2175,3 +2175,32 @@ la version, le mode de jeu, les réglages, les TPS et le nombre réel de clients
 7. Relever les erreurs réseau, corrections de mouvement ou kicks éventuels.
    Les essais locaux ne couvrent pas la latence Internet, les serveurs avec
    plugins de déplacement ou l'équilibrage sur tous les terrains.
+
+## 136. 0.26.0 — Signatures des huit autres créatures
+
+1. À 20 TPS, observer chacune des huit créatures du
+   [guide des animations](MONSTER_ANIMATIONS_FR.md), dans un monde isolé.
+   Vérifier tête et épaules reliées au torse, pieds au sol, préparation puis
+   geste distinct et récupération ; consigner les phases réellement vues.
+2. Contrefait et Originel : regarder jusqu'à l'armement, puis comparer contact,
+   déplacement latéral et mur interposé pendant la préparation. Les dégâts
+   doivent survenir une seule fois et seulement au contact ; aucun corps ne
+   doit traverser le mur. Supprimer la créature pendant la préparation/charge.
+3. Rampant : provoquer l'avertissement sous un plafond, puis la chute. Les
+   pattes doivent se libérer successivement sans reprendre leur pose d'accroche
+   au début de la chute. Après contact, crochet et rebond précèdent la chasse.
+4. Écouteur : produire du bruit, le laisser préparer son balayage, puis tester
+   immobilité, couvert, déplacement derrière lui et contact. Le bruit, la portée
+   et la visibilité sont revérifiés au tick de frappe, pas à la fin du retrait.
+5. Cavaleuse : une seule feinte dans une poursuite, pattes arrêtées au freinage,
+   puis repli diagonal collisionné. Projectionniste : armement, déploiement,
+   repli. La santé du joueur reste identique pour ces deux leurres.
+6. Absent : vérifier révélation et attaque, puis faux compagnon et reflet final
+   séparément, avec skins larges/fins, armure et objets. Une mort pendant le
+   bond ne doit provoquer aucun impact tardif.
+7. Si deux clients sont disponibles, rejoindre le suivi au milieu d'une phase :
+   aucune préparation ne doit recommencer sur ce client. Ne pas déduire cette
+   validation d'un seul client ou de tests des courbes.
+8. Archiver version, configuration, TPS, commandes, logs et vidéos. Séparer
+   inspection forcée et rencontre naturelle ; ni compilation ni capture ne
+   garantit la peur ressentie ni l'équilibrage d'une campagne complète.

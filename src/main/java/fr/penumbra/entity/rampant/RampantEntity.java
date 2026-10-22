@@ -45,6 +45,8 @@ public final class RampantEntity extends Monster {
     public static final int PHASE_LEAPING = 3;
     public static final int PHASE_FLEEING_LIGHT = 4;
     public static final int PHASE_CLIMBING = 5;
+    public static final int PHASE_RECOILING = 6;
+    public static final int RECOIL_TICKS = 12;
 
     public static final int ATTACHMENT_FLOOR = 0;
     public static final int ATTACHMENT_CEILING = 1;
@@ -59,6 +61,12 @@ public final class RampantEntity extends Monster {
             SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> DATA_AMBUSH_WARNING =
             SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Long> DATA_PHASE_START =
+            SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Integer> DATA_WARNING_TICKS =
+            SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_DROP_RELEASE =
+            SynchedEntityData.defineId(RampantEntity.class, EntityDataSerializers.FLOAT);
 
     private static final int MAX_LIFETIME_TICKS = 20 * 45;
     private static final int LIGHT_ESCAPE_TICKS = 20 * 5;
@@ -76,8 +84,6 @@ public final class RampantEntity extends Monster {
     private UUID ownerUuid;
     private BlockPos home = BlockPos.ZERO;
     private int phaseTicks;
-    private int clientVisualPhase = -1;
-    private int clientVisualPhaseTicks;
     private int lifetimeTicks;
     private int attackCooldown;
     private int brightTicks;
@@ -107,6 +113,9 @@ public final class RampantEntity extends Monster {
         builder.define(DATA_PHASE, PHASE_HUNTING);
         builder.define(DATA_ATTACHMENT, ATTACHMENT_FLOOR);
         builder.define(DATA_AMBUSH_WARNING, false);
+        builder.define(DATA_PHASE_START, -1L);
+        builder.define(DATA_WARNING_TICKS, 0);
+        builder.define(DATA_DROP_RELEASE, 0.0f);
     }
 
     public static AttributeSupplier.Builder createRampantAttributes() {
@@ -139,11 +148,19 @@ public final class RampantEntity extends Monster {
         return this.entityData.get(DATA_PHASE);
     }
 
-    /** Compteur visuel client remis a zero lors de chaque changement de phase. */
+    /** World-time origin survives late tracking; clients never restart a falling pose. */
     public float getVisualPhaseTicks(float partialTick) {
-        return this.clientVisualPhase < 0 ? 0.0f
-                : this.clientVisualPhaseTicks + Mth.clamp(partialTick, 0.0f, 1.0f);
+        long start = this.entityData.get(DATA_PHASE_START);
+        return start < 0 ? 0.0f : Math.max(0, Math.min(MAX_LIFETIME_TICKS,
+                this.level().getGameTime() - start)) + Mth.clamp(partialTick, 0.0f, 1.0f);
     }
+
+    public float getWarningProgress(float partialTick) {
+        int ticks = this.entityData.get(DATA_WARNING_TICKS);
+        return ticks <= 0 ? 0 : Mth.clamp((ticks - 1 + partialTick)
+                / RampantBehavior.AMBUSH_WARNING_TICKS, 0, 1);
+    }
+    public float getDropRelease() { return this.entityData.get(DATA_DROP_RELEASE); }
 
     public int getAttachment() {
         return this.entityData.get(DATA_ATTACHMENT);
@@ -200,7 +217,8 @@ public final class RampantEntity extends Monster {
         this.surfaceDirection = input.getIntOr("PenumbraSurfaceDirection", 1) < 0 ? -1 : 1;
         this.reperchRequested = input.getIntOr("PenumbraReperch", 0) != 0;
         this.entityData.set(DATA_PHASE, Mth.clamp(input.getIntOr(
-                "PenumbraPhase", PHASE_HUNTING), PHASE_CLINGING, PHASE_CLIMBING));
+                "PenumbraPhase", PHASE_HUNTING), PHASE_CLINGING, PHASE_RECOILING));
+        this.entityData.set(DATA_PHASE_START, this.level().getGameTime() - this.phaseTicks);
         this.entityData.set(DATA_ATTACHMENT, Mth.clamp(input.getIntOr(
                 "PenumbraAttachment", ATTACHMENT_FLOOR), ATTACHMENT_FLOOR, ATTACHMENT_EAST));
         this.home = new BlockPos(
@@ -248,13 +266,6 @@ public final class RampantEntity extends Monster {
     public void tick() {
         super.tick();
         if (this.level().isClientSide()) {
-            int phase = this.getRampantPhase();
-            if (phase != this.clientVisualPhase) {
-                this.clientVisualPhase = phase;
-                this.clientVisualPhaseTicks = 0;
-            } else {
-                this.clientVisualPhaseTicks++;
-            }
             return;
         }
         if (!(this.level() instanceof ServerLevel level)) {
@@ -299,6 +310,8 @@ public final class RampantEntity extends Monster {
             }
         }
 
+        if (this.entityData.get(DATA_PHASE_START) < 0)
+            this.entityData.set(DATA_PHASE_START, level.getGameTime() - this.phaseTicks);
         this.phaseTicks++;
         switch (getRampantPhase()) {
             case PHASE_CLINGING -> tickClinging(level, owner);
@@ -306,6 +319,7 @@ public final class RampantEntity extends Monster {
             case PHASE_LEAPING -> tickLeaping(level, owner);
             case PHASE_FLEEING_LIGHT -> tickFleeingLight(level, owner);
             case PHASE_CLIMBING -> tickClimbing(level, owner);
+            case PHASE_RECOILING -> tickRecoiling();
             default -> tickHunting(level, owner);
         }
     }
@@ -338,6 +352,7 @@ public final class RampantEntity extends Monster {
                 delta.x, delta.y, delta.z, this.hasLineOfSight(owner));
         RampantBehavior.AmbushDecision decision = this.ambush.tick(this.phaseTicks, inZone);
         this.entityData.set(DATA_AMBUSH_WARNING, this.ambush.warning());
+        this.entityData.set(DATA_WARNING_TICKS, this.ambush.elapsedWarningTicks());
         switch (decision) {
             case WARN -> PenumbraNetworking.sendSoundPrioritySpatial(owner, SoundEvents.SPIDER_AMBIENT,
                     this.position(), 0.42f, 0.48f);
@@ -351,6 +366,7 @@ public final class RampantEntity extends Monster {
     }
 
     private void releaseFromSurface() {
+        this.entityData.set(DATA_DROP_RELEASE, this.getWarningProgress(1));
         Direction wall = attachmentDirection(getAttachment());
         Vec3 away = wall == null || wall == Direction.UP
                 ? new Vec3(0.0, -0.48, 0.0)
@@ -501,7 +517,19 @@ public final class RampantEntity extends Monster {
         }
         away = away.normalize();
         this.setDeltaMovement(away.x * 0.36, 0.22, away.z * 0.36);
-        setPhase(PHASE_HUNTING);
+        this.hurtMarked = true;
+        this.noPhysics = false;
+        this.setNoGravity(false);
+        this.setInvulnerable(false);
+        this.entityData.set(DATA_ATTACHMENT, ATTACHMENT_FLOOR);
+        this.getNavigation().stop();
+        setPhase(PHASE_RECOILING);
+    }
+
+    /** Keep the hit and recoil visible without navigation overwriting the recoil velocity. */
+    private void tickRecoiling() {
+        this.getNavigation().stop();
+        if (this.phaseTicks >= RECOIL_TICKS) setPhase(PHASE_HUNTING);
     }
 
     /**
@@ -954,6 +982,8 @@ public final class RampantEntity extends Monster {
     private void setPhase(int phase) {
         this.entityData.set(DATA_PHASE, phase);
         this.entityData.set(DATA_AMBUSH_WARNING, false);
+        this.entityData.set(DATA_WARNING_TICKS, 0);
+        this.entityData.set(DATA_PHASE_START, this.level().getGameTime());
         if (phase != PHASE_DROPPING) this.dropAttackArmed = false;
         if (phase == PHASE_CLINGING) this.ambush.reset();
         this.phaseTicks = 0;

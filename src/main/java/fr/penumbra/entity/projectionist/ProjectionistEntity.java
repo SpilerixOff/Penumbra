@@ -33,12 +33,10 @@ import java.util.UUID;
  */
 public final class ProjectionistEntity extends Monster {
 
-    private static final EntityDataAccessor<Boolean> DATA_RUSHING =
-            SynchedEntityData.defineId(ProjectionistEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_ACTION_TICKS =
+            SynchedEntityData.defineId(ProjectionistEntity.class, EntityDataSerializers.INT);
     private static final int MIN_STARE_TICKS = 80;
     private static final int MAX_STARE_TICKS = 120;
-    private static final int RUSH_TICKS = 18;
-    private static final double RUSH_SPEED = 0.15;
     private static final double VANISH_DISTANCE = 3.25;
     private static final double OWNER_RADIUS = 64.0;
     private static final int SPAWN_ATTEMPTS = 14;
@@ -48,8 +46,8 @@ public final class ProjectionistEntity extends Monster {
     private UUID ownerUuid;
     private int lifetimeTicks;
     private int stareTicks = MIN_STARE_TICKS;
-    private boolean clientWasRushing;
-    private int clientRushTicks;
+    private Vec3 advanceDirection = Vec3.ZERO;
+    private boolean advanceBlocked;
 
     public ProjectionistEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -69,7 +67,7 @@ public final class ProjectionistEntity extends Monster {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
-        builder.define(DATA_RUSHING, false);
+        builder.define(DATA_ACTION_TICKS, 0);
     }
 
     @Override
@@ -99,14 +97,18 @@ public final class ProjectionistEntity extends Monster {
     }
 
     public boolean isRushing() {
-        return this.entityData.get(DATA_RUSHING);
+        return ProjectionistTiming.isAdvancing(this.entityData.get(DATA_ACTION_TICKS) - 1);
     }
 
-    /** Temps client local depuis la transition de ruee synchronisee. */
-    public float getVisualRushTicks(float partialTick) {
-        return this.isRushing()
-                ? this.clientRushTicks + Mth.clamp(partialTick, 0.0f, 1.0f)
-                : 0.0f;
+    public boolean hasActionStarted() {
+        return this.entityData.get(DATA_ACTION_TICKS) > 0;
+    }
+
+    /** Server elapsed time also initializes late tracking clients at the right pose. */
+    public float getActionTicks(float partialTick) {
+        int ticks = this.entityData.get(DATA_ACTION_TICKS);
+        return ticks <= 0 ? 0.0f : Math.min(ProjectionistTiming.TOTAL_TICKS,
+                ticks - 1 + Mth.clamp(partialTick, 0.0f, 1.0f));
     }
 
     public boolean isOwnedBy(ServerPlayer player) {
@@ -140,6 +142,7 @@ public final class ProjectionistEntity extends Monster {
         super.addAdditionalSaveData(output);
         output.putInt("PenumbraLifetime", lifetimeTicks);
         output.putInt("PenumbraStareTicks", stareTicks);
+        output.putInt("PenumbraActionTicks", entityData.get(DATA_ACTION_TICKS));
         if (ownerUuid != null) {
             output.putString("PenumbraOwner", ownerUuid.toString());
         }
@@ -149,16 +152,13 @@ public final class ProjectionistEntity extends Monster {
     public void tick() {
         super.tick();
         if (level().isClientSide()) {
-            boolean rushing = this.isRushing();
-            if (rushing != this.clientWasRushing) {
-                this.clientWasRushing = rushing;
-                this.clientRushTicks = 0;
-            } else if (rushing) {
-                this.clientRushTicks++;
-            }
             return;
         }
         if (!(level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!this.isAlive() || this.isRemoved()) {
+            if (!this.isRemoved()) vanish(level);
             return;
         }
         if (level.getDifficulty() == Difficulty.PEACEFUL) {
@@ -175,24 +175,45 @@ public final class ProjectionistEntity extends Monster {
 
         lifetimeTicks++;
         face(owner);
-        if (lifetimeTicks <= stareTicks) {
-            entityData.set(DATA_RUSHING, false);
-            Vec3 movement = getDeltaMovement();
-            setDeltaMovement(0.0, movement.y, 0.0);
+        setDeltaMovement(Vec3.ZERO);
+        if (!hasActionStarted() && lifetimeTicks <= stareTicks) {
             return;
         }
-
-        if (lifetimeTicks <= stareTicks + RUSH_TICKS
-                && distanceToSqr(owner) > VANISH_DISTANCE * VANISH_DISTANCE) {
-            entityData.set(DATA_RUSHING, true);
-            Vec3 horizontal = owner.position().subtract(position()).multiply(1.0, 0.0, 1.0);
-            if (horizontal.lengthSqr() > 1.0E-6) {
-                horizontal = horizontal.normalize().scale(RUSH_SPEED);
-                setDeltaMovement(horizontal.x, getDeltaMovement().y, horizontal.z);
+        if (!hasActionStarted()) {
+            advanceDirection = owner.position().subtract(position()).multiply(1.0, 0.0, 1.0).normalize();
+            entityData.set(DATA_ACTION_TICKS, 1);
+            return;
+        }
+        int elapsed = entityData.get(DATA_ACTION_TICKS);
+        if (elapsed >= ProjectionistTiming.TOTAL_TICKS) {
+            vanish(level);
+            return;
+        }
+        if (ProjectionistTiming.isAdvancing(elapsed)) {
+            if (!advanceBlocked && (distanceToSqr(owner) <= VANISH_DISTANCE * VANISH_DISTANCE
+                    || !moveOnFloor(level, advanceDirection.scale(ProjectionistTiming.advanceStep(elapsed))))) {
+                // Complete the deployment in place, preserving pose continuity.
+                advanceBlocked = true;
             }
-            return;
+        } else if (elapsed > ProjectionistTiming.RECOVERY_START) {
+            double recoil = 0.085 * (1.0 - (elapsed - ProjectionistTiming.RECOVERY_START)
+                    / (double) ProjectionistTiming.RECOVERY_TICKS);
+            moveOnFloor(level, advanceDirection.scale(-recoil));
         }
-        vanish(level);
+        entityData.set(DATA_ACTION_TICKS, elapsed + 1);
+    }
+
+    private boolean moveOnFloor(ServerLevel level, Vec3 step) {
+        Vec3 next = position().add(step);
+        AABB swept = getBoundingBox().expandTowards(step);
+        if (!level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ))
+                || !level.getWorldBorder().isWithinBounds(swept)
+                || !level.noCollision(this, swept)
+                || !level.getBlockState(BlockPos.containing(next).below()).isSolidRender()
+                || !level.getFluidState(BlockPos.containing(next)).isEmpty()) return false;
+        setPos(next);
+        return true;
     }
 
     private ServerPlayer owner(ServerLevel level) {

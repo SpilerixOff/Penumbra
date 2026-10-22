@@ -2,6 +2,7 @@ package fr.penumbra.client.entity;
 
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.client.animation.MonsterAnimationMath;
+import fr.penumbra.client.animation.AbsentAttackAnimation;
 import fr.penumbra.entity.absent.AbsentEntity;
 import fr.penumbra.entity.absent.AbsentMimicLogic;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -167,7 +168,10 @@ public final class AbsentModel extends HumanoidModel<AbsentRenderState> {
                 case AbsentEntity.PHASE_WATCH -> this.poseImitate(state);
                 case AbsentEntity.PHASE_LURE -> this.poseLure(state, stride, speed);
                 case AbsentEntity.PHASE_SUSPICION -> this.poseSuspicion(state, stride, speed);
-                case AbsentEntity.PHASE_REVEAL -> this.poseReveal(state);
+                case AbsentEntity.PHASE_REVEAL -> {
+                    if (state.confrontationDouble) this.poseReveal(state);
+                    else this.applyAttackPose(AbsentAttackAnimation.reveal(state.revealAnimationProgress));
+                }
                 default -> this.poseHunt(state, stride, speed);
             }
             if (state.absentPhase < AbsentEntity.PHASE_REVEAL) {
@@ -175,6 +179,15 @@ public final class AbsentModel extends HumanoidModel<AbsentRenderState> {
             }
         }
 
+        // The finale and the private false companion retain their existing poses.
+        if (!state.falseCompanion && !state.confrontationDouble) {
+            if (state.followingThrough) {
+                this.applyAttackPose(AbsentAttackAnimation.followThrough(
+                        state.followThroughProgress, state.contactPose));
+            } else if (state.lunging) {
+                this.applyAttackPose(AbsentAttackAnimation.attack(state.attackProgress));
+            }
+        }
         this.copyArmPose(this.rightArm, this.rightArmSlim);
         this.copyArmPose(this.leftArm, this.leftArmSlim);
     }
@@ -482,6 +495,33 @@ public final class AbsentModel extends HumanoidModel<AbsentRenderState> {
         target.xScale = source.xScale;
         target.yScale = source.yScale;
         target.zScale = source.zScale;
+    }
+
+    private void applyAttackPose(AbsentAttackAnimation.Pose pose) {
+        this.body.xRot = pose.bodyPitch();
+        this.body.yRot = pose.bodyYaw();
+        this.body.zRot = pose.bodyRoll();
+        anchor(this.body, AbsentAttackAnimation.attachment(pose, 0, 0, 0));
+        anchor(this.head, AbsentAttackAnimation.attachment(pose, 0, 0, 0));
+        anchor(this.rightArm, AbsentAttackAnimation.attachment(pose, -5, 2, 0));
+        anchor(this.leftArm, AbsentAttackAnimation.attachment(pose, 5, 2, 0));
+        this.head.xRot = pose.headPitch();
+        this.head.yRot = pose.headYaw();
+        this.head.zRot = pose.headRoll();
+        this.rightArm.xRot = pose.rightPitch();
+        this.rightArm.yRot = pose.rightYaw();
+        this.rightArm.zRot = pose.rightRoll();
+        this.leftArm.xRot = pose.leftPitch();
+        this.leftArm.yRot = pose.leftYaw();
+        this.leftArm.zRot = pose.leftRoll();
+        this.rightLeg.xRot = pose.rightLeg();
+        this.leftLeg.xRot = pose.leftLeg();
+    }
+
+    private static void anchor(ModelPart part, AbsentAttackAnimation.Anchor anchor) {
+        part.x = anchor.x();
+        part.y = anchor.y();
+        part.z = anchor.z();
     }
 
     /** Rejoue exactement les pivots du corps sur les modèles d'armure. */

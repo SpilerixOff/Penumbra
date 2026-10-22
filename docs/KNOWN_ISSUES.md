@@ -1,4 +1,46 @@
-# Problèmes connus — Penumbra 0.25.0
+# Problèmes connus — Penumbra 0.26.0
+
+## 0.26.0 — gestes des huit autres créatures
+
+- Compilation, validation des ressources et **456 tests dans 91 suites**
+  réussis, sans échec, erreur ni test ignoré. Cela inclut les modèles réellement
+  construits en mémoire : poses finies, retour à la pose initiale, articulations
+  reliées, raccord avertissement/chute et interruption d'une charge.
+- Essais du 22 octobre sur un serveur local isolé, avec un seul client :
+  l'Observateur, le Contrefait, l'Originel et l'Absent ont effectué leur geste
+  et leur retrait. Les contacts relevés sont respectivement de 4, 5, 6 et 6 PV.
+  La Cavaleuse et le Projectionniste n'ont infligé aucun dégât.
+- L'Écouteur a effectué son balayage avec un contact de 4 PV. Pour cet essai
+  diagnostique, le joueur était dans un bateau et une blessure de 0,1 PV a
+  amorcé le bruit : 20 → 19,9 → 15,9 PV. Cela valide cette branche de l'attaque,
+  mais ne remplace pas un nouvel essai avec une marche/sprint réellement saisi
+  au clavier. Les premières tentatives, sans mouvement reçu, n'ont pas touché.
+- Le Rampant a été essayé au sol, puis placé au plafond dans le monde de test.
+  Les essais sont commandés et ne mesurent pas la fréquence naturelle des
+  apparitions. Le dernier relevé du Rampant ne permet pas d'isoler les dégâts
+  d'un seul coup ; aucune valeur de dégâts unique n'en est déduite.
+- Six essais supplémentaires ont vérifié le Contrefait et l'Originel : mur
+  ajouté après armement, esquive latérale par console et suppression pendant
+  la charge. Le joueur conserve 20 PV dans les six cas, puis les entités sont
+  retirées proprement. Ces interventions utilisent des pas de simulation ;
+  elles ne mesurent pas les réflexes humains ni la latence Internet.
+- Le client et le serveur de test se sont arrêtés normalement. Le client de
+  développement signale un refus 401 pour la clé de profil et l'autorisation
+  Realms de son identité factice ; aucun plantage du mod n'a été observé durant
+  cette session.
+- Les signatures ont été conçues à partir de pistes scientifiques et des
+  mécaniques existantes. Aucune étude de joueurs Penumbra ne démontre encore
+  qu'elles effraient davantage ; [sources et limites](MONSTER_ANIMATIONS_FR.md).
+- La Cavaleuse et le Projectionniste restent sans dégâts. Les charges du
+  Contrefait et de l'Originel peuvent désormais échouer sur un obstacle ou
+  une esquive ; cela change l'issue possible de leurs anciennes attaques.
+- Les compteurs et états synchronisés ont changé : **même JAR 0.26.0 sur le
+  serveur et tous les clients**. L'Hôte conserve sa prise introduite en 0.25.0.
+- La validation visuelle avec un second client, la latence Internet, les
+  serveurs modifiant les mouvements, les skins/armures variés et une campagne
+  complète restent à effectuer. Les tests de modèles ne remplacent pas ces essais.
+
+Voir la section 136 du [protocole de test](TEST_PROTOCOL.md).
 
 ## 0.25.0 — saisie physique de l'Hôte
 

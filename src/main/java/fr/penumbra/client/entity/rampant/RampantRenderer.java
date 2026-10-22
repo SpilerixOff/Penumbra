@@ -48,6 +48,8 @@ public final class RampantRenderer
         state.attachment = entity.getAttachment();
         state.phaseTicks = entity.getVisualPhaseTicks(partialTick);
         state.ambushWarning = entity.isAmbushWarning();
+        state.warningProgress = entity.getWarningProgress(partialTick);
+        state.dropRelease = entity.getDropRelease();
     }
 
     @Override

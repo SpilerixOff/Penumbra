@@ -2,7 +2,6 @@ package fr.penumbra.client.entity;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.PenumbraMod;
-import fr.penumbra.client.animation.MonsterAnimationMath;
 import fr.penumbra.entity.projectionist.ProjectionistEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -33,23 +32,17 @@ public final class ProjectionistRenderer extends MobRenderer<
     }
 
     @Override
-    public void extractRenderState(ProjectionistEntity entity,
-                                   ProjectionistRenderState state, float partialTick) {
-        super.extractRenderState(entity, state, partialTick);
-        state.rushing = entity.isRushing();
-        state.rushTicks = entity.getVisualRushTicks(partialTick);
+    protected void scale(ProjectionistRenderState state, PoseStack poseStack) {
+        super.scale(state, poseStack);
+        // The authored feet are at zero; vanilla's living model plane is 24px.
+        poseStack.translate(0.0f, 1.5f, 0.0f);
     }
 
     @Override
-    protected void scale(ProjectionistRenderState state, PoseStack poseStack) {
-        super.scale(state, poseStack);
-        if (!state.rushing) {
-            return;
-        }
-        float collapse = MonsterAnimationMath.proximity(
-                state.distanceToCameraSq, 3.25f, 5.5f);
-        poseStack.scale(1.0f + collapse * 0.12f,
-                1.0f - collapse * 0.18f,
-                1.0f + collapse * 0.12f);
+    public void extractRenderState(ProjectionistEntity entity,
+                                   ProjectionistRenderState state, float partialTick) {
+        super.extractRenderState(entity, state, partialTick);
+        state.actionStarted = entity.hasActionStarted();
+        state.actionTicks = entity.getActionTicks(partialTick);
     }
 }

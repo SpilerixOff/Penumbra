@@ -49,5 +49,7 @@ public class WatcherRenderer extends MobRenderer<WatcherEntity, WatcherRenderSta
         state.windupProgress = entity.getWindupProgress(partialTick);
         state.recovering = entity.isRecovering();
         state.recoveryProgress = entity.getRecoveryProgress(partialTick);
+        state.contacted = entity.hasContacted();
+        state.recoveryPose = entity.getRecoveryPose();
     }
 }

@@ -22,7 +22,7 @@ public final class ScuttlerEntities {
                     .sized(0.68f, 0.34f)
                     .eyeHeight(0.22f)
                     .clientTrackingRange(6)
-                    .updateInterval(2)
+                    .updateInterval(1)
                     .build(KEY));
 
     private ScuttlerEntities() {

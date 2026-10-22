@@ -32,14 +32,16 @@ import java.util.UUID;
  * Manifestation personnelle de l'Originel. La scène distante conserve son
  * ancien langage (dos tourné et disparition à l'approche), tandis que la scène
  * de grotte fait face à son propriétaire et réagit à un regard soutenu par une
- * charge terminale : bond 3D, frappe, puis screamer.
+ * charge engagée : bascule rigide, contact éventuel, puis recul visible.
  */
 public class OriginelEntity extends Monster {
 
     public enum ManifestationMode {
         DISTANT,
         CAVE_STARE,
-        LUNGE;
+        LUNGE,
+        WINDUP,
+        RECOVERY;
 
         static ManifestationMode byId(int id) {
             ManifestationMode[] values = values();
@@ -57,6 +59,10 @@ public class OriginelEntity extends Monster {
             SynchedEntityData.defineId(OriginelEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> DATA_LUNGE_PROGRESS =
             SynchedEntityData.defineId(OriginelEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> DATA_PHASE_TICKS =
+            SynchedEntityData.defineId(OriginelEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_LUNGE_DURATION =
+            SynchedEntityData.defineId(OriginelEntity.class, EntityDataSerializers.INT);
 
     private int lifetimeTicks;
     private int caveSceneDurationTicks = 120;
@@ -64,6 +70,8 @@ public class OriginelEntity extends Monster {
     private int lungeTicks;
     private int lungeDurationTicks = 10;
     private Vec3 lungeStart = Vec3.ZERO;
+    private Vec3 lungeTarget = Vec3.ZERO;
+    private Vec3 lungeDirection = Vec3.ZERO;
     private UUID ownerUuid;
 
     private BlockPos temporaryTorchPos;
@@ -91,6 +99,8 @@ public class OriginelEntity extends Monster {
         super.defineSynchedData(builder);
         builder.define(DATA_MODE, ManifestationMode.DISTANT.ordinal());
         builder.define(DATA_LUNGE_PROGRESS, 0.0f);
+        builder.define(DATA_PHASE_TICKS, 0);
+        builder.define(DATA_LUNGE_DURATION, 10);
     }
 
     @Override
@@ -150,6 +160,25 @@ public class OriginelEntity extends Monster {
         return this.entityData.get(DATA_LUNGE_PROGRESS);
     }
 
+    public float getLungeProgress(float partialTick) {
+        return getManifestationMode() == ManifestationMode.LUNGE
+                ? phaseProgress(partialTick, this.entityData.get(DATA_LUNGE_DURATION))
+                : getLungeProgress();
+    }
+
+    public float getWindupProgress(float partialTick) {
+        return phaseProgress(partialTick, OriginelTiming.WINDUP_TICKS);
+    }
+
+    public float getRecoveryProgress(float partialTick) {
+        return phaseProgress(partialTick, OriginelTiming.RECOVERY_TICKS);
+    }
+
+    private float phaseProgress(float partialTick, int duration) {
+        return Mth.clamp((this.entityData.get(DATA_PHASE_TICKS)
+                + Mth.clamp(partialTick, 0.0f, 1.0f)) / Math.max(1, duration), 0.0f, 1.0f);
+    }
+
     public void configureDistantSighting() {
         this.entityData.set(DATA_MODE, ManifestationMode.DISTANT.ordinal());
         this.caveSceneDurationTicks = 120;
@@ -174,8 +203,14 @@ public class OriginelEntity extends Monster {
         this.lifetimeTicks = Math.max(0, input.getIntOr("PenumbraLifetime", 0));
         this.caveSceneDurationTicks = Mth.clamp(input.getIntOr("PenumbraSceneDuration", 120),
                 OriginelTiming.MIN_CAVE_SCENE_TICKS, OriginelTiming.MAX_CAVE_SCENE_TICKS);
-        this.entityData.set(DATA_MODE,
-                ManifestationMode.byId(input.getIntOr("PenumbraMode", 0)).ordinal());
+        ManifestationMode savedMode = ManifestationMode.byId(input.getIntOr("PenumbraMode", 0));
+        // A partially scripted attack has no resumable target in NBT.
+        this.entityData.set(DATA_MODE, (savedMode == ManifestationMode.DISTANT
+                ? savedMode : ManifestationMode.CAVE_STARE).ordinal());
+        this.entityData.set(DATA_PHASE_TICKS, 0);
+        this.entityData.set(DATA_LUNGE_PROGRESS, 0.0f);
+        this.setNoGravity(false);
+        this.noPhysics = false;
         String owner = input.getStringOr("PenumbraOwner", "");
         if (!owner.isBlank()) {
             try {
@@ -192,6 +227,8 @@ public class OriginelEntity extends Monster {
         output.putInt("PenumbraLifetime", this.lifetimeTicks);
         output.putInt("PenumbraSceneDuration", this.caveSceneDurationTicks);
         output.putInt("PenumbraMode", this.getManifestationMode().ordinal());
+        output.putInt("PenumbraPhaseTicks", this.entityData.get(DATA_PHASE_TICKS));
+        output.putInt("PenumbraLungeDuration", this.entityData.get(DATA_LUNGE_DURATION));
         if (this.ownerUuid != null) {
             output.putString("PenumbraOwner", this.ownerUuid.toString());
         }
@@ -201,6 +238,13 @@ public class OriginelEntity extends Monster {
     public void tick() {
         super.tick();
         if (!(this.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!this.isAlive() || this.isRemoved()) {
+            // /kill may leave a dying LivingEntity ticking briefly. Never run
+            // its committed attack again, and restore scene-owned blocks now.
+            this.restoreTemporaryTorch();
+            this.discard();
             return;
         }
         this.setDeltaMovement(Vec3.ZERO);
@@ -218,8 +262,16 @@ public class OriginelEntity extends Monster {
             return;
         }
         ManifestationMode mode = this.getManifestationMode();
+        if (mode == ManifestationMode.WINDUP) {
+            this.tickWindup(owner);
+            return;
+        }
         if (mode == ManifestationMode.LUNGE) {
             this.tickLunge(level, owner);
+            return;
+        }
+        if (mode == ManifestationMode.RECOVERY) {
+            this.tickRecovery(level, owner);
             return;
         }
 
@@ -249,7 +301,7 @@ public class OriginelEntity extends Monster {
             this.stareTicks++;
             int threshold = Math.max(20, PenumbraConfig.get().watcherStareSeconds * 20);
             if (this.stareTicks >= threshold) {
-                this.beginLunge();
+                this.beginWindup(player);
                 return;
             }
         } else {
@@ -261,44 +313,97 @@ public class OriginelEntity extends Monster {
         }
     }
 
-    private void beginLunge() {
-        this.entityData.set(DATA_MODE, ManifestationMode.LUNGE.ordinal());
+    private void beginWindup(ServerPlayer player) {
+        this.entityData.set(DATA_MODE, ManifestationMode.WINDUP.ordinal());
+        this.entityData.set(DATA_PHASE_TICKS, 0);
         this.entityData.set(DATA_LUNGE_PROGRESS, 0.0f);
         this.lungeTicks = 0;
         this.lungeDurationTicks = 8 + this.random.nextInt(5);
+        this.entityData.set(DATA_LUNGE_DURATION, this.lungeDurationTicks);
         this.lungeStart = this.position();
-        this.setNoGravity(true);
-        this.noPhysics = true;
+        // Commit to the observed position before the warning, permitting a side step.
+        Vec3 toTarget = player.position().subtract(this.position());
+        if (toTarget.lengthSqr() > 32.0 * 32.0) {
+            this.beginRecovery();
+            return;
+        }
+        this.lungeTarget = player.position();
+        this.lungeDirection = toTarget.multiply(1.0, 0.0, 1.0).normalize();
+        this.noPhysics = false;
+    }
+
+    private void tickWindup(ServerPlayer player) {
+        this.faceTowards(player, 0.18f);
+        int elapsed = this.entityData.get(DATA_PHASE_TICKS) + 1;
+        this.entityData.set(DATA_PHASE_TICKS, elapsed);
+        if (elapsed >= OriginelTiming.WINDUP_TICKS) {
+            this.lungeStart = this.position();
+            this.entityData.set(DATA_MODE, ManifestationMode.LUNGE.ordinal());
+            this.entityData.set(DATA_PHASE_TICKS, 0);
+            this.setNoGravity(true);
+        }
     }
 
     private void tickLunge(ServerLevel level, ServerPlayer player) {
-        if (!this.hasLineOfSight(player)) {
-            this.discard();
-            return;
-        }
         this.setNoGravity(true);
-        this.noPhysics = true;
+        this.noPhysics = false;
         this.lungeTicks++;
         float progress = Math.min(1.0f, (float) this.lungeTicks / this.lungeDurationTicks);
         this.entityData.set(DATA_LUNGE_PROGRESS, progress);
-
-        Vec3 view = player.getViewVector(1.0f).normalize();
-        // Le vecteur de vue va des yeux du joueur vers l'Originel : la tête de
-        // l'entité termine donc juste DEVANT la caméra, pas derrière le joueur.
-        Vec3 facePoint = player.getEyePosition().add(view.scale(0.7));
-        Vec3 targetFeet = facePoint.subtract(0.0, this.getEyeHeight(), 0.0);
+        this.entityData.set(DATA_PHASE_TICKS, this.lungeTicks);
         double eased = OriginelTiming.lungeEase(progress);
-        Vec3 next = this.lungeStart.scale(1.0 - eased).add(targetFeet.scale(eased));
-        this.snapTo(next.x, next.y, next.z);
-        this.faceTowards(player, 1.0f);
-
-        if (this.lungeTicks >= this.lungeDurationTicks) {
-            this.doHurtTarget(level, player);
-            PenumbraConfig config = PenumbraConfig.get();
-            String scare = config.screamersEnabled ? "lunge_screamer" : "apparition";
-            PenumbraNetworking.sendJumpscare(player, scare, 1.0f);
-            this.discard();
+        Vec3 destination = this.lungeStart.scale(1.0 - eased).add(this.lungeTarget.scale(eased));
+        Vec3 travel = destination.subtract(this.position());
+        int steps = OriginelTiming.collisionSteps(travel.length());
+        Vec3 step = travel.scale(1.0 / steps);
+        for (int index = 0; index < steps; index++) {
+            if (!this.canMoveThrough(level, step)) {
+                this.beginRecovery();
+                return;
+            }
+            this.setPos(this.position().add(step));
+            // Close body contact, never a guaranteed hit at the end of the timer.
+            if (this.getBoundingBox().inflate(0.12).intersects(player.getBoundingBox())
+                    && this.hasLineOfSight(player)) {
+                this.doHurtTarget(level, player);
+                if (PenumbraConfig.get().jumpscareFrequency > 0.0f) {
+                    PenumbraNetworking.sendJumpscare(player, "impact", 1.0f);
+                }
+                this.beginRecovery();
+                return;
+            }
         }
+        this.faceTowards(player, 1.0f);
+        if (this.lungeTicks >= this.lungeDurationTicks) {
+            this.beginRecovery();
+        }
+    }
+
+    private boolean canMoveThrough(ServerLevel level, Vec3 step) {
+        AABB swept = this.getBoundingBox().expandTowards(step);
+        return level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ))
+                && level.getWorldBorder().isWithinBounds(swept)
+                && level.noCollision(this, swept);
+    }
+
+    private void beginRecovery() {
+        this.entityData.set(DATA_MODE, ManifestationMode.RECOVERY.ordinal());
+        this.entityData.set(DATA_PHASE_TICKS, 0);
+        this.setNoGravity(false);
+        this.noPhysics = false;
+        this.setDeltaMovement(Vec3.ZERO);
+    }
+
+    private void tickRecovery(ServerLevel level, ServerPlayer player) {
+        int elapsed = this.entityData.get(DATA_PHASE_TICKS) + 1;
+        this.entityData.set(DATA_PHASE_TICKS, elapsed);
+        this.faceTowards(player, 0.18f);
+        Vec3 step = this.lungeDirection.scale(-0.075 * Math.max(0.0, 1.0 - elapsed / 14.0));
+        BlockPos feet = BlockPos.containing(this.position().add(step));
+        if (canMoveThrough(level, step) && level.getBlockState(feet.below()).isSolidRender()
+                && level.getFluidState(feet).isEmpty()) this.setPos(this.position().add(step));
+        if (elapsed >= OriginelTiming.RECOVERY_TICKS) this.discard();
     }
 
     private ServerPlayer resolveOwner(ServerLevel level) {

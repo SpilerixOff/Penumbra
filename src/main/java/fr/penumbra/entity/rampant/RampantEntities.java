@@ -26,7 +26,7 @@ public final class RampantEntities {
                     .sized(0.90f, 0.68f)
                     .eyeHeight(0.38f)
                     .clientTrackingRange(8)
-                    .updateInterval(2)
+                    .updateInterval(1)
                     .build(RAMPANT_KEY));
 
     private RampantEntities() {

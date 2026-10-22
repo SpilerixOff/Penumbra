@@ -90,6 +90,12 @@ public final class AbsentRenderer
         state.imitationError = entity.getImitationError();
         state.modelPartsMask = entity.getModelPartsMask();
         state.lunging = entity.isLunging();
+        state.attackProgress = entity.getAttackProgress(partialTick);
+        state.revealAnimationProgress = entity.getRevealAnimationProgress(partialTick);
+        state.followingThrough = entity.isFollowingThrough();
+        state.followThroughProgress = entity.getFollowThroughProgress(partialTick);
+        state.contactPose = entity.getContactPose();
+        state.confrontationDouble = entity.isConfrontationDouble();
         state.falseCompanion = entity.isFalseCompanion();
         if (state.falseCompanion && state.nameTagAttachment != null) {
             state.nameTagAttachment = state.nameTagAttachment.add(

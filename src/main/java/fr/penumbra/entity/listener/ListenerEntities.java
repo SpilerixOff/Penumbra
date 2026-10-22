@@ -26,6 +26,7 @@ public final class ListenerEntities {
                     .sized(0.55f, 2.9f)
                     .eyeHeight(2.6f)
                     .clientTrackingRange(6)
+                    .updateInterval(1)
                     .build(KEY));
 
     private ListenerEntities() {

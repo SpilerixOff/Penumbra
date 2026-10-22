@@ -58,6 +58,7 @@ final class RampantBehavior {
         }
 
         boolean warning() { return warningTicks > 0; }
+        int elapsedWarningTicks() { return warningTicks; }
     }
 
     /** Pursuit destinations are observations, not the concealed owner's current position. */

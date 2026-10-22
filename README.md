@@ -27,14 +27,25 @@ The playable pre-release includes the changes from 0.20.0 through 0.24.0; no com
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
 
-## In development: 0.25.0
+## In development: 0.26.0
+
+The other eight creatures now have distinct body animations: a one-arm statue
+strike, a ceiling predator unfolding, a sound-led sweep, a harmless ankle feint,
+a puppet-like shoulder hook, a deploying projector, a rigid giant's tilt and a
+broken human imitation. Attack timing is synchronized with the server; several
+models now have connected torsos, shoulders and articulated limbs. Counterfeit
+and Originel charges also respect solid obstacles and a committed destination.
+See the [design research and creature guide](docs/MONSTER_ANIMATIONS_FR.md).
+
+The source build is 0.26.0; the public download above remains 0.24.0 until a
+new release is published. See [validation notes](docs/KNOWN_ISSUES.md).
+
+## Also included: 0.25.0
 
 The Host's stare attack now includes a physical leap and dive, a two-handed
 grab, a short lift and a forward throw. Dodging the committed leap or using
 the VHS-camera flash can interrupt it. Solid obstacles limit the movement.
-The source build is 0.25.0; the public download above remains 0.24.0 until a
-new release is published. See [the physical horror guide](docs/PHYSICAL_HORROR_FR.md)
-and [validation notes](docs/KNOWN_ISSUES.md).
+See [the physical horror guide](docs/PHYSICAL_HORROR_FR.md).
 
 ## What is new in 0.24.0
 
@@ -91,7 +102,7 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The source build produces `build/libs/penumbra-0.25.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The source build produces `build/libs/penumbra-0.26.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 

@@ -2,6 +2,7 @@ package fr.penumbra.client.entity.rampant;
 
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.client.animation.MonsterAnimationMath;
+import fr.penumbra.client.animation.RampantAttackAnimation;
 import fr.penumbra.entity.rampant.RampantEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -43,82 +44,82 @@ public final class RampantModel extends EntityModel<RampantRenderState> {
 
     public RampantModel(ModelPart root) {
         super(root);
-        this.head = root.getChild("head");
         this.body = root.getChild("body");
-        this.frontRightUpper = root.getChild("front_right_upper");
+        this.head = body.getChild("head");
+        this.frontRightUpper = body.getChild("front_right_upper");
         this.frontRightLower = this.frontRightUpper.getChild("lower");
-        this.frontLeftUpper = root.getChild("front_left_upper");
+        this.frontLeftUpper = body.getChild("front_left_upper");
         this.frontLeftLower = this.frontLeftUpper.getChild("lower");
-        this.rearRightUpper = root.getChild("rear_right_upper");
+        this.rearRightUpper = body.getChild("rear_right_upper");
         this.rearRightLower = this.rearRightUpper.getChild("lower");
-        this.rearLeftUpper = root.getChild("rear_left_upper");
+        this.rearLeftUpper = body.getChild("rear_left_upper");
         this.rearLeftLower = this.rearLeftUpper.getChild("lower");
-        this.spineFront = root.getChild("spine_front");
-        this.spineMiddle = root.getChild("spine_middle");
-        this.spineRear = root.getChild("spine_rear");
+        this.spineFront = body.getChild("spine_front");
+        this.spineMiddle = body.getChild("spine_middle");
+        this.spineRear = body.getChild("spine_rear");
     }
 
     public static LayerDefinition createBodyLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
 
-        root.addOrReplaceChild("body",
+        PartDefinition body = root.addOrReplaceChild("body",
                 CubeListBuilder.create().texOffs(0, 0)
                         .addBox(-4.0f, -2.5f, -7.0f, 8.0f, 5.0f, 14.0f),
                 PartPose.offset(0.0f, -4.5f, 0.0f));
-        root.addOrReplaceChild("head",
+        body.addOrReplaceChild("head",
                 CubeListBuilder.create().texOffs(0, 20)
                         .addBox(-4.0f, -3.5f, -6.0f, 8.0f, 7.0f, 7.0f),
-                PartPose.offset(0.0f, -4.0f, -7.0f));
+                PartPose.offset(0.0f, 0.5f, -7.0f));
 
-        PartDefinition frontRight = root.addOrReplaceChild("front_right_upper",
+        PartDefinition frontRight = body.addOrReplaceChild("front_right_upper",
                 CubeListBuilder.create().texOffs(32, 20)
                         .addBox(-1.5f, -1.5f, -6.0f, 3.0f, 3.0f, 6.0f),
-                PartPose.offset(-4.0f, -3.2f, -2.5f));
+                PartPose.offset(-4.0f, 1.3f, -2.5f));
         frontRight.addOrReplaceChild("lower",
                 CubeListBuilder.create().texOffs(32, 20)
                         .addBox(-1.0f, -1.0f, -7.0f, 2.0f, 2.0f, 7.0f),
                 PartPose.offset(0.0f, 0.0f, -6.0f));
 
-        PartDefinition frontLeft = root.addOrReplaceChild("front_left_upper",
+        PartDefinition frontLeft = body.addOrReplaceChild("front_left_upper",
                 CubeListBuilder.create().texOffs(32, 34)
                         .addBox(-1.5f, -1.5f, -6.0f, 3.0f, 3.0f, 6.0f),
-                PartPose.offset(4.0f, -3.2f, -2.5f));
+                PartPose.offset(4.0f, 1.3f, -2.5f));
         frontLeft.addOrReplaceChild("lower",
                 CubeListBuilder.create().texOffs(32, 34)
                         .addBox(-1.0f, -1.0f, -7.0f, 2.0f, 2.0f, 7.0f),
                 PartPose.offset(0.0f, 0.0f, -6.0f));
 
-        PartDefinition rearRight = root.addOrReplaceChild("rear_right_upper",
+        PartDefinition rearRight = body.addOrReplaceChild("rear_right_upper",
                 CubeListBuilder.create().texOffs(0, 36)
                         .addBox(-1.5f, -1.5f, 0.0f, 3.0f, 3.0f, 6.0f),
-                PartPose.offset(-4.0f, -3.2f, 2.5f));
+                PartPose.offset(-4.0f, 1.3f, 2.5f));
         rearRight.addOrReplaceChild("lower",
                 CubeListBuilder.create().texOffs(0, 36)
                         .addBox(-1.0f, -1.0f, 0.0f, 2.0f, 2.0f, 7.0f),
                 PartPose.offset(0.0f, 0.0f, 6.0f));
 
-        PartDefinition rearLeft = root.addOrReplaceChild("rear_left_upper",
+        PartDefinition rearLeft = body.addOrReplaceChild("rear_left_upper",
                 CubeListBuilder.create().texOffs(0, 50)
                         .addBox(-1.5f, -1.5f, 0.0f, 3.0f, 3.0f, 6.0f),
-                PartPose.offset(4.0f, -3.2f, 2.5f));
+                PartPose.offset(4.0f, 1.3f, 2.5f));
         rearLeft.addOrReplaceChild("lower",
                 CubeListBuilder.create().texOffs(0, 50)
                         .addBox(-1.0f, -1.0f, 0.0f, 2.0f, 2.0f, 7.0f),
                 PartPose.offset(0.0f, 0.0f, 6.0f));
 
-        root.addOrReplaceChild("spine_front",
+        body.addOrReplaceChild("spine_front",
                 CubeListBuilder.create().texOffs(28, 50)
                         .addBox(-1.0f, -3.0f, -1.0f, 2.0f, 3.0f, 2.0f),
-                PartPose.offset(0.0f, -7.0f, -4.0f));
-        root.addOrReplaceChild("spine_middle",
+                PartPose.offset(0.0f, -2.5f, -4.0f));
+        body.addOrReplaceChild("spine_middle",
                 CubeListBuilder.create().texOffs(36, 50)
                         .addBox(-1.0f, -3.0f, -1.0f, 2.0f, 3.0f, 2.0f),
-                PartPose.offset(0.0f, -7.0f, 0.0f));
-        root.addOrReplaceChild("spine_rear",
+                PartPose.offset(0.0f, -2.5f, 0.0f));
+        body.addOrReplaceChild("spine_rear",
                 CubeListBuilder.create().texOffs(44, 50)
                         .addBox(-1.0f, -3.0f, -1.0f, 2.0f, 3.0f, 2.0f),
-                PartPose.offset(0.0f, -7.0f, 4.0f));
+                PartPose.offset(0.0f, -2.5f, 4.0f));
 
         return LayerDefinition.create(mesh, 64, 64);
     }
@@ -138,19 +139,17 @@ public final class RampantModel extends EntityModel<RampantRenderState> {
             case RampantEntity.PHASE_CLINGING -> {
                 poseClinging(time, state.phaseTicks);
                 if (state.ambushWarning) {
-                    this.body.y += 0.9f;
-                    this.frontRightLower.xRot -= 0.3f;
-                    this.frontLeftLower.xRot -= 0.3f;
-                    this.head.xRot -= 0.2f;
+                    applyRelease(state.warningProgress);
                 }
             }
             case RampantEntity.PHASE_CLIMBING -> poseClimbing(time, state.attachment);
-            case RampantEntity.PHASE_DROPPING -> poseDropping(time, state.phaseTicks);
+            case RampantEntity.PHASE_DROPPING -> poseDropping(time, state.phaseTicks, state.dropRelease);
             case RampantEntity.PHASE_LEAPING -> poseLeaping(time, state.phaseTicks);
+            case RampantEntity.PHASE_RECOILING -> poseContact(state.phaseTicks);
             case RampantEntity.PHASE_FLEEING_LIGHT -> poseRunning(walk, speed, time, 1.75f, true);
             default -> poseRunning(walk, speed, time, 1.0f, false);
         }
-        applyTwitchBurst(time);
+        if (!state.ambushWarning && state.phase == RampantEntity.PHASE_HUNTING) applyTwitchBurst(time);
     }
 
     private void poseClinging(float time, float phaseTicks) {
@@ -196,42 +195,67 @@ public final class RampantModel extends EntityModel<RampantRenderState> {
         this.spineRear.zRot = opposite * 0.055f;
     }
 
-    private void poseDropping(float time, float phaseTicks) {
-        float release = MonsterAnimationMath.smootherstep(phaseTicks / 8.0f);
-        setSpread(0.78f - release * 0.36f);
-        this.frontRightUpper.xRot = -0.30f + release * 0.22f;
-        this.frontLeftUpper.xRot = -0.30f + release * 0.18f;
-        this.rearRightUpper.xRot = 0.34f - release * 0.20f;
-        this.rearLeftUpper.xRot = 0.34f - release * 0.24f;
-        this.frontRightLower.xRot = 1.02f - release * 0.46f;
-        this.frontLeftLower.xRot = 1.02f - release * 0.42f;
-        this.rearRightLower.xRot = -0.94f + release * 0.40f;
-        this.rearLeftLower.xRot = -0.94f + release * 0.44f;
-        this.body.xRot = -0.14f * release;
-        this.body.zRot = Mth.sin(time * 0.72f) * (0.08f + release * 0.04f);
-        this.head.xRot -= 0.18f * release;
+    private void applyRelease(float progress) {
+        RampantAttackAnimation.Release release = RampantAttackAnimation.release(progress);
+        this.frontRightUpper.yRot -= .14f * release.right();
+        this.frontRightLower.xRot -= .72f * release.right();
+        this.frontLeftUpper.yRot += .14f * release.left();
+        this.frontLeftLower.xRot -= .72f * release.left();
+        this.rearRightLower.xRot += .32f * release.rear();
+        this.rearLeftLower.xRot += .32f * release.rear();
+        this.body.y += .30f * release.rear();
+        this.head.xRot -= .18f * release.left();
+    }
+
+    private void poseDropping(float time, float phaseTicks, float capturedRelease) {
+        poseClinging(time, 40);
+        applyRelease(capturedRelease);
+        float p = MonsterAnimationMath.smootherstep(phaseTicks / 8.0f);
+        this.frontRightUpper.yRot = Mth.lerp(p, this.frontRightUpper.yRot, -.42f);
+        this.frontLeftUpper.yRot = Mth.lerp(p, this.frontLeftUpper.yRot, .42f);
+        this.rearRightUpper.yRot = Mth.lerp(p, this.rearRightUpper.yRot, .42f);
+        this.rearLeftUpper.yRot = Mth.lerp(p, this.rearLeftUpper.yRot, -.42f);
+        this.frontRightUpper.xRot = Mth.lerp(p, this.frontRightUpper.xRot, -.08f);
+        this.frontLeftUpper.xRot = Mth.lerp(p, this.frontLeftUpper.xRot, -.12f);
+        this.rearRightUpper.xRot = Mth.lerp(p, this.rearRightUpper.xRot, .14f);
+        this.rearLeftUpper.xRot = Mth.lerp(p, this.rearLeftUpper.xRot, .10f);
+        this.frontRightLower.xRot = Mth.lerp(p, this.frontRightLower.xRot, .56f);
+        this.frontLeftLower.xRot = Mth.lerp(p, this.frontLeftLower.xRot, .60f);
+        this.rearRightLower.xRot = Mth.lerp(p, this.rearRightLower.xRot, -.54f);
+        this.rearLeftLower.xRot = Mth.lerp(p, this.rearLeftLower.xRot, -.50f);
+        this.body.y = Mth.lerp(p, this.body.y, -4.5f);
+        this.body.xRot = Mth.lerp(p, this.body.xRot, -.14f);
+        this.head.xRot = Mth.lerp(p, this.head.xRot, -.18f);
     }
 
     private void poseLeaping(float time, float phaseTicks) {
-        MonsterAnimationMath.AttackPose pose = MonsterAnimationMath.attackPose(
-                MonsterAnimationMath.clamp01(phaseTicks / 12.0f));
-        float preparation = pose.anticipation();
-        float strike = pose.strike();
-        this.body.xRot = 0.18f * preparation - 0.30f * strike;
-        this.head.xRot += 0.16f * preparation - 0.50f * strike;
-        this.frontRightUpper.xRot = 0.24f * preparation - 0.96f * strike;
-        this.frontLeftUpper.xRot = 0.20f * preparation - 0.96f * strike;
-        this.frontRightLower.xRot = 0.62f * preparation - 0.36f * strike;
-        this.frontLeftLower.xRot = 0.62f * preparation - 0.36f * strike;
-        this.rearRightUpper.xRot = -0.44f * preparation + 0.76f * strike;
-        this.rearLeftUpper.xRot = -0.44f * preparation + 0.76f * strike;
-        this.rearRightLower.xRot = -0.30f * preparation - 0.82f * strike;
-        this.rearLeftLower.xRot = -0.30f * preparation - 0.82f * strike;
-        setSpread(0.42f * preparation + 0.16f * strike);
-        this.body.zRot = Mth.sin(time * 2.4f) * 0.055f * strike;
-        this.spineFront.xRot = -0.12f * strike;
-        this.spineMiddle.xRot = 0.08f * strike;
-        this.spineRear.xRot = -0.06f * strike;
+        RampantAttackAnimation.Flight pose = RampantAttackAnimation.flight(phaseTicks);
+        this.body.xRot = pose.pitch();
+        this.head.xRot -= pose.pitch() + .22f;
+        this.frontRightUpper.xRot = -pose.frontReach();
+        this.frontLeftUpper.xRot = -pose.frontReach() * .82f;
+        this.frontRightLower.xRot = -.20f;
+        this.frontLeftLower.xRot = -.12f;
+        this.rearRightUpper.xRot = this.rearLeftUpper.xRot = pose.rearFold();
+        this.rearRightLower.xRot = this.rearLeftLower.xRot = -.82f;
+        setSpread(pose.spread());
+    }
+
+    private void poseContact(float ticks) {
+        RampantAttackAnimation.Contact pose = RampantAttackAnimation.contact(ticks);
+        float back = pose.withdraw();
+        this.body.y += .65f * pose.compress();
+        this.body.xRot = -.14f * (1 - back);
+        this.body.yRot = .24f * pose.hook();
+        this.head.yRot -= this.body.yRot;
+        setSpread(.31f + .12f * back);
+        this.frontRightUpper.yRot += .70f * pose.hook();
+        this.frontRightUpper.xRot = -.65f * (1 - back);
+        this.frontRightLower.xRot = -.20f + .80f * pose.hook();
+        this.frontLeftUpper.xRot = -.35f * (1 - back);
+        this.frontLeftLower.xRot = .28f + .32f * pose.compress();
+        this.rearRightUpper.xRot = this.rearLeftUpper.xRot = .32f * (1 - back);
+        this.rearRightLower.xRot = this.rearLeftLower.xRot = -.28f;
     }
 
     private void poseRunning(float walk, float speed, float time, float pace, boolean fleeing) {
