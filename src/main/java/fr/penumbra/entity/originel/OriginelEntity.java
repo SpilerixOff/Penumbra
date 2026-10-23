@@ -68,7 +68,7 @@ public class OriginelEntity extends Monster {
     private int caveSceneDurationTicks = 120;
     private int stareTicks;
     private int lungeTicks;
-    private int lungeDurationTicks = 10;
+    private int lungeDurationTicks = OriginelTiming.MIN_LUNGE_TICKS;
     private Vec3 lungeStart = Vec3.ZERO;
     private Vec3 lungeTarget = Vec3.ZERO;
     private Vec3 lungeDirection = Vec3.ZERO;
@@ -100,7 +100,7 @@ public class OriginelEntity extends Monster {
         builder.define(DATA_MODE, ManifestationMode.DISTANT.ordinal());
         builder.define(DATA_LUNGE_PROGRESS, 0.0f);
         builder.define(DATA_PHASE_TICKS, 0);
-        builder.define(DATA_LUNGE_DURATION, 10);
+        builder.define(DATA_LUNGE_DURATION, OriginelTiming.MIN_LUNGE_TICKS);
     }
 
     @Override
@@ -318,7 +318,8 @@ public class OriginelEntity extends Monster {
         this.entityData.set(DATA_PHASE_TICKS, 0);
         this.entityData.set(DATA_LUNGE_PROGRESS, 0.0f);
         this.lungeTicks = 0;
-        this.lungeDurationTicks = 8 + this.random.nextInt(5);
+        this.lungeDurationTicks = OriginelTiming.MIN_LUNGE_TICKS + this.random.nextInt(
+                OriginelTiming.MAX_LUNGE_TICKS - OriginelTiming.MIN_LUNGE_TICKS + 1);
         this.entityData.set(DATA_LUNGE_DURATION, this.lungeDurationTicks);
         this.lungeStart = this.position();
         // Commit to the observed position before the warning, permitting a side step.

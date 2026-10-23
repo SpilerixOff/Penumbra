@@ -7,8 +7,8 @@ package fr.penumbra.entity.watcher;
  */
 final class WatcherLunge {
 
-    static final int MIN_DURATION_TICKS = 8;
-    static final int MAX_DURATION_TICKS = 12;
+    static final int MIN_DURATION_TICKS = 6;
+    static final int MAX_DURATION_TICKS = 9;
 
     private static final int TICK_BITS = 8;
     private static final int TICK_MASK = (1 << TICK_BITS) - 1;

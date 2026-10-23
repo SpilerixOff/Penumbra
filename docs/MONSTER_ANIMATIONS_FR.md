@@ -1,4 +1,10 @@
-# Penumbra 0.26.0 — Gestes des créatures
+# Penumbra 0.26.1 — Gestes des créatures
+
+La 0.26.1 accélère le rapprochement : les charges de l'Hôte, de l'Observateur,
+du Contrefait et de l'Originel passent de 8–12 à 6–9 ticks (−25 % de durée).
+L'Absent et le Rampant reçoivent une impulsion horizontale de bond 25 % plus
+forte ; leur portée aérienne peut donc augmenter. Les préparations, dégâts,
+gestes après contact et chutes verticales gardent leurs réglages précédents.
 
 ## Recherche et choix de conception
 
@@ -48,4 +54,4 @@ les épaules et la tête au torse quand le format le permet. Le modèle humanoï
 de l'Absent conserve les pivots nécessaires aux objets, vêtements et armures.
 
 Voir les [résultats et limites](KNOWN_ISSUES.md) pour les essais réellement
-effectués. Installer la même version 0.26.0 sur le serveur et chaque client.
+effectués. Installer la même version 0.26.1 sur le serveur et chaque client.

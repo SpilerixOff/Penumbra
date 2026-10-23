@@ -55,9 +55,9 @@ class ContrefaitLungeTest {
 
     @Test
     void packedStateKeepsElapsedAndClampsDuration() {
-        int state = ContrefaitLunge.pack(5, 11);
+        int state = ContrefaitLunge.pack(5, 8);
         assertEquals(5, ContrefaitLunge.elapsedTicks(state));
-        assertEquals(11, ContrefaitLunge.durationTicks(state));
+        assertEquals(8, ContrefaitLunge.durationTicks(state));
 
         int clamped = ContrefaitLunge.pack(99, 99);
         assertEquals(ContrefaitLunge.MAX_DURATION_TICKS, ContrefaitLunge.elapsedTicks(clamped));
@@ -75,8 +75,8 @@ class ContrefaitLungeTest {
 
     @Test
     void renderProgressAndTrajectoryAreBoundedAndMonotonic() {
-        int state = ContrefaitLunge.pack(4, 10);
-        assertEquals(0.45f, ContrefaitLunge.progress(state, 0.5f), 0.0001f);
+        int state = ContrefaitLunge.pack(4, 8);
+        assertEquals(0.5625f, ContrefaitLunge.progress(state, 0.5f), 0.0001f);
         assertEquals(0.0f, ContrefaitLunge.progress(0, 0.5f));
 
         double previous = -1.0;

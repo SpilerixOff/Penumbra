@@ -474,7 +474,7 @@ public final class RampantEntity extends Monster {
                 : Mth.clamp(toTarget.y * 0.18 + 0.42, 0.34, 0.78);
         this.getNavigation().stop();
         this.noPhysics = false;
-        this.setDeltaMovement(horizontal.x * 0.92, vertical, horizontal.z * 0.92);
+        this.setDeltaMovement(horizontal.x * 1.15, vertical, horizontal.z * 1.15);
         this.setNoGravity(false);
         this.setInvulnerable(false);
         this.entityData.set(DATA_ATTACHMENT, ATTACHMENT_FLOOR);

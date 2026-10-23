@@ -1050,7 +1050,7 @@ public final class AbsentEntity extends Monster {
                 this.entityData.set(DATA_ATTACK_TICK, 1);
                 this.lungeTicks = AbsentAttack.LUNGE_TICKS;
                 this.lungeCooldownTicks = 38;
-                this.setDeltaMovement(horizontal.normalize().scale(0.78)
+                this.setDeltaMovement(horizontal.normalize().scale(0.975)
                         .add(0.0, 0.26, 0.0));
             }
         } else if (this.phaseTicks % 5 == 1 || this.getNavigation().isDone()) {

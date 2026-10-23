@@ -27,7 +27,7 @@ The playable pre-release includes the changes from 0.20.0 through 0.24.0; no com
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
 
-## In development: 0.26.0
+## In development: 0.26.1
 
 The other eight creatures now have distinct body animations: a one-arm statue
 strike, a ceiling predator unfolding, a sound-led sweep, a harmless ankle feint,
@@ -37,7 +37,11 @@ models now have connected torsos, shoulders and articulated limbs. Counterfeit
 and Originel charges also respect solid obstacles and a committed destination.
 See the [design research and creature guide](docs/MONSTER_ANIMATIONS_FR.md).
 
-The source build is 0.26.0; the public download above remains 0.24.0 until a
+Version 0.26.1 shortens the Host, Watcher, Counterfeit and Originel approach
+from 8–12 to 6–9 ticks and increases the Absent and Crawler's horizontal leap
+impulse by 25%. Preparation, damage and post-contact actions retain their timing.
+
+The source build is 0.26.1; the public download above remains 0.24.0 until a
 new release is published. See [validation notes](docs/KNOWN_ISSUES.md).
 
 ## Also included: 0.25.0
@@ -102,7 +106,7 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The source build produces `build/libs/penumbra-0.26.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The source build produces `build/libs/penumbra-0.26.1.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 

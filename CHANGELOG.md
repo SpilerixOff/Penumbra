@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.26.1] — Bonds plus vifs
+
+- L'Hôte, l'Observateur, le Contrefait et l'Originel parcourent leur charge en
+  6–9 ticks au lieu de 8–12 : durée réduite de 25 %, soit 0,30–0,45 s à 20 TPS.
+- L'impulsion horizontale des bonds de l'Absent et du Rampant augmente de 25 %.
+  Leur mouvement vertical, leur préparation et leur récupération sont conservés.
+- Les dégâts, la saisie/levée/projection de l'Hôte et la chute du plafond du
+  Rampant restent inchangés. Les contrôles de collision restent actifs.
+
 ## [0.26.0] — Huit façons d'approcher
 
 - Animations distinctes pour l'Observateur, le Rampant, l'Écouteur, la Cavaleuse,

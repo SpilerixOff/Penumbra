@@ -11,6 +11,8 @@ public final class OriginelTiming {
     public static final int MIN_CAVE_SCENE_TICKS = 80;
     public static final int MAX_CAVE_SCENE_TICKS = 220;
     public static final int WINDUP_TICKS = 14;
+    public static final int MIN_LUNGE_TICKS = 6;
+    public static final int MAX_LUNGE_TICKS = 9;
     public static final int RECOVERY_TICKS = 20;
     public static final double COLLISION_STEP = 0.20;
 

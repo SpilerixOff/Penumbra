@@ -1,4 +1,15 @@
-# Problèmes connus — Penumbra 0.26.0
+# Problèmes connus — Penumbra 0.26.1
+
+## 0.26.1 — accélération des bonds
+
+- Compilation, validation des ressources et 456 tests dans 91 suites réussis.
+  L'interpolation et l'encodage des charges utilisent désormais des durées
+  de 6–9 ticks. Les contrôles de collision existants restent actifs.
+- La portée aérienne de l'Absent et du Rampant peut augmenter avec leur
+  impulsion horizontale plus forte ; leur hauteur et leur gravité ne changent pas.
+- Ce réglage a été vérifié par les tests automatisés et une revue du code.
+  Il n'a pas fait l'objet d'une nouvelle session visuelle ou multijoueur.
+  Les résultats en jeu ci-dessous sont ceux de la version 0.26.0.
 
 ## 0.26.0 — gestes des huit autres créatures
 
