@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.28.0] — La Seconde Présence
+
+- Nouvelle rencontre de l'Hôte : pas derrière un obstacle opaque, marche
+  continue autour d'un angle, hésitation au regard et recul. Une approche
+  volontaire après l'aperçu peut déclencher son bond préparé ; certaines
+  variantes se retirent toujours.
+- Cinq secondes d'immobilité hors de sa vue font commencer son départ.
+  Caméra et talisman fournissent d'autres moyens de réaction. La scène est
+  bornée et coordonnée avec le directeur, la cassette et la finale.
+- Le placement reste dans les chunks chargés, exige un chemin sec et solide,
+  refuse les vitrages comme cachettes et ne modifie aucun bloc. Sons et corps
+  sont privés au joueur ; l'approche d'un autre joueur annule la scène.
+- L'annulation est vérifiée avant le contact physique de l'Hôte. Un talisman
+  d'un autre joueur ne peut plus bannir un Hôte privé.
+- Nouvel indice dans le Relevé, option `secondPresenceEnabled` et commandes
+  opérateur `presence test|status|clear`.
+
+Voir le [guide de la rencontre](docs/SECOND_PRESENCE_0280_FR.md), la
+[recherche documentée](docs/HORROR_RESEARCH_0280_FR.md) et les
+[résultats des vérifications](docs/KNOWN_ISSUES.md).
+
 ## [0.27.0] — Les quatre volumes de Warrick
 
 - Quatre livres physiques et partageables relient le poste d'observation,

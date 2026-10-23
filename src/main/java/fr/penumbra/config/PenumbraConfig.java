@@ -52,6 +52,8 @@ public class PenumbraConfig {
     public boolean worldModificationEnabled = true;
     public boolean sleepEventsEnabled = true;
     public boolean hostEnabled = true;
+    /** A bounded encounter that moves a concealed Host around real terrain. */
+    public boolean secondPresenceEnabled = true;
     /**
      * Alias historique 0.1.0. Sur un ancien fichier sans {@code storyEnabled},
      * sa valeur est migrée vers ce dernier. {@code storyEnabled} est ensuite

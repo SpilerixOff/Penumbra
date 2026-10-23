@@ -11,6 +11,7 @@ import fr.penumbra.director.DelayedTaskScheduler;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.director.sequence.LinkedSceneManager;
 import fr.penumbra.director.encounter.PhysicalEncounterManager;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.absent.AbsentEntities;
 import fr.penumbra.entity.absent.AbsentManager;
 import fr.penumbra.entity.absent.KnownIdentities;
@@ -121,12 +122,14 @@ public class PenumbraMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(ConfrontationManager::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(HorrorDirector::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(PhysicalEncounterManager::onServerTick);
+        ServerTickEvents.END_SERVER_TICK.register(SecondPresenceManager::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(LinkedSceneManager::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(DelayedTaskScheduler::onServerTick);
         ServerTickEvents.END_SERVER_TICK.register(IndividualPerceptionManager::onServerTick);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             HorrorDirector.onServerStopped(server);
             PhysicalEncounterManager.onServerStopped(server);
+            SecondPresenceManager.onServerStopped(server);
             LinkedSceneManager.onServerStopped(server);
             DelayedTaskScheduler.onServerStopped(server);
             IndividualPerceptionManager.onServerStopped(server);
@@ -182,6 +185,7 @@ public class PenumbraMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             HorrorDirector.onPlayerDisconnect(handler.player.getUUID());
             PhysicalEncounterManager.onPlayerDisconnect(server, handler.player.getUUID());
+            SecondPresenceManager.onPlayerDisconnect(server, handler.player.getUUID());
             LinkedSceneManager.onPlayerDisconnect(server, handler.player.getUUID());
             IndividualPerceptionManager.onPlayerDisconnect(server, handler.player.getUUID());
             OriginelManager.onPlayerDisconnect(handler.player.getUUID());

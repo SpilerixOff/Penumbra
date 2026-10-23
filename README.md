@@ -27,7 +27,18 @@ The playable pre-release includes the changes from 0.20.0 through 0.24.0; no com
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
 
-## In development: 0.27.0
+## In development: 0.28.0
+
+Second Presence gives the Host a concealed, continuous approach around a real
+corner. Footsteps come from its body; noticing it produces hesitation and a
+withdrawal. Following it can provoke its prepared leap, while some encounters
+only retreat. Stillness behind opaque cover, the camera and the owner's ward
+provide counterplay. The encounter never edits terrain and waits for a suitable
+loaded route. See the [encounter guide](docs/SECOND_PRESENCE_0280_FR.md),
+[research and limitations](docs/HORROR_RESEARCH_0280_FR.md) and
+[validation notes](docs/KNOWN_ISSUES.md). The public release remains **0.24.0**.
+
+## Also included: 0.27.0
 
 Four recoverable Warrick volumes now form a personal investigation trail:
 observation post → shifted house → ash sanctum → Penumbra well → return to
@@ -62,7 +73,7 @@ Version 0.26.1 shortens the Host, Watcher, Counterfeit and Originel approach
 from 8–12 to 6–9 ticks and increases the Absent and Crawler's horizontal leap
 impulse by 25%. Preparation, damage and post-contact actions retain their timing.
 
-The source build is 0.27.0. See [validation notes](docs/KNOWN_ISSUES.md).
+The source build is 0.28.0. See [validation notes](docs/KNOWN_ISSUES.md).
 
 ## Also included: 0.25.0
 
@@ -126,7 +137,7 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The source build produces `build/libs/penumbra-0.27.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The source build produces `build/libs/penumbra-0.28.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 
@@ -167,7 +178,14 @@ La **0.24.0 est une préversion publique**. **390 tests automatisés dans 76 sui
 
 Pour jouer, téléchargez le JAR de la [préversion 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
-Les sources de développement sont en **0.27.0** : quatre volumes guident chaque
+Les sources de développement sont en **0.28.0**. La Seconde Présence donne à
+l'Hôte une approche masquée derrière un obstacle, suivie d'un contournement
+réel, d'une hésitation et d'un recul. Le suivre peut déclencher son bond ;
+immobilité à couvert, caméra et talisman permettent de réagir. Voir le
+[guide de cette rencontre](docs/SECOND_PRESENCE_0280_FR.md) et les
+[recherches ayant guidé sa conception](docs/HORROR_RESEARCH_0280_FR.md).
+
+La **0.27.0**, également incluse, apporte quatre volumes qui guident chaque
 joueur du poste d'observation à la maison décalée, puis au sanctuaire et au
 puits. La cassette retrouvée au fond du puits se lit pendant quinze secondes,
 avec des sons mécaniques et une transcription. Le Relevé montre les crafts,

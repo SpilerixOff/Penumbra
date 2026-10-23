@@ -34,7 +34,7 @@ public enum JournalEntry {
     FRONTISPIECE("frontispiece", Kind.FRONTISPIECE, 0, 6, null),
 
     // ——— Créatures, dans l'ordre où l'ancien les a rencontrées ———
-    HOST("host", Kind.CREATURE, 1, 5, null),
+    HOST("host", Kind.CREATURE, 1, 6, null),
     WATCHER("watcher", Kind.CREATURE, 2, 4, null),
     SCUTTLER("scuttler", Kind.CREATURE, 3, 4, null),
     CONTREFAIT("contrefait", Kind.CREATURE, 4, 4, null),

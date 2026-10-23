@@ -682,5 +682,9 @@
   "journal.penumbra.method_stillness.line7": "Next destination: the Penumbra well. Bring light and descend carefully; follow the access to the deep chest.",
   "journal.penumbra.method_stillness.line8": "Remember this place. After the cassette, the compass will lead you back to a Sanctum to finish what I began.",
   "journal.penumbra.last_page.line7": "After all four volumes and the tape, return to the Sanctum with your camera and an Ash Sigil. Use the sigil on its central pillar.",
-  "journal.penumbra.last_page.line8": "Hold the camera, stand still and frame the copy. Photograph during its openings. Three successful flashes finish the confrontation; after failure, a new sigil lets you try again."
+  "journal.penumbra.last_page.line8": "Hold the camera, stand still and frame the copy. Photograph during its openings. Three successful flashes finish the confrontation; after failure, a new sigil lets you try again.",
+  "command.penumbra.presence.started": "Second Presence started for %s.",
+  "command.penumbra.presence.failed": "No concealed walkable route, another active encounter, or unsuitable conditions.",
+  "command.penumbra.presence.cleared": "Second Presence cancelled.",
+  "journal.penumbra.host.line6": "Sometimes it prowls behind a corner: footsteps, hesitation, then its body at the edge of the wall. Do not approach it. Out of its sight, stay still for five seconds. The camera flash is your other way out."
 }

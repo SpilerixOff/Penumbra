@@ -682,5 +682,9 @@
   "journal.penumbra.method_stillness.line7": "Prochaine destination : le puits de Penumbra. Prends de quoi éclairer et redescends prudemment ; suis l’accès jusqu’au coffre profond.",
   "journal.penumbra.method_stillness.line8": "Retiens cet endroit. Après la cassette, la boussole te reconduira vers un Sanctuaire pour achever ce que j’ai commencé.",
   "journal.penumbra.last_page.line7": "Après les quatre volumes et la bande, retourne au Sanctuaire avec la caméra et un Sceau de cendre. Utilise le sceau sur son pilier central.",
-  "journal.penumbra.last_page.line8": "Garde la caméra en main, immobilise-toi et cadre la copie. Photographie pendant ses ouvertures. Trois flashes réussis achèvent la confrontation ; après un échec, un nouveau sceau permet de réessayer."
+  "journal.penumbra.last_page.line8": "Garde la caméra en main, immobilise-toi et cadre la copie. Photographie pendant ses ouvertures. Trois flashes réussis achèvent la confrontation ; après un échec, un nouveau sceau permet de réessayer.",
+  "command.penumbra.presence.started": "Seconde Présence commencée pour %s.",
+  "command.penumbra.presence.failed": "Aucun détour masqué praticable, rencontre déjà active ou conditions incompatibles.",
+  "command.penumbra.presence.cleared": "Seconde Présence interrompue.",
+  "journal.penumbra.host.line6": "Il lui arrive aussi de rôder derrière un angle : des pas, une hésitation, puis son corps au bord du mur. Ne le rejoignez pas. Hors de sa vue, restez immobile cinq secondes. Le flash de la caméra reste votre autre issue."
 }

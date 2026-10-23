@@ -1,6 +1,7 @@
 package fr.penumbra.entity;
 
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.ai.ChasePlayerGoal;
 import fr.penumbra.entity.ai.HiddenWatchGoal;
 import fr.penumbra.entity.ai.ObservePlayerGoal;
@@ -299,6 +300,12 @@ public class HostEntity extends Monster {
     public void tick() {
         super.tick();
         if (!this.level().isClientSide()) {
+            // Scene cancellation must precede physical contact in the world tick,
+            // not wait until the scene manager's END_SERVER_TICK callback.
+            if (SecondPresenceManager.mustCancelBeforeActorTick(this)) {
+                this.discard();
+                return;
+            }
             // A killed body can remain for vanilla's death animation. It must
             // never finish a queued charge or apply contact during those ticks.
             if (!this.isAlive() || this.isRemoved()) {

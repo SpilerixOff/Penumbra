@@ -8,6 +8,7 @@ import fr.penumbra.copy.CopyTracker;
 import fr.penumbra.data.PenumbraPersistentState;
 import fr.penumbra.director.sequence.LinkedSceneManager;
 import fr.penumbra.director.encounter.PhysicalEncounterManager;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.HostBehavior;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.event.HorrorEvent;
@@ -179,7 +180,7 @@ public final class HorrorDirector {
             Set.of("distant_sighting", "fake_silhouette", "binoculars_sighting",
                     "tunnel_silhouette", "cave_face", "stolen_name",
                     "refuge_intrusion", "mimic_intrusion",
-                    "false_companion",
+                    "false_companion", "second_presence",
                     // Le leurre est agressif, mais ne devient une observation qu'au screamer réel.
                     "mining_bait");
     /**
@@ -198,7 +199,7 @@ public final class HorrorDirector {
             "distant_sighting", "fake_silhouette", "binoculars_sighting",
             "hill_host", "window_silhouette", "tunnel_silhouette",
             // 0.6.0 : événements personnels et screamer invoquant un Hôte réel.
-            "binoculars_reveal", "behind_other", "mining_bait");
+            "binoculars_reveal", "behind_other", "mining_bait", "second_presence");
     /**
      * Événements qui produisent effectivement une apparition observable dès que
      * {@link HorrorEvent#run(ServerPlayer)} réussit. Cette notion est distincte
@@ -242,7 +243,7 @@ public final class HorrorDirector {
             "cave_face", "mining_bait", "sleep_interrupt", "paired_echo", "stolen_name",
             "refuge_intrusion", "mimic_intrusion",
             // 0.17.0 : deux Écouteurs ne traversent pas le même carrefour.
-            "listener_passage");
+            "listener_passage", "second_presence");
     /** Apparitions physiques fiables à privilégier lorsque le joueur est sous terre. */
     private static final Set<String> UNDERGROUND_MANIFESTATION_EVENT_IDS =
             Set.of("tunnel_silhouette", "mimic_intrusion", "false_companion");
@@ -293,6 +294,7 @@ public final class HorrorDirector {
             Map.entry("refuge_intrusion", 2),
             Map.entry("mimic_intrusion", 2),
             Map.entry("false_companion", 2),
+            Map.entry("second_presence", 2),
             Map.entry("mining_bait", 3),
             // 0.16.0 : les Échos exigent que l'imitation soit déjà en place.
             Map.entry("action_echo", 3),
@@ -431,7 +433,8 @@ public final class HorrorDirector {
             PlayerHorrorProfile profile = data.profile(player.getUUID());
             if (profilePhase) refreshPostRitualCalm(data, profile, gameTime);
             if (ConfrontationManager.isActive(player.getUUID())
-                    || PhysicalEncounterManager.isActive(player.getUUID())) {
+                    || PhysicalEncounterManager.isActive(player.getUUID())
+                    || SecondPresenceManager.isActive(player.getUUID())) {
                 // The finale has its own signals and recovery windows. Keep
                 // the client synchronized without starting unrelated scenes.
                 if (profilePhase || selectionPhase) {
@@ -747,6 +750,7 @@ public final class HorrorDirector {
         WAS_SLEEPING.remove(playerId);
         RECENT_CHESTS.remove(playerId);
         PhysicalEncounterManager.onPlayerDisconnect(player.level().getServer(), playerId);
+        SecondPresenceManager.onPlayerDisconnect(player.level().getServer(), playerId);
         LAST_SYNCED_STATE.remove(playerId);
         GRACE_BYPASSED.remove(playerId);
         IMMEDIATE_SELECTION_PENDING.remove(playerId);
@@ -2318,6 +2322,7 @@ public final class HorrorDirector {
         if (!player.isAlive() || player.isSpectator() || !isGraceComplete(player)
                 || ConfrontationManager.isActive(player.getUUID())
                 || PhysicalEncounterManager.isActive(player.getUUID())
+                || SecondPresenceManager.isActive(player.getUUID())
                 || PenumbraC2S.isScreenBlocking(player)
                 || PenumbraConfig.get().horrorIntensity <= 0f
                 || PenumbraConfig.get().eventFrequency <= 0f

@@ -1,4 +1,47 @@
-# Problèmes connus — Penumbra 0.27.0
+# Problèmes connus — Penumbra 0.28.0
+
+## 0.28.0 — La Seconde Présence
+
+- Compilation, validation des ressources et **515 tests dans 99 suites**
+  réussis, sans échec, erreur ni test ignoré. Les 14 nouveaux tests portent
+  sur la progression de la scène, son placement et sa classification.
+- Essais du 23 octobre sur un serveur local isolé avec un seul client,
+  Minecraft 26.1.2, Fabric Loader 0.19.3, Fabric API 0.155.2+26.1.2 et Java 25.
+  Un mur, un sol plat, des téléportations et des pas de simulation servent
+  de dispositif de diagnostic ; ces essais ne mesurent pas la fréquence
+  d'apparition naturelle ni les réflexes d'un joueur.
+- Le corps commence caché, contourne le mur, marque son arrêt lorsqu'il est
+  vu et recule. Un défaut qui empêchait son recul à courte distance a été
+  corrigé puis revérifié en jeu. La variante sans attaque repart en laissant
+  le joueur à 20 PV, même après son approche.
+- Une poursuite dans la variante hostile arme le bond. Sur une trajectoire
+  dégagée, l'Hôte atteint le joueur, effectue sa prise et le projette ; la
+  position finale passe d'environ (5,5 ; 121 ; 6,5) à (13,6 ; 121 ; 3,8).
+  Le relevé final de 17,17 PV inclut les effets du déroulement de la scène
+  et de la régénération : ce n'est pas une mesure isolée des dégâts du coup.
+- L'immobilité derrière le mur provoque le départ, sans blessure. Une vitre
+  seule et un terrain ouvert sont refusés comme cachette. Ouvrir l'inventaire
+  pendant une scène l'annule ; le joueur conserve 20 PV.
+- Le flash a été essayé en jeu sur la construction précédente du même travail,
+  avant la correction du recul : passage en récupération et 20 PV conservés.
+  Il n'a pas été réessayé pendant un bond sur le JAR final. Son raccordement
+  au recul de l'Hôte est couvert par la revue du code et les tests existants.
+- Le serveur et le client de la vérification finale se sont arrêtés normalement.
+  Le gel prolongé du monde par la commande de diagnostic peut faire dépasser
+  la limite des messages C2S envoyés par le client ; ces messages sont alors
+  ignorés jusqu'à ce que l'horloge du serveur avance.
+- Le parcours est court et sur un seul niveau. Les plafonds, trous, escaliers
+  et terrains encombrés peuvent empêcher cette rencontre. Aucun bloc n'est
+  modifié et aucun chunk n'est chargé par son placement.
+- Le multijoueur simultané, la latence Internet, les terrains naturels variés,
+  une campagne complète et la peur réellement ressentie restent à évaluer.
+  Les gardes de confidentialité et d'interruption ont été relues ; cela ne
+  remplace pas un essai prolongé avec plusieurs joueurs.
+- Installer **0.28.0 sur le serveur et tous les clients**. Le contenu 0.27.0
+  (quatre volumes, cassette, recettes et copies) reste inclus.
+
+Voir [le fonctionnement de la rencontre](SECOND_PRESENCE_0280_FR.md) et
+[les recherches consultées](HORROR_RESEARCH_0280_FR.md).
 
 ## 0.27.0 — les quatre volumes de Warrick
 

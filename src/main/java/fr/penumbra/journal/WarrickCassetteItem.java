@@ -27,6 +27,9 @@ public final class WarrickCassetteItem extends Item {
 
     public WarrickCassetteItem(Properties properties) { super(properties); }
 
+    /** Narrative playback is not a suitable moment to begin a second-presence encounter. */
+    public static boolean isPlaying(UUID playerId) { return PLAYING.containsKey(playerId); }
+
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         if (!(player instanceof ServerPlayer target) || !PenumbraConfig.get().journalEnabled)

@@ -5,6 +5,7 @@ import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.data.PenumbraPersistentState;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.director.sequence.LinkedSceneManager;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.absent.AbsentEntity;
 import fr.penumbra.entity.absent.AbsentManager;
@@ -159,6 +160,7 @@ public final class ConfrontationManager {
         // Clear only this player's transient actors. No profiles, progression,
         // shared world changes, vanilla mobs or other players' scenes are reset.
         LinkedSceneManager.cancelForRitual(player);
+        SecondPresenceManager.onPlayerDisconnect(level.getServer(), player.getUUID());
         IndividualPerceptionManager.clear(player);
         FauxMobManager.clearForRitual(player);
         for (Monster actor : level.getEntitiesOfClass(Monster.class,

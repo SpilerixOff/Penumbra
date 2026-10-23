@@ -3,6 +3,7 @@ package fr.penumbra.director.encounter;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.director.sequence.LinkedSceneManager;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.HostBehavior;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.absent.AbsentEntity;
@@ -71,6 +72,7 @@ public final class PhysicalEncounterManager {
         if (player == null || !supported(scareId) || !eligible(player)
                 || HorrorDirector.isInGlobalCooldown(player)
                 || LinkedSceneManager.active(player).isPresent()
+                || SecondPresenceManager.isActive(player.getUUID())
                 || hasCompetingManifestation(player, null)) return false;
         MinecraftServer server = player.level().getServer();
         ServerState state = STATES.computeIfAbsent(server, ignored -> new ServerState());
