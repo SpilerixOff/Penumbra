@@ -1,4 +1,38 @@
-# Problèmes connus — Penumbra 0.26.1
+# Problèmes connus — Penumbra 0.27.0
+
+## 0.27.0 — les quatre volumes de Warrick
+
+- Compilation, validation des ressources et **501 tests dans 97 suites**
+  réussis, sans échec, erreur ni test ignoré.
+- Essais ciblés du 23 octobre sur un serveur local isolé, avec des sites,
+  déplacements et inventaires préparés pour le diagnostic : récupération des
+  quatre livres, lecture de la cassette pendant 300 ticks, recettes illustrées,
+  ouverture d'un livre directement à son texte et guidage vers le Sanctuaire.
+- Le premier enquêteur récupère un livre dans un coffre vidé et un autre avec
+  le Relevé près d'un coffre détruit. Sa connaissance des quatre livres et de
+  la cassette persiste après une mort puis un redémarrage du serveur.
+- Un second enquêteur récupère son propre volume I dans le même coffre vide,
+  sans hériter de la progression du premier. Un rituel tenté trop tôt indique
+  le prochain indice et conserve son Sceau de cendre.
+- Une copie de refuge a été construite et inspectée en jeu. Sa restauration
+  conserve le coffre dans lequel le joueur a déposé trois diamants. Les blocs
+  d'échelle et le toit rehaussé d'un nouveau puits ont aussi été contrôlés ;
+  cela ne constitue pas un essai complet de montée au clavier.
+- La tentative avec deux clients simultanés a rencontré un plantage natif
+  dans `glfw.dll`. Le second client a ensuite été vérifié seul sur le même
+  serveur. Ces essais valident deux progressions distinctes, mais ne valident
+  pas une session multijoueur simultanée prolongée. Les deux sessions réussies
+  et le serveur se sont arrêtés normalement.
+- Une campagne naturelle complète, le duel final et la fréquence du placement
+  de secours restent à rejouer ou mesurer. Le secours exige de nouveaux chunks
+  de terrain admissible ; il ne reconstruit pas les zones déjà générées.
+- Les anciens puits ne reçoivent pas automatiquement la nouvelle échelle.
+  Les recettes illustrées sont celles fournies avec le mod et ne reflètent
+  pas les modifications d'un datapack serveur.
+- Installer **0.27.0 sur le serveur et tous les clients** : le contenu et le
+  paquet d'ouverture du Relevé ont changé.
+
+Voir [le parcours et les recettes](INVESTIGATION_0270.md).
 
 ## 0.26.1 — accélération des bonds
 

@@ -12,470 +12,161 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.decoration.ArmorStand;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.DyedItemColor;
-import net.minecraft.world.level.block.AbstractFurnaceBlock;
-import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.DoorBlock;
-import net.minecraft.world.level.block.StandingSignBlock;
-import net.minecraft.world.level.block.WallTorchBlock;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.DoorHingeSide;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
-/**
- * Constructeur de copies imparfaites : une petite coquille de pièce (5×5,
- * ≤ {@value #MAX_COPY_BLOCKS} blocs) érigée à 15–30 blocs du refuge le plus
- * récent du profil, imitant mal ses matériaux et ses proportions.
- * <p>
- * Tout est déclenché par appel externe ({@link #tryBuild}) : aucune boucle
- * par tick. Tous les scans sont bornés (cubes de 25³ maximum). Seuls des
- * blocs naturels ou de l'air sont remplacés ; chaque pose est mémorisée dans
- * la liste {@link CopyTracker.PlacedBlock} retournée pour restauration.
- * </p>
- */
+/** Bounded, recognizable room copies. Source states are read once; source worlds/inventories are never written. */
 public final class CopyBuilder {
+    public record BuildResult(BlockPos site, List<CopyTracker.PlacedBlock> blocks) {}
 
-    /** Résultat d'une construction : centre du site au sol et blocs posés (ordre de pose). */
-    public record BuildResult(BlockPos site, List<CopyTracker.PlacedBlock> blocks) {
-    }
-
-    /** Budget maximal de blocs posés par copie (spécification : « petite, ≤ 60 blocs »). */
-    private static final int MAX_COPY_BLOCKS = 60;
-    /** Distance minimale/maximale du site au refuge (blocs, horizontale). */
-    private static final int MIN_REFUGE_DIST = 15;
-    private static final int MAX_REFUGE_DIST = 30;
-    /** Distance minimale joueur–site exigée (garde-fou, en blocs). */
+    private static final int MIN_REFUGE_DIST = 18;
+    private static final int MAX_REFUGE_DIST = 36;
     private static final double MIN_PLAYER_DIST_SQR = 40.0 * 40.0;
-    /** Distance minimale autres joueurs–site exigée (garde-fou, en blocs). */
     private static final double MIN_OTHERS_DIST_SQR = 30.0 * 30.0;
-    /** Rayon du scan borné autour du refuge (matériaux, porte) et du garde-fou meubles. */
     private static final int REFUGE_SCAN_RADIUS = 12;
-    /** Nombre de candidats de site essayés avant abandon. */
     private static final int SITE_ATTEMPTS = 10;
-    /** Hauteur des murs de la coquille (couches). */
-    private static final int WALL_HEIGHT = 3;
-    /** Part minimale du sol sous l'emprise devant être solide (sur 25 cellules). */
-    private static final int MIN_SOLID_FLOOR = 18;
-    /** Probabilité que la copie comporte un mannequin. */
     private static final float MANNEQUIN_CHANCE = 0.5f;
-
-    // Palette sombre FIXE du mannequin (gris anthracite / brun). Le skin du
-    // joueur n'est jamais lu : confidentialité et cohérence horrifique.
     private static final int MANNEQUIN_CHARCOAL = 0x2E2E33;
     private static final int MANNEQUIN_DARK_BROWN = 0x3A2A1E;
-
-    /** Blocs naturels remplaçables (terrain courant, surface ou grotte). */
-    private static final List<Block> NATURAL_BLOCKS = List.of(
+    private static final Set<Block> NATURAL_BLOCKS = Set.of(
             Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.STONE, Blocks.DEEPSLATE,
             Blocks.ANDESITE, Blocks.DIORITE, Blocks.GRANITE, Blocks.TUFF,
             Blocks.SAND, Blocks.GRAVEL);
 
-    /**
-     * Substitutions « presque bonnes » des matériaux du refuge : proches mais
-     * faux (chêne → bouleau, pierre → pierre taillée, etc.).
-     */
-    private static final Map<Block, Block> SUBSTITUTIONS = createSubstitutions();
+    private CopyBuilder() {}
 
-    private static Map<Block, Block> createSubstitutions() {
-        Map<Block, Block> map = new HashMap<>();
-        map.put(Blocks.OAK_PLANKS, Blocks.BIRCH_PLANKS);
-        map.put(Blocks.BIRCH_PLANKS, Blocks.SPRUCE_PLANKS);
-        map.put(Blocks.SPRUCE_PLANKS, Blocks.DARK_OAK_PLANKS);
-        map.put(Blocks.DARK_OAK_PLANKS, Blocks.OAK_PLANKS);
-        map.put(Blocks.JUNGLE_PLANKS, Blocks.ACACIA_PLANKS);
-        map.put(Blocks.ACACIA_PLANKS, Blocks.JUNGLE_PLANKS);
-        map.put(Blocks.STONE, Blocks.STONE_BRICKS);
-        map.put(Blocks.STONE_BRICKS, Blocks.CRACKED_STONE_BRICKS);
-        map.put(Blocks.COBBLESTONE, Blocks.MOSSY_COBBLESTONE);
-        map.put(Blocks.SMOOTH_STONE, Blocks.POLISHED_DEEPSLATE);
-        map.put(Blocks.BRICKS, Blocks.MUD_BRICKS);
-        return map;
-    }
-
-    private CopyBuilder() {
-    }
-
-    /**
-     * Tente de construire une copie imparfaite près du refuge du joueur.
-     * Les garde-fous de site sont TOUJOURS appliqués (joueur à ≥ 40 blocs,
-     * aucun autre joueur à < 30 blocs, blocs naturels uniquement, aucun
-     * coffre/lit/four à moins de 12 blocs, jamais dans l'eau ou la lave).
-     *
-     * @return le résultat de construction, ou vide si aucun site valide
-     */
-    public static Optional<BuildResult> tryBuild(ServerLevel level, ServerPlayer player,
-                                                 PlayerHorrorProfile profile) {
-        List<BlockPos> homePoints = profile.homePoints();
-        if (homePoints.isEmpty()) {
-            return Optional.empty();
+    public static Optional<BuildResult> tryBuild(ServerLevel level, ServerPlayer player, PlayerHorrorProfile profile) {
+        List<BlockPos> homes = profile.homePoints();
+        if (homes.isEmpty()) return Optional.empty();
+        BlockPos refuge = homes.getLast();
+        if (!level.hasChunksAt(refuge.getX() - REFUGE_SCAN_RADIUS, refuge.getZ() - REFUGE_SCAN_RADIUS,
+                refuge.getX() + REFUGE_SCAN_RADIUS, refuge.getZ() + REFUGE_SCAN_RADIUS)) return Optional.empty();
+        // One 25×13×25 read-only snapshot replaces the old three repeated scans.
+        Map<BlockPos, BlockState> sample = new LinkedHashMap<>();
+        for (BlockPos pos : BlockPos.betweenClosed(refuge.offset(-12, -6, -12), refuge.offset(12, 6, 12))) {
+            if (pos.getY() >= level.getMinY() && pos.getY() < level.getMaxY()) sample.put(pos.immutable(), level.getBlockState(pos));
         }
-        // « Refuge le plus fréquent » : le profil ne mémorise pas de compteur de
-        // visites par refuge ; on prend le plus récemment promu (fin de liste),
-        // mémoire la plus fraîche de l'Hôte.
-        BlockPos refuge = homePoints.get(homePoints.size() - 1);
-        if (!level.hasChunksAt(
-                refuge.getX() - REFUGE_SCAN_RADIUS, refuge.getZ() - REFUGE_SCAN_RADIUS,
-                refuge.getX() + REFUGE_SCAN_RADIUS, refuge.getZ() + REFUGE_SCAN_RADIUS)) {
-            return Optional.empty();
-        }
+        CopyPlan.Source source = CopyPlan.measure(sample, refuge);
+        CopyPlan.Layout plan = CopyPlan.build(source);
         RandomSource random = level.getRandom();
-
-        // Références copiées depuis le refuge (scans bornés 25×25×25).
-        Block wallMaterial = detectWallMaterial(level, refuge);
-        Block doorType = detectRefugeDoor(level, refuge);
-        Item plankItem = detectRefugePlanks(level, refuge);
-
         for (int attempt = 0; attempt < SITE_ATTEMPTS; attempt++) {
             double angle = random.nextDouble() * Math.PI * 2.0;
             double distance = MIN_REFUGE_DIST + random.nextDouble() * (MAX_REFUGE_DIST - MIN_REFUGE_DIST);
-            int centerX = refuge.getX() + Mth.floor(Math.cos(angle) * distance);
-            int centerZ = refuge.getZ() + Mth.floor(Math.sin(angle) * distance);
-            BlockPos center = new BlockPos(centerX, refuge.getY(), centerZ);
-
-            // Les refuges mémorisés peuvent se trouver dans des chunks déchargés.
-            // Un événement d'ambiance ne doit jamais les charger sur le tick serveur.
-            if (!level.hasChunkAt(center)) {
-                continue;
+            BlockPos center = new BlockPos(refuge.getX() + Mth.floor(Math.cos(angle) * distance), source.floorY(),
+                    refuge.getZ() + Mth.floor(Math.sin(angle) * distance));
+            if (!level.hasChunkAt(center) || center.distSqr(player.blockPosition()) < MIN_PLAYER_DIST_SQR
+                    || isOtherPlayerNear(level, player, center)) continue;
+            Optional<BlockPos> floor = findGround(level, center, source.floorY(), plan.height());
+            if (floor.isEmpty()) continue;
+            if (floor.get().distSqr(player.blockPosition()) < MIN_PLAYER_DIST_SQR
+                    || isOtherPlayerNear(level, player, floor.get())) continue;
+            BlockPos origin = floor.get().offset(-plan.width() / 2, 0, -plan.depth() / 2);
+            if (!level.hasChunksAt(origin.getX() - REFUGE_SCAN_RADIUS, origin.getZ() - REFUGE_SCAN_RADIUS,
+                    origin.getX() + plan.width() - 1 + REFUGE_SCAN_RADIUS,
+                    origin.getZ() + plan.depth() - 1 + REFUGE_SCAN_RADIUS)) continue;
+            if (!isFootprintClean(level, origin, plan) || hasRefugeFurnitureNearby(level, origin, plan)) continue;
+            Optional<List<CopyTracker.PlacedBlock>> placed = apply(level, origin, plan);
+            if (placed.isEmpty()) continue;
+            if (plan.chest() != null && level.getBlockEntity(origin.offset(plan.chest())) instanceof Container chest) {
+                // Only paper silhouettes; no item types, components or inventory contents are copied.
+                fillAlmostRightItems(chest, player, random);
             }
-
-            if (center.distSqr(player.blockPosition()) < MIN_PLAYER_DIST_SQR) {
-                continue; // le joueur verrait la construction : refusé
+            fillSign(level, plan.sign() == null ? null : origin.offset(plan.sign()), random);
+            if (plan.mannequin() != null && random.nextFloat() < MANNEQUIN_CHANCE) {
+                placeMannequin(level, origin.offset(plan.mannequin()), random);
             }
-            if (isOtherPlayerNear(level, player, center)) {
-                continue; // jamais en présence d'autres joueurs
-            }
-
-            Optional<BlockPos> floor = findGround(level, center, refuge.getY());
-            if (floor.isEmpty()) {
-                continue;
-            }
-            BlockPos origin = floor.get().offset(-2, 0, -2); // emprise 5×5 centrée
-            if (!level.hasChunksAt(
-                    origin.getX() - REFUGE_SCAN_RADIUS, origin.getZ() - REFUGE_SCAN_RADIUS,
-                    origin.getX() + 4 + REFUGE_SCAN_RADIUS, origin.getZ() + 4 + REFUGE_SCAN_RADIUS)) {
-                continue;
-            }
-            if (!isFootprintClean(level, origin)) {
-                continue; // blocs non naturels, liquides ou sol insuffisant
-            }
-            if (hasRefugeFurnitureNearby(level, origin)) {
-                continue; // à moins de 12 blocs d'un coffre/lit/four du refuge
-            }
-
-            List<CopyTracker.PlacedBlock> placed = new ArrayList<>();
-            buildShell(level, origin, wallMaterial, doorType, random, placed);
-            placeTorch(level, origin, random, placed);
-            placeChest(level, origin, plankItem, player, random, placed);
-            placeSign(level, origin, random, placed);
-            if (random.nextFloat() < MANNEQUIN_CHANCE) {
-                placeMannequin(level, origin, random);
-            }
-            return Optional.of(new BuildResult(floor.get(), placed));
+            return Optional.of(new BuildResult(floor.get(), placed.get()));
         }
         return Optional.empty();
     }
 
-    // ------------------------------------------------------------------
-    // Garde-fous de site
-    // ------------------------------------------------------------------
-
-    /** Vrai si un autre joueur est à moins de 30 blocs du site candidat. */
     private static boolean isOtherPlayerNear(ServerLevel level, ServerPlayer player, BlockPos site) {
         for (ServerPlayer other : level.players()) {
-            if (other != player && other.blockPosition().distSqr(site) < MIN_OTHERS_DIST_SQR) {
-                return true;
-            }
+            if (other != player && other.blockPosition().distSqr(site) < MIN_OTHERS_DIST_SQR) return true;
         }
         return false;
     }
 
-    /**
-     * Cherche un sol sous le candidat : premier point (du haut vers le bas,
-     * ±16 autour du y du refuge) dont le bloc inférieur a une face supérieure
-     * solide et naturelle, avec de l'air ou du naturel au-dessus. Convient
-     * donc à une surface ou au plancher d'une grotte large.
-     */
-    private static Optional<BlockPos> findGround(ServerLevel level, BlockPos center, int refugeY) {
+    private static Optional<BlockPos> findGround(ServerLevel level, BlockPos center, int refugeY, int height) {
         int minY = Math.max(level.getMinY() + 2, refugeY - 16);
-        int maxY = Math.min(level.getMaxY() - 6, refugeY + 8);
+        int maxY = Math.min(level.getMaxY() - height - 2, refugeY + 8);
         for (int y = maxY; y >= minY; y--) {
             BlockPos pos = new BlockPos(center.getX(), y, center.getZ());
             BlockState below = level.getBlockState(pos.below());
-            if (!below.isFaceSturdy(level, pos.below(), Direction.UP) || !isNatural(below)) {
-                continue;
-            }
-            if (isAirOrNatural(level.getBlockState(pos))
-                    && isAirOrNatural(level.getBlockState(pos.above()))) {
+            if (below.isFaceSturdy(level, pos.below(), Direction.UP) && isNatural(below)
+                    && level.getBlockState(pos).isAir() && level.getBlockState(pos.above()).isAir()) {
                 return Optional.of(pos);
             }
         }
         return Optional.empty();
     }
 
-    /**
-     * Vérifie que l'emprise complète (5×5, marge de 1 pour la paroi décalée,
-     * hauteur 6 pour plafond flottant) ne contient que de l'air ou des blocs
-     * naturels, aucun liquide, et repose sur un sol majoritairement solide.
-     */
-    private static boolean isFootprintClean(ServerLevel level, BlockPos origin) {
+    private static boolean isFootprintClean(ServerLevel level, BlockPos origin, CopyPlan.Layout plan) {
         int solidFloor = 0;
-        for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-1, -1, -1), origin.offset(5, -1, 5))) {
+        for (int x = 0; x < plan.width(); x++) for (int z = 0; z < plan.depth(); z++) {
+            BlockPos pos = origin.offset(x, -1, z);
             BlockState state = level.getBlockState(pos);
-            if (!state.getFluidState().isEmpty()) {
-                return false;
-            }
-            if (state.isFaceSturdy(level, pos, Direction.UP) && isNatural(state)) {
-                solidFloor++;
-            }
+            if (state.isFaceSturdy(level, pos, Direction.UP) && isNatural(state)) solidFloor++;
         }
-        if (solidFloor < MIN_SOLID_FLOOR) {
-            return false;
-        }
-        for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-1, 0, -1), origin.offset(5, 6, 5))) {
+        // Count the actual footprint, not its larger surrounding margin (the previous check did the latter).
+        if (solidFloor * 4 < plan.width() * plan.depth() * 3) return false;
+        // The two-block porch must meet existing open, walkable terrain. No sealed doorway into a hillside.
+        BlockPos approach = origin.offset(plan.entrance()).relative(plan.entranceSide(), 3);
+        if (!level.getWorldBorder().isWithinBounds(approach)
+                || !level.getBlockState(approach).isAir() || !level.getBlockState(approach.above()).isAir()
+                || !level.getBlockState(approach.below()).isFaceSturdy(level, approach.below(), Direction.UP)) return false;
+        for (BlockPos relative : plan.blocks().keySet()) {
+            BlockPos pos = origin.offset(relative);
             BlockState state = level.getBlockState(pos);
-            if (!state.getFluidState().isEmpty() || !isAirOrNatural(state)) {
-                return false;
-            }
+            if (pos.getY() < level.getMinY() || pos.getY() >= level.getMaxY()
+                    || !level.getWorldBorder().isWithinBounds(pos) || !state.getFluidState().isEmpty()
+                    || !isAirOrNatural(state) || level.getBlockEntity(pos) != null) return false;
         }
         return true;
     }
 
-    /** Vrai si un coffre, lit ou four se trouve à moins de 12 blocs de l'emprise. */
-    private static boolean hasRefugeFurnitureNearby(ServerLevel level, BlockPos origin) {
-        BlockPos from = origin.offset(-REFUGE_SCAN_RADIUS, -6, -REFUGE_SCAN_RADIUS);
-        BlockPos to = origin.offset(4 + REFUGE_SCAN_RADIUS, 6, 4 + REFUGE_SCAN_RADIUS);
-        for (BlockPos pos : BlockPos.betweenClosed(from, to)) {
+    private static boolean hasRefugeFurnitureNearby(ServerLevel level, BlockPos origin, CopyPlan.Layout plan) {
+        for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-REFUGE_SCAN_RADIUS, -6, -REFUGE_SCAN_RADIUS),
+                origin.offset(plan.width() - 1 + REFUGE_SCAN_RADIUS, 6, plan.depth() - 1 + REFUGE_SCAN_RADIUS))) {
             Block block = level.getBlockState(pos).getBlock();
-            if (block instanceof ChestBlock || block instanceof BedBlock || block instanceof AbstractFurnaceBlock) {
-                return true;
-            }
+            if (block instanceof ChestBlock || block instanceof BedBlock || block instanceof AbstractFurnaceBlock
+                    || block == Blocks.BARREL) return true;
         }
         return false;
     }
 
-    private static boolean isNatural(BlockState state) {
-        return NATURAL_BLOCKS.contains(state.getBlock());
-    }
+    static boolean isNatural(BlockState state) { return NATURAL_BLOCKS.contains(state.getBlock()); }
+    static boolean isAirOrNatural(BlockState state) { return state.isAir() || isNatural(state); }
 
-    private static boolean isAirOrNatural(BlockState state) {
-        return state.isAir() || isNatural(state);
-    }
-
-    // ------------------------------------------------------------------
-    // Scans bornés du refuge
-    // ------------------------------------------------------------------
-
-    /** Matériau de substitution dominant autour du refuge (défaut : bouleau, imitation du chêne). */
-    private static Block detectWallMaterial(ServerLevel level, BlockPos refuge) {
-        Map<Block, Integer> counts = new HashMap<>();
-        for (BlockPos pos : BlockPos.betweenClosed(
-                refuge.offset(-REFUGE_SCAN_RADIUS, -6, -REFUGE_SCAN_RADIUS),
-                refuge.offset(REFUGE_SCAN_RADIUS, 6, REFUGE_SCAN_RADIUS))) {
-            Block block = level.getBlockState(pos).getBlock();
-            if (SUBSTITUTIONS.containsKey(block)) {
-                counts.merge(block, 1, Integer::sum);
-            }
-        }
-        Block best = null;
-        int bestCount = 0;
-        for (Map.Entry<Block, Integer> entry : counts.entrySet()) {
-            if (entry.getValue() > bestCount) {
-                bestCount = entry.getValue();
-                best = entry.getKey();
-            }
-        }
-        return best != null ? SUBSTITUTIONS.get(best) : Blocks.BIRCH_PLANKS;
-    }
-
-    /** Type de porte la plus proche du refuge (défaut : porte en chêne). */
-    private static Block detectRefugeDoor(ServerLevel level, BlockPos refuge) {
-        Block best = null;
-        double bestDistSqr = Double.MAX_VALUE;
-        for (BlockPos pos : BlockPos.betweenClosed(
-                refuge.offset(-REFUGE_SCAN_RADIUS, -6, -REFUGE_SCAN_RADIUS),
-                refuge.offset(REFUGE_SCAN_RADIUS, 6, REFUGE_SCAN_RADIUS))) {
-            BlockState state = level.getBlockState(pos);
-            if (state.getBlock() instanceof DoorBlock) {
-                double distSqr = pos.distSqr(refuge);
-                if (distSqr < bestDistSqr) {
-                    bestDistSqr = distSqr;
-                    best = state.getBlock();
-                }
-            }
-        }
-        return best != null ? best : Blocks.OAK_DOOR;
-    }
-
-    /** Bois de planches dominant du refuge pour l'imitation d'inventaire (défaut : chêne). */
-    private static Item detectRefugePlanks(ServerLevel level, BlockPos refuge) {
-        Map<Block, Integer> counts = new HashMap<>();
-        for (BlockPos pos : BlockPos.betweenClosed(
-                refuge.offset(-REFUGE_SCAN_RADIUS, -6, -REFUGE_SCAN_RADIUS),
-                refuge.offset(REFUGE_SCAN_RADIUS, 6, REFUGE_SCAN_RADIUS))) {
-            Block block = level.getBlockState(pos).getBlock();
-            if (SUBSTITUTIONS.containsKey(block) && block != Blocks.STONE && block != Blocks.STONE_BRICKS
-                    && block != Blocks.COBBLESTONE && block != Blocks.SMOOTH_STONE && block != Blocks.BRICKS) {
-                counts.merge(block, 1, Integer::sum);
-            }
-        }
-        Block best = null;
-        int bestCount = 0;
-        for (Map.Entry<Block, Integer> entry : counts.entrySet()) {
-            if (entry.getValue() > bestCount) {
-                bestCount = entry.getValue();
-                best = entry.getKey();
-            }
-        }
-        return (best != null ? best : Blocks.OAK_PLANKS).asItem();
-    }
-
-    // ------------------------------------------------------------------
-    // Construction (chaque pose est validée puis mémorisée)
-    // ------------------------------------------------------------------
-
-    /** Pose un bloc si la cellule est de l'air ou un bloc naturel, et le mémorise. */
-    private static boolean place(ServerLevel level, BlockPos pos, BlockState state,
-                                 List<CopyTracker.PlacedBlock> placed) {
-        if (placed.size() >= MAX_COPY_BLOCKS) {
-            return false;
-        }
-        BlockState previous = level.getBlockState(pos);
-        if (!isAirOrNatural(previous)) {
-            return false; // jamais sur une construction ou un objet du joueur
-        }
-        if (level.setBlock(pos, state, Block.UPDATE_ALL)) {
-            placed.add(new CopyTracker.PlacedBlock(pos.immutable(), previous, state));
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Coquille 5×5, murs de {@value #WALL_HEIGHT} couches, avec les deux
-     * imperfections de proportions : une paroi décalée d'un bloc vers
-     * l'extérieur, et un plafond partiel posé à hauteur 3 (normal) ou 4
-     * (flottant, faux). La porte reprend le TYPE de celle du refuge, avec la
-     * même orientation mais décalée d'un bloc le long de sa paroi.
-     */
-    private static void buildShell(ServerLevel level, BlockPos origin, Block wallMaterial,
-                                   Block doorType, RandomSource random,
-                                   List<CopyTracker.PlacedBlock> placed) {
-        Direction[] horizontals = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
-        Direction doorSide = horizontals[random.nextInt(4)];
-        Direction shiftedWall = horizontals[random.nextInt(4)];
-        int doorIndex = 2 + (random.nextBoolean() ? 1 : -1); // décalé du centre de la paroi
-        BlockState wall = wallMaterial.defaultBlockState();
-
-        for (int y = 0; y < WALL_HEIGHT; y++) {
-            for (int i = 0; i < 5; i++) {
-                for (Direction side : horizontals) {
-                    // Cellule de paroi : bord nord (z=0), sud (z=4), ouest (x=0) ou est (x=4).
-                    int x = side == Direction.WEST ? 0 : side == Direction.EAST ? 4 : i;
-                    int z = side == Direction.NORTH ? 0 : side == Direction.SOUTH ? 4 : i;
-                    if (side == doorSide && i == doorIndex && y < 2) {
-                        continue; // ouverture de porte (2 haut)
+    /** Complete preflight and rollback prevent truncated rooms, including when a placement is refused. */
+    private static Optional<List<CopyTracker.PlacedBlock>> apply(ServerLevel level, BlockPos origin, CopyPlan.Layout plan) {
+        if (plan.blocks().size() > CopyTracker.MAX_BLOCKS_PER_COPY) return Optional.empty();
+        List<CopyTracker.PlacedBlock> placed = new ArrayList<>();
+        for (var entry : plan.blocks().entrySet()) {
+            BlockPos pos = origin.offset(entry.getKey());
+            BlockState before = level.getBlockState(pos);
+            BlockState after = entry.getValue();
+            if (before.equals(after)) continue;
+            // Known shapes avoid half-doors/beds or a lamp dropping while its counterpart is being placed.
+            if (!isAirOrNatural(before) || level.getBlockEntity(pos) != null
+                    || !level.setBlock(pos, after, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE)) {
+                for (int i = placed.size() - 1; i >= 0; i--) {
+                    CopyTracker.PlacedBlock block = placed.get(i);
+                    if (level.getBlockState(block.pos()).equals(block.placedState())) {
+                        level.setBlock(block.pos(), block.previousState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
                     }
-                    BlockPos pos = origin.offset(x, y, z);
-                    if (side == shiftedWall) {
-                        pos = pos.relative(shiftedWall); // paroi décalée d'un bloc
-                    }
-                    place(level, pos, wall, placed);
                 }
+                return Optional.empty();
             }
+            placed.add(new CopyTracker.PlacedBlock(pos.immutable(), before, after));
         }
-
-        // Porte : type du refuge, orientation frontale de la paroi, décalée d'un bloc.
-        BlockPos doorBase = doorCell(origin, doorSide, doorIndex);
-        BlockState door = doorType.defaultBlockState()
-                .setValue(DoorBlock.FACING, doorSide)
-                .setValue(DoorBlock.HINGE, random.nextBoolean() ? DoorHingeSide.LEFT : DoorHingeSide.RIGHT)
-                .setValue(DoorBlock.OPEN, false)
-                .setValue(DoorBlock.POWERED, false);
-        place(level, doorBase, door.setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER), placed);
-        place(level, doorBase.above(), door.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), placed);
-
-        // Plafond partiel (3×2, excentré) : à hauteur 3, ou flottant à 4 (faux).
-        int ceilingY = random.nextBoolean() ? WALL_HEIGHT : WALL_HEIGHT + 1;
-        for (int x = 1; x <= 3; x++) {
-            for (int z = 0; z <= 1; z++) {
-                place(level, origin.offset(x, ceilingY, z), wall, placed);
-            }
-        }
-    }
-
-    /** Cellule de base de la porte sur la paroi donnée, à l'index donné le long de celle-ci. */
-    private static BlockPos doorCell(BlockPos origin, Direction side, int index) {
-        return switch (side) {
-            case NORTH -> origin.offset(index, 0, 0);
-            case SOUTH -> origin.offset(index, 0, 4);
-            case WEST -> origin.offset(0, 0, index);
-            default -> origin.offset(4, 0, index); // EAST
-        };
-    }
-
-    /** Torche murale intérieure « presque » bien placée (décalée d'un bloc), sinon torche au sol. */
-    private static void placeTorch(ServerLevel level, BlockPos origin, RandomSource random,
-                                   List<CopyTracker.PlacedBlock> placed) {
-        // Angle intérieur presque correct : contre la paroi ouest, un bloc trop loin du coin.
-        BlockPos torchPos = origin.offset(1, 1, 3);
-        Direction facing = Direction.EAST; // la torche pointe vers la salle, dos à la paroi ouest
-        if (level.getBlockState(torchPos).isAir()
-                && WallTorchBlock.canSurvive(level, torchPos, facing)) {
-            if (place(level, torchPos,
-                    Blocks.WALL_TORCH.defaultBlockState().setValue(WallTorchBlock.FACING, facing), placed)) {
-                return;
-            }
-        }
-        BlockPos floorTorch = origin.offset(3, 0, 3);
-        if (level.getBlockState(floorTorch).isAir()
-                && level.getBlockState(floorTorch.below()).isFaceSturdy(level, floorTorch.below(), Direction.UP)) {
-            place(level, floorTorch, Blocks.TORCH.defaultBlockState(), placed);
-        }
-    }
-
-    /**
-     * Coffre « imitation d'inventaire » : contenu factice banal aux quantités
-     * étranges (13 planches, 1 torche, 7 graines, 3 charbons) — jamais rien
-     * de valeur.
-     * <p>
-     * 0.5.0 — objets « presque justes » : jusqu'à 3 copies d'objets de la
-     * barre d'action du joueur sous forme de papiers factices, chacune renommée avec
-     * une erreur d'un caractère ({@link #almostRightName}). Il apprend vos
-     * outils comme il apprend vos murs : imparfaitement.
-     * </p>
-     */
-    private static void placeChest(ServerLevel level, BlockPos origin, Item plankItem,
-                                   ServerPlayer player, RandomSource random,
-                                   List<CopyTracker.PlacedBlock> placed) {
-        BlockPos chestPos = origin.offset(1, 0, 1);
-        if (!level.getBlockState(chestPos).isAir()) {
-            return;
-        }
-        Direction facing = Direction.getNearest(1, 0, 1, Direction.SOUTH); // vers le centre de la pièce
-        if (!place(level, chestPos,
-                Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, facing), placed)) {
-            return;
-        }
-        if (level.getBlockEntity(chestPos) instanceof Container container) {
-            container.setItem(0, new ItemStack(plankItem, 13));
-            container.setItem(3, new ItemStack(Items.TORCH, 1));
-            container.setItem(5, new ItemStack(Items.WHEAT_SEEDS, 7));
-            container.setItem(7, new ItemStack(Items.COAL, 3));
-            fillAlmostRightItems(container, player, random);
-        }
+        return Optional.of(List.copyOf(placed));
     }
 
     /**
@@ -496,6 +187,7 @@ public final class CopyBuilder {
             ItemStack imitation = new ItemStack(Items.PAPER, 1);
             imitation.set(DataComponents.CUSTOM_NAME,
                     Component.literal(almostRightName(original.getHoverName().getString(), random)));
+            CopyTracker.markImitation(imitation);
             container.setItem(slot, imitation);
             slot += 1 + random.nextInt(2); // jamais rangées proprement
             placedCount++;
@@ -525,29 +217,11 @@ public final class CopyBuilder {
         return name + ".";
     }
 
-    /** Panneau à la phrase incomplète (clé lang penumbra.sign.copy_1..4), orientation « presque » bonne. */
-    private static void placeSign(ServerLevel level, BlockPos origin, RandomSource random,
-                                  List<CopyTracker.PlacedBlock> placed) {
-        BlockPos signPos = origin.offset(3, 0, 1);
-        if (!level.getBlockState(signPos).isAir()
-                || !level.getBlockState(signPos.below()).isFaceSturdy(level, signPos.below(), Direction.UP)) {
-            return;
-        }
-        // « Presque » face à l'entrée : rotation idéale vers le centre, décalée d'un cran.
-        int rotation = Mth.floor(((Direction.SOUTH.toYRot() + 180.0f) * 16.0f / 360.0f) + 0.5f) & 15;
-        rotation = (rotation + (random.nextBoolean() ? 1 : -1)) & 15;
-        BlockState sign = Blocks.OAK_SIGN.defaultBlockState()
-                .setValue(StandingSignBlock.ROTATION, rotation);
-        if (!place(level, signPos, sign, placed)) {
-            return;
-        }
-        if (level.getBlockEntity(signPos) instanceof SignBlockEntity signEntity) {
-            // API 26.1.2 (vérifié par javap) : SignText#setMessage(int, Component)
-            // puis SignBlockEntity#setText(SignText, boolean isFrontText).
+    private static void fillSign(ServerLevel level, BlockPos pos, RandomSource random) {
+        if (pos != null && level.getBlockEntity(pos) instanceof SignBlockEntity sign) {
             String key = "penumbra.sign.copy_" + (1 + random.nextInt(4));
-            signEntity.setText(signEntity.getFrontText()
-                    .setMessage(1, Component.translatable(key)), true);
-            signEntity.setChanged();
+            sign.setText(sign.getFrontText().setMessage(1, Component.translatable(key)), true);
+            sign.setChanged();
         }
     }
 
@@ -558,8 +232,7 @@ public final class CopyBuilder {
      * API teinture 26.1.2 (vérifiée par javap) : DataComponents.DYED_COLOR +
      * record {@code DyedItemColor(int rgb)}.
      */
-    private static void placeMannequin(ServerLevel level, BlockPos origin, RandomSource random) {
-        BlockPos pos = origin.offset(2, 0, 2);
+    private static void placeMannequin(ServerLevel level, BlockPos pos, RandomSource random) {
         if (!level.getBlockState(pos).isAir() || !level.getBlockState(pos.above()).isAir()) {
             return;
         }

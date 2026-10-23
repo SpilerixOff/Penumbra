@@ -7,7 +7,7 @@ import java.util.Optional;
 /** Route choices use known coordinates only: selecting a route never loads terrain. */
 public final class SurveyCompassRoute {
     public enum Mode {
-        CAMP("camp"), UNEXPLORED("unexplored"), NEAREST("nearest");
+        CAMP("camp"), UNEXPLORED("unexplored"), NEAREST("nearest"), INVESTIGATION("investigation");
 
         private final String id;
 
@@ -34,11 +34,18 @@ public final class SurveyCompassRoute {
 
     public static Optional<Site> select(Mode mode, Collection<Site> sites,
                                         double playerX, double playerZ) {
+        return select(mode, sites, playerX, playerZ, null);
+    }
+
+    /** A visited site is still useful when its personal book has not been recovered. */
+    public static Optional<Site> select(Mode mode, Collection<Site> sites,
+                                        double playerX, double playerZ, String investigationTarget) {
         return sites.stream()
                 .filter(site -> switch (mode) {
                     case CAMP -> site.id().equals("signal_pyre");
                     case UNEXPLORED -> !site.discovered();
                     case NEAREST -> true;
+                    case INVESTIGATION -> investigationTarget != null && site.id().equals(investigationTarget);
                 })
                 .min(Comparator.comparingDouble(site ->
                         site.horizontalDistanceSquared(playerX, playerZ)));

@@ -177,6 +177,8 @@ public class PenumbraMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register(
                 (handler, sender, server) -> KnownIdentities.remember(handler.player));
         StoryOnboarding.register();
+        fr.penumbra.journal.InvestigationProgress.register();
+        fr.penumbra.journal.InvestigationRouteManager.register();
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             HorrorDirector.onPlayerDisconnect(handler.player.getUUID());
             PhysicalEncounterManager.onPlayerDisconnect(server, handler.player.getUUID());

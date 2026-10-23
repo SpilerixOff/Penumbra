@@ -45,6 +45,24 @@ class SurveyCompassRouteTest {
         assertEquals(Mode.CAMP, Mode.fromIndex(500));
         assertEquals(Mode.UNEXPLORED, Mode.CAMP.next());
         assertEquals(Mode.NEAREST, Mode.CAMP.next().next());
-        assertEquals(Mode.CAMP, Mode.CAMP.next().next().next());
+        assertEquals(Mode.INVESTIGATION, Mode.CAMP.next().next().next());
+        assertEquals(Mode.CAMP, Mode.CAMP.next().next().next().next());
+        assertEquals(Mode.UNEXPLORED, Mode.fromIndex(1));
+        assertEquals(Mode.NEAREST, Mode.fromIndex(2));
+    }
+
+    @Test
+    void investigationTargetsTheMissingBookEvenAtAnAlreadyVisitedSite() {
+        assertEquals(visited, select(Mode.INVESTIGATION, List.of(visited, unknown, camp),
+                0, 0, "observation_post").orElseThrow());
+        assertEquals(unknown, select(Mode.INVESTIGATION, List.of(visited, unknown, camp),
+                0, 0, "ash_sanctum").orElseThrow());
+    }
+
+    @Test
+    void missingInvestigationTargetNeverPointsToAnUnrelatedSite() {
+        assertTrue(select(Mode.INVESTIGATION, List.of(visited, unknown, camp),
+                0, 0, "penumbra_well").isEmpty());
+        assertTrue(select(Mode.INVESTIGATION, List.of(visited, unknown, camp), 0, 0).isEmpty());
     }
 }

@@ -40,6 +40,8 @@ public class SurveyJournalItem extends Item {
                                 .withStyle(ChatFormatting.DARK_GRAY), true);
                 return InteractionResult.CONSUME;
             }
+            InvestigationProgress.recoverNearby(serverPlayer);
+            if (player.isShiftKeyDown()) InvestigationProgress.recoverKnown(serverPlayer);
             JournalNetworking.open(serverPlayer);
         }
         return InteractionResult.SUCCESS;

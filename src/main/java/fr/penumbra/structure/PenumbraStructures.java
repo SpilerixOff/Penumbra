@@ -151,6 +151,11 @@ public final class PenumbraStructures {
         }
     }
 
+    /** Prevent an investigation fallback from racing a queued natural structure. */
+    public static boolean isGenerationPending(int chunkX, int chunkZ) {
+        return PENDING_CHUNKS.contains(chunkKey(chunkX, chunkZ));
+    }
+
     /** Clé compacte et stable pour dédupliquer les callbacks d'un même chunk. */
     static long chunkKey(int chunkX, int chunkZ) {
         return ((long) chunkX << 32) ^ (chunkZ & 0xFFFF_FFFFL);
@@ -357,6 +362,7 @@ public final class PenumbraStructures {
             serverPlayer.sendOverlayMessage(Component.translatable("penumbra.ritual.busy"));
             return InteractionResult.SUCCESS;
         }
+        fr.penumbra.journal.InvestigationProgress.sync(serverPlayer);
         int stage = StoryManager.getStage(serverPlayer);
         boolean alreadyWon = ConfrontationManager.isWon(serverPlayer);
         // A ritual performed earlier must not exhaust the altar before recognition.
@@ -367,6 +373,10 @@ public final class PenumbraStructures {
                         hitResult.getBlockPos(), retryFinale);
         if (sanctum.isEmpty()) {
             return InteractionResult.PASS;
+        }
+        if (!fr.penumbra.journal.InvestigationProgress.ready(serverPlayer)) {
+            fr.penumbra.journal.InvestigationProgress.explainMissing(serverPlayer);
+            return InteractionResult.SUCCESS;
         }
         if (SanctumRitualRules.needsCamera(stage, alreadyWon, hasCamera(serverPlayer))) {
             serverPlayer.sendSystemMessage(Component.translatable("penumbra.confrontation.need_camera"));

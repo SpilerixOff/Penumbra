@@ -231,6 +231,15 @@ public class StoryManager extends SavedData {
         }
     }
 
+    /** Idempotent evidence flag, without advancing unrelated legacy thresholds. */
+    public static void markFlag(ServerPlayer player, String key) {
+        StoryManager data = get(player);
+        PlayerStory story = data.story(player.getUUID());
+        if (story.count(key) > 0) return;
+        story.counters.put(key, 1);
+        data.setDirty();
+    }
+
     private static void announceStage(ServerPlayer player, int stage) {
         player.sendSystemMessage(Component
                 .translatable("penumbra.story.stage." + StoryStage.byIndex(stage).id())

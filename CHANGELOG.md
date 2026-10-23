@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.27.0] — Les quatre volumes de Warrick
+
+- Quatre livres physiques et partageables relient le poste d'observation,
+  la maison décalée, le Sanctuaire de cendre et le puits de Penumbra. Le Relevé
+  indique le premier volume manquant et conserve les découvertes hors ordre.
+- Chaque enquêteur peut retrouver les archives dans un coffre déjà vidé.
+  À l'ancien emplacement d'un coffre détruit, utiliser le Relevé récupère
+  l'indice ; s'accroupir et l'utiliser restitue les livres et la cassette déjà
+  découverts, selon les places disponibles.
+- La cassette endommagée du puits se lit avec une caméra VHS dans l'inventaire :
+  quinze secondes de mécanisme et cinq fragments transcrits dans le chat,
+  puis une transcription permanente dans Enquête. Une lecture interrompue
+  peut être recommencée.
+- Onglets Enquête et Fabrication, grilles 3×3, résultats, quantités et
+  infobulles. Les recettes de boussole, carnet, caméra, talisman et Sceau
+  de cendre sont lues depuis leurs JSON ; les plans avancés apparaissent
+  avec les livres correspondants. Le sceau se fabrique avec quatre charbons
+  de bois autour d'un éclat d'améthyste.
+- Boussole en mode Enquête et secours de navigation : lorsqu'aucun site du
+  type requis n'est connu, un site peut être préparé dans du terrain nouveau
+  et admissible. Les zones déjà générées ne sont pas candidates à ce secours.
+- Le rituel final des nouvelles enquêtes exige quatre volumes, la cassette
+  lue et une caméra. Les anciennes pages restent valables ; les joueurs déjà
+  au stade 5 ou 6 avant l'initialisation de ce parcours conservent leur accès
+  à la finale.
+- Copies du refuge plus reconnaissables : proportions, matériaux, côté de
+  l'entrée et mobilier sélectionné, fenêtre condamnée et passage praticable.
+  La copie représente une pièce bornée, conserve les contrôles du terrain et
+  ne duplique aucun contenu de coffre ni équipement du joueur.
+- Nouveaux puits équipés d'une échelle de retour et d'un auvent rehaussé pour
+  dégager la sortie. Les puits déjà présents dans les sauvegardes sont conservés.
+
+Version de développement, distincte de la préversion publique **0.24.0**.
+Voir [le parcours et les limites](docs/INVESTIGATION_0270.md) et
+[les résultats de validation consignés séparément](docs/KNOWN_ISSUES.md).
+
 ## [0.26.1] — Bonds plus vifs
 
 - L'Hôte, l'Observateur, le Contrefait et l'Originel parcourent leur charge en

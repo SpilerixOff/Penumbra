@@ -42,13 +42,10 @@ public final class StructurePageDiscovery {
                 || !(level.getBlockEntity(hit.getBlockPos()) instanceof ChestBlockEntity)) {
             return InteractionResult.PASS;
         }
-        Optional<JournalEntry> page = recoverPage(JournalKnowledge.get(serverLevel.getServer()),
-                player.getUUID(), StructureTracker.get(serverLevel.getServer()).all(),
+        Optional<JournalEntry> page = pageAt(StructureTracker.get(serverLevel.getServer()).all(),
                 level.dimension(), hit.getBlockPos());
         if (page.isPresent()) {
-            target.sendSystemMessage(Component.translatable("journal.penumbra.page_inserted",
-                            Component.translatable(page.get().titleKey()))
-                    .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+            InvestigationProgress.recoverVolume(target, page.get());
             PenumbraNetworking.sendSound(target, PenumbraSounds.PAGE_TURN,
                     target.position(), 0.5f, 0.88f);
         }
@@ -76,7 +73,7 @@ public final class StructurePageDiscovery {
     }
 
     /** These offsets mirror the existing builders, including anchors in older saves. */
-    private static BlockPos chestPosition(StructureTracker.Entry structure, StructureType type) {
+    public static BlockPos chestPosition(StructureTracker.Entry structure, StructureType type) {
         return switch (type) {
             case ASH_SANCTUM -> structure.pos().offset(2, 0, 0);
             case PENUMBRA_WELL -> structure.variant() == 1

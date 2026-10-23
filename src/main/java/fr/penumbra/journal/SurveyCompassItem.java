@@ -87,7 +87,9 @@ public class SurveyCompassItem extends Item {
     }
 
     private static SurveyCompassRoute.Mode mode(ItemStack stack) {
-        return SurveyCompassRoute.Mode.fromIndex(stack.getOrDefault(JournalItems.COMPASS_MODE, 0));
+        // A crafted compass has no mode yet. Existing explicit 0/1/2 values keep their meaning.
+        return SurveyCompassRoute.Mode.fromIndex(stack.getOrDefault(JournalItems.COMPASS_MODE,
+                SurveyCompassRoute.Mode.INVESTIGATION.ordinal()));
     }
 
     private static void refresh(ItemStack stack, ServerPlayer player, ServerLevel level) {
@@ -132,14 +134,17 @@ public class SurveyCompassItem extends Item {
                     tracker.hasDiscovered(player.getUUID(), entry)));
             campKnown |= entry.type().equals(StructureType.SIGNAL_PYRE.id());
         }
-        if (!campKnown) {
+        if (!campKnown && mode != SurveyCompassRoute.Mode.INVESTIGATION) {
             BlockPos pyre = PyreManager.resolvedSite(level);
             // The vanilla compass uses X/Z. A placeholder Y avoids generating
             // a distant chunk just to read a height that cannot affect its bearing.
             sites.add(new SurveyCompassRoute.Site(StructureType.SIGNAL_PYRE.id(),
                     pyre.getX(), 64, pyre.getZ(), false));
         }
-        return SurveyCompassRoute.select(mode, sites, player.getX(), player.getZ()).orElse(null);
+        StructureType destination = mode == SurveyCompassRoute.Mode.INVESTIGATION
+                ? InvestigationRouteManager.destinationFor(player) : null;
+        return SurveyCompassRoute.select(mode, sites, player.getX(), player.getZ(),
+                destination == null ? null : destination.id()).orElse(null);
     }
 
     /**
@@ -173,8 +178,11 @@ public class SurveyCompassItem extends Item {
         lines.accept(Component.translatable("item.penumbra.survey_compass.controls"));
         String target = stack.getOrDefault(JournalItems.COMPASS_TARGET, "");
         if (target.isEmpty()) {
-            lines.accept(Component.translatable(mode(stack) == SurveyCompassRoute.Mode.UNEXPLORED
-                    ? "item.penumbra.survey_compass.no_new_site" : "item.penumbra.survey_compass.idle"));
+            lines.accept(Component.translatable(switch (mode(stack)) {
+                case UNEXPLORED -> "item.penumbra.survey_compass.no_new_site";
+                case INVESTIGATION -> "item.penumbra.survey_compass.no_investigation_site";
+                default -> "item.penumbra.survey_compass.idle";
+            }));
             return;
         }
         lines.accept(Component.translatable("item.penumbra.survey_compass.target",

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " C ",
+    "CAC",
+    " C "
+  ],
+  "key": {
+    "C": "minecraft:charcoal",
+    "A": "minecraft:amethyst_shard"
+  },
+  "result": {
+    "id": "penumbra:ash_sigil",
+    "count": 1
+  }
+}

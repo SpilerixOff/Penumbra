@@ -27,7 +27,28 @@ The playable pre-release includes the changes from 0.20.0 through 0.24.0; no com
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
 
-## In development: 0.26.1
+## In development: 0.27.0
+
+Four recoverable Warrick volumes now form a personal investigation trail:
+observation post → shifted house → ash sanctum → Penumbra well → return to
+the sanctum. Each book supplies the next lead and unlocks relevant illustrated
+crafting plans in the journal. The well also holds a damaged cassette: a
+15-second playback with mechanical sounds and a readable transcript prepares
+the final confrontation. Lost books and the cassette can be recovered from
+the journal; previously collected pages still count.
+
+The Survey compass has an Investigation mode. When no required site is known,
+the route system can place one in suitable newly generated terrain. Personal
+house copies now preserve recognizable proportions, entrance orientation,
+materials and some furnishings, with a deliberate architectural anomaly.
+They represent one bounded room, not a complete building clone.
+
+Read the [0.27.0 investigation and crafting guide, in French](docs/INVESTIGATION_0270.md)
+for the route, recovery controls, legacy-save behavior and terrain limits.
+Validation of this development version is tracked in [known issues](docs/KNOWN_ISSUES.md);
+the public download above remains **0.24.0**.
+
+## Also included: 0.26.0–0.26.1
 
 The other eight creatures now have distinct body animations: a one-arm statue
 strike, a ceiling predator unfolding, a sound-led sweep, a harmless ankle feint,
@@ -41,8 +62,7 @@ Version 0.26.1 shortens the Host, Watcher, Counterfeit and Originel approach
 from 8–12 to 6–9 ticks and increases the Absent and Crawler's horizontal leap
 impulse by 25%. Preparation, damage and post-contact actions retain their timing.
 
-The source build is 0.26.1; the public download above remains 0.24.0 until a
-new release is published. See [validation notes](docs/KNOWN_ISSUES.md).
+The source build is 0.27.0. See [validation notes](docs/KNOWN_ISSUES.md).
 
 ## Also included: 0.25.0
 
@@ -106,7 +126,7 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The source build produces `build/libs/penumbra-0.26.1.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The source build produces `build/libs/penumbra-0.27.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 
@@ -147,13 +167,23 @@ La **0.24.0 est une préversion publique**. **390 tests automatisés dans 76 sui
 
 Pour jouer, téléchargez le JAR de la [préversion 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
 
+Les sources de développement sont en **0.27.0** : quatre volumes guident chaque
+joueur du poste d'observation à la maison décalée, puis au sanctuaire et au
+puits. La cassette retrouvée au fond du puits se lit pendant quinze secondes,
+avec des sons mécaniques et une transcription. Le Relevé montre les crafts,
+permet de récupérer les archives perdues et prépare le retour au sanctuaire.
+Les copies personnelles reprennent une pièce représentative du refuge avec
+ses proportions, son entrée et certains meubles. Le [guide 0.27.0](docs/INVESTIGATION_0270.md)
+explique le nouveau parcours et ses limites. Ces ajouts ne sont pas inclus dans
+le téléchargement public 0.24.0 ci-dessus.
+
 Dans la **0.24.0**, les sursauts reposent sur les créatures dans le monde, avec préparation visible, charge esquivable et recul. Les visages plaqués à l'écran, rémanences de visages et écrans noirs de screamer sont retirés. La caméra peut interrompre un Hôte, un Observateur ou un Rampant proche et cadré ; les fermetures de coffre ou de carnet et les retours au refuge peuvent ouvrir des scènes physiques. [Voir le guide de l'horreur physique](docs/PHYSICAL_HORROR_FR.md) et les [limites de validation](docs/KNOWN_ISSUES.md).
 
 Le parcours personnel de la 0.23.0 est conservé : chaque arrivant reçoit Le Relevé, les coffres déjà pillés restent lisibles et le premier rituel final éligible conduit directement au duel. [Voir le parcours complet](docs/STORY_FLOW_FR.md). L'accalmie survit aux reconnexions et le badge final exige une victoire.
 
 L'accalmie dure au plus 48 000 ticks du monde : un serveur actif continue de la décompter hors connexion ; un serveur arrêté la met en pause. La reconnexion ne la réinitialise pas. Voir les [problèmes connus](docs/KNOWN_ISSUES.md).
 
-Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.24.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
+Pour compiler les sources actuelles sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.27.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le même JAR Penumbra et Fabric API sont nécessaires sur le serveur et chaque client.
 
 **K** ouvre le menu personnel, réassignable dans les commandes de Minecraft.
 Ses six réglages sont : mouvement réduit, flashs bloqués, grain, scintillement
