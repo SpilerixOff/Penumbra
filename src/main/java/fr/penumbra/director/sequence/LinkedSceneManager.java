@@ -3,6 +3,7 @@ package fr.penumbra.director.sequence;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.HorrorDirector;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.director.TensionState;
 import fr.penumbra.entity.absent.AbsentManager;
 import fr.penumbra.entity.originel.OriginelManager;
@@ -240,7 +241,8 @@ public final class LinkedSceneManager {
 
     private static boolean tryStart(ServerState state, ServerPlayer player,
                                     LinkedSceneType type, long now, boolean forced) {
-        if (ConfrontationManager.isActive(player.getUUID())) return false;
+        if (ConfrontationManager.isActive(player.getUUID())
+                || SecondPresenceManager.isActive(player.getUUID())) return false;
         PenumbraConfig config = PenumbraConfig.get();
         boolean underground = AbstractUndergroundEvent.isUnderground(player);
         if (!forced && !LinkedSceneRules.eligible(type,

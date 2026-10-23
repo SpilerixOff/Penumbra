@@ -65,9 +65,16 @@ class JournalPacketTest {
             buffer.writeVarInt(-99); // beds
             buffer.writeBoolean(false); // visitor
             buffer.writeVarInt(Integer.MAX_VALUE); // observations
+            buffer.writeBoolean(true); // investigation enabled
+            buffer.writeVarInt(-99); // impossible volume mask
+            buffer.writeBoolean(false); // cassette
+            buffer.writeUtf("not_a_journal_entry"); // unknown focus
             OpenJournalS2CPacket decoded = OpenJournalS2CPacket.CODEC.decode(buffer);
             assertEquals(0, decoded.progress());
-            assertEquals(new StoryGuide.Snapshot(true, 6, false, false, 0, false, 4), decoded.story());
+            assertEquals(new StoryGuide.Snapshot(true, 6, false, false, 0, false, 4,
+                    true, 0, false), decoded.story());
+            assertEquals("", decoded.focusId());
+            assertEquals(0, buffer.readableBytes());
         } finally {
             buffer.release();
         }
@@ -78,6 +85,59 @@ class JournalPacketTest {
         RegistryFriendlyByteBuf buffer = buffer();
         try {
             buffer.writeVarInt(65);
+            assertThrows(DecoderException.class, () -> OpenJournalS2CPacket.CODEC.decode(buffer));
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
+    void everyValidVolumeMaskAndCassetteStateRoundTripsWithItsRequestedBook() {
+        for (int mask = 0; mask <= 15; mask++) {
+            for (boolean heard : new boolean[] {false, true}) {
+                OpenJournalS2CPacket source = new OpenJournalS2CPacket(List.of("method_camera"), 1, 14,
+                        new StoryGuide.Snapshot(true, 3, false, true, 2, true, 2,
+                                true, mask, heard), "method_camera");
+                RegistryFriendlyByteBuf buffer = buffer();
+                try {
+                    OpenJournalS2CPacket.CODEC.encode(buffer, source);
+                    assertEquals(source, OpenJournalS2CPacket.CODEC.decode(buffer));
+                    assertEquals(0, buffer.readableBytes());
+                } finally {
+                    buffer.release();
+                }
+            }
+        }
+    }
+
+    @Test
+    void unknownFocusCannotRedirectAReaderAwayFromTheGuide() {
+        StoryGuide.Snapshot story = new StoryGuide.Snapshot(true, 0, false, true, 0, false, 0);
+        assertEquals("", new OpenJournalS2CPacket(List.of(), 0, 14, story, "unknown").focusId());
+        assertEquals("", new OpenJournalS2CPacket(List.of(), 0, 14, story, null).focusId());
+        assertEquals("", new OpenJournalS2CPacket(List.of(), 0, 14, story).focusId());
+        assertEquals("method_refuge", new OpenJournalS2CPacket(List.of("method_refuge"),
+                1, 14, story, "method_refuge").focusId());
+    }
+
+    @Test
+    void decoderRejectsAnOversizedFocusBeforeOpeningAScreen() {
+        RegistryFriendlyByteBuf buffer = buffer();
+        try {
+            buffer.writeVarInt(0);
+            buffer.writeVarInt(0);
+            buffer.writeVarInt(14);
+            buffer.writeBoolean(true);
+            buffer.writeVarInt(0);
+            buffer.writeBoolean(false);
+            buffer.writeBoolean(true);
+            buffer.writeVarInt(0);
+            buffer.writeBoolean(false);
+            buffer.writeVarInt(0);
+            buffer.writeBoolean(true);
+            buffer.writeVarInt(0);
+            buffer.writeBoolean(false);
+            buffer.writeUtf("a".repeat(65));
             assertThrows(DecoderException.class, () -> OpenJournalS2CPacket.CODEC.decode(buffer));
         } finally {
             buffer.release();

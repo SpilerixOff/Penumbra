@@ -4,6 +4,7 @@ import fr.penumbra.PenumbraMod;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.director.sequence.LinkedSceneManager;
 import fr.penumbra.director.encounter.PhysicalEncounterManager;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.watcher.WatcherEntity;
 import fr.penumbra.entity.rampant.RampantEntity;
@@ -497,6 +498,7 @@ public final class PhotoNetworking {
             if (target instanceof HostEntity host && host.repelByCamera(player)) {
                 fr.penumbra.director.HorrorDirector.onChaseRepelled(player, host);
                 PhysicalEncounterManager.onPhotographed(player, host);
+                SecondPresenceManager.onPhotographed(player, host);
             } else if (target instanceof WatcherEntity watcher) {
                 watcher.repelByCamera(player);
             } else if (target instanceof RampantEntity rampant) {

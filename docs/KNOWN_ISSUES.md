@@ -1,4 +1,169 @@
-# Problèmes connus — Penumbra 0.24.0
+# Problèmes connus — Penumbra 0.28.0
+
+## 0.28.0 — La Seconde Présence
+
+- Compilation, validation des ressources et **515 tests dans 99 suites**
+  réussis, sans échec, erreur ni test ignoré. Les 14 nouveaux tests portent
+  sur la progression de la scène, son placement et sa classification.
+- Essais du 23 octobre sur un serveur local isolé avec un seul client,
+  Minecraft 26.1.2, Fabric Loader 0.19.3, Fabric API 0.155.2+26.1.2 et Java 25.
+  Un mur, un sol plat, des téléportations et des pas de simulation servent
+  de dispositif de diagnostic ; ces essais ne mesurent pas la fréquence
+  d'apparition naturelle ni les réflexes d'un joueur.
+- Le corps commence caché, contourne le mur, marque son arrêt lorsqu'il est
+  vu et recule. Un défaut qui empêchait son recul à courte distance a été
+  corrigé puis revérifié en jeu. La variante sans attaque repart en laissant
+  le joueur à 20 PV, même après son approche.
+- Une poursuite dans la variante hostile arme le bond. Sur une trajectoire
+  dégagée, l'Hôte atteint le joueur, effectue sa prise et le projette ; la
+  position finale passe d'environ (5,5 ; 121 ; 6,5) à (13,6 ; 121 ; 3,8).
+  Le relevé final de 17,17 PV inclut les effets du déroulement de la scène
+  et de la régénération : ce n'est pas une mesure isolée des dégâts du coup.
+- L'immobilité derrière le mur provoque le départ, sans blessure. Une vitre
+  seule et un terrain ouvert sont refusés comme cachette. Ouvrir l'inventaire
+  pendant une scène l'annule ; le joueur conserve 20 PV.
+- Le flash a été essayé en jeu sur la construction précédente du même travail,
+  avant la correction du recul : passage en récupération et 20 PV conservés.
+  Il n'a pas été réessayé pendant un bond sur le JAR final. Son raccordement
+  au recul de l'Hôte est couvert par la revue du code et les tests existants.
+- Le serveur et le client de la vérification finale se sont arrêtés normalement.
+  Le gel prolongé du monde par la commande de diagnostic peut faire dépasser
+  la limite des messages C2S envoyés par le client ; ces messages sont alors
+  ignorés jusqu'à ce que l'horloge du serveur avance.
+- Le parcours est court et sur un seul niveau. Les plafonds, trous, escaliers
+  et terrains encombrés peuvent empêcher cette rencontre. Aucun bloc n'est
+  modifié et aucun chunk n'est chargé par son placement.
+- Le multijoueur simultané, la latence Internet, les terrains naturels variés,
+  une campagne complète et la peur réellement ressentie restent à évaluer.
+  Les gardes de confidentialité et d'interruption ont été relues ; cela ne
+  remplace pas un essai prolongé avec plusieurs joueurs.
+- Installer **0.28.0 sur le serveur et tous les clients**. Le contenu 0.27.0
+  (quatre volumes, cassette, recettes et copies) reste inclus.
+
+Voir [le fonctionnement de la rencontre](SECOND_PRESENCE_0280_FR.md) et
+[les recherches consultées](HORROR_RESEARCH_0280_FR.md).
+
+## 0.27.0 — les quatre volumes de Warrick
+
+- Compilation, validation des ressources et **501 tests dans 97 suites**
+  réussis, sans échec, erreur ni test ignoré.
+- Essais ciblés du 23 octobre sur un serveur local isolé, avec des sites,
+  déplacements et inventaires préparés pour le diagnostic : récupération des
+  quatre livres, lecture de la cassette pendant 300 ticks, recettes illustrées,
+  ouverture d'un livre directement à son texte et guidage vers le Sanctuaire.
+- Le premier enquêteur récupère un livre dans un coffre vidé et un autre avec
+  le Relevé près d'un coffre détruit. Sa connaissance des quatre livres et de
+  la cassette persiste après une mort puis un redémarrage du serveur.
+- Un second enquêteur récupère son propre volume I dans le même coffre vide,
+  sans hériter de la progression du premier. Un rituel tenté trop tôt indique
+  le prochain indice et conserve son Sceau de cendre.
+- Une copie de refuge a été construite et inspectée en jeu. Sa restauration
+  conserve le coffre dans lequel le joueur a déposé trois diamants. Les blocs
+  d'échelle et le toit rehaussé d'un nouveau puits ont aussi été contrôlés ;
+  cela ne constitue pas un essai complet de montée au clavier.
+- La tentative avec deux clients simultanés a rencontré un plantage natif
+  dans `glfw.dll`. Le second client a ensuite été vérifié seul sur le même
+  serveur. Ces essais valident deux progressions distinctes, mais ne valident
+  pas une session multijoueur simultanée prolongée. Les deux sessions réussies
+  et le serveur se sont arrêtés normalement.
+- Une campagne naturelle complète, le duel final et la fréquence du placement
+  de secours restent à rejouer ou mesurer. Le secours exige de nouveaux chunks
+  de terrain admissible ; il ne reconstruit pas les zones déjà générées.
+- Les anciens puits ne reçoivent pas automatiquement la nouvelle échelle.
+  Les recettes illustrées sont celles fournies avec le mod et ne reflètent
+  pas les modifications d'un datapack serveur.
+- Installer **0.27.0 sur le serveur et tous les clients** : le contenu et le
+  paquet d'ouverture du Relevé ont changé.
+
+Voir [le parcours et les recettes](INVESTIGATION_0270.md).
+
+## 0.26.1 — accélération des bonds
+
+- Compilation, validation des ressources et 456 tests dans 91 suites réussis.
+  L'interpolation et l'encodage des charges utilisent désormais des durées
+  de 6–9 ticks. Les contrôles de collision existants restent actifs.
+- La portée aérienne de l'Absent et du Rampant peut augmenter avec leur
+  impulsion horizontale plus forte ; leur hauteur et leur gravité ne changent pas.
+- Ce réglage a été vérifié par les tests automatisés et une revue du code.
+  Il n'a pas fait l'objet d'une nouvelle session visuelle ou multijoueur.
+  Les résultats en jeu ci-dessous sont ceux de la version 0.26.0.
+
+## 0.26.0 — gestes des huit autres créatures
+
+- Compilation, validation des ressources et **456 tests dans 91 suites**
+  réussis, sans échec, erreur ni test ignoré. Cela inclut les modèles réellement
+  construits en mémoire : poses finies, retour à la pose initiale, articulations
+  reliées, raccord avertissement/chute et interruption d'une charge.
+- Essais du 22 octobre sur un serveur local isolé, avec un seul client :
+  l'Observateur, le Contrefait, l'Originel et l'Absent ont effectué leur geste
+  et leur retrait. Les contacts relevés sont respectivement de 4, 5, 6 et 6 PV.
+  La Cavaleuse et le Projectionniste n'ont infligé aucun dégât.
+- L'Écouteur a effectué son balayage avec un contact de 4 PV. Pour cet essai
+  diagnostique, le joueur était dans un bateau et une blessure de 0,1 PV a
+  amorcé le bruit : 20 → 19,9 → 15,9 PV. Cela valide cette branche de l'attaque,
+  mais ne remplace pas un nouvel essai avec une marche/sprint réellement saisi
+  au clavier. Les premières tentatives, sans mouvement reçu, n'ont pas touché.
+- Le Rampant a été essayé au sol, puis placé au plafond dans le monde de test.
+  Les essais sont commandés et ne mesurent pas la fréquence naturelle des
+  apparitions. Le dernier relevé du Rampant ne permet pas d'isoler les dégâts
+  d'un seul coup ; aucune valeur de dégâts unique n'en est déduite.
+- Six essais supplémentaires ont vérifié le Contrefait et l'Originel : mur
+  ajouté après armement, esquive latérale par console et suppression pendant
+  la charge. Le joueur conserve 20 PV dans les six cas, puis les entités sont
+  retirées proprement. Ces interventions utilisent des pas de simulation ;
+  elles ne mesurent pas les réflexes humains ni la latence Internet.
+- Le client et le serveur de test se sont arrêtés normalement. Le client de
+  développement signale un refus 401 pour la clé de profil et l'autorisation
+  Realms de son identité factice ; aucun plantage du mod n'a été observé durant
+  cette session.
+- Les signatures ont été conçues à partir de pistes scientifiques et des
+  mécaniques existantes. Aucune étude de joueurs Penumbra ne démontre encore
+  qu'elles effraient davantage ; [sources et limites](MONSTER_ANIMATIONS_FR.md).
+- La Cavaleuse et le Projectionniste restent sans dégâts. Les charges du
+  Contrefait et de l'Originel peuvent désormais échouer sur un obstacle ou
+  une esquive ; cela change l'issue possible de leurs anciennes attaques.
+- Les compteurs et états synchronisés ont changé : **même JAR 0.26.0 sur le
+  serveur et tous les clients**. L'Hôte conserve sa prise introduite en 0.25.0.
+- La validation visuelle avec un second client, la latence Internet, les
+  serveurs modifiant les mouvements, les skins/armures variés et une campagne
+  complète restent à effectuer. Les tests de modèles ne remplacent pas ces essais.
+
+Voir la section 136 du [protocole de test](TEST_PROTOCOL.md).
+
+## 0.25.0 — saisie physique de l'Hôte
+
+- **404 tests dans 78 suites ont réussi**, sans échec, erreur ni test ignoré,
+  avec la compilation et la validation des ressources. Les nouveaux tests
+  vérifient notamment les contacts des deux mains, les pieds au sol, les
+  transitions de pose, la levée et les limites du jet.
+- Essai local à 20 TPS : la victime passe de Y=100 à Y=101,05, puis est
+  projetée d'environ 8,68 blocs depuis la prise, avec un seul coup de 6 PV.
+  Le témoin connecté reste immobile et à 20 PV. Les angles de la victime
+  restent inchangés. La distance du jet dépend du terrain et du mouvement.
+- Un plafond bas interrompt la levée sans suffocation ni projection. Un mur
+  ajouté pendant la préparation et une esquive latérale de trois blocs
+  empêchent le contact. Supprimer l'Hôte pendant une levée mesurée libère
+  le joueur au sol, sans dégâts ni jet tardif. Le plafond a été testé à
+  20 TPS ; les trois autres interventions ont été préparées à 5 TPS, puis
+  leur résultat contrôlé à 20 TPS, avec un déplacement d'esquive par console.
+- Deux prises réelles ont été enregistrées, depuis le joueur et en troisième
+  personne. Le second client a rencontré
+  deux plantages natifs dans `glfw.dll` lors de l'activation de sa fenêtre
+  sur ce PC ; le journal ne permet pas d'en attribuer la cause au mod.
+  Cela limite la validation visuelle depuis un deuxième client. Aucun essai
+  avec latence Internet ou plugin serveur de déplacement n'est revendiqué.
+- Le flash pendant la nouvelle saisie, la déconnexion, le changement de
+  dimension, deux Hôtes simultanés et la projection contre un mur proche
+  restent à vérifier en jeu ; les gardes correspondantes sont présentes
+  dans le code et ne constituent pas à elles seules une validation en partie.
+- Ces essais utilisent un monde isolé et des placements de diagnostic.
+  Ils ne valident ni une campagne complète ni l'équilibrage à long terme.
+- Installer **0.25.0 sur le serveur et tous les clients** : le nouvel état
+  de saisie synchronisé demande la même version des deux côtés.
+- La projection peut entraîner des dégâts de chute sur un terrain en pente
+  ou près d'un vide. La saisie ne change pas durablement la gravité du joueur.
+
+Voir la section 135 du [protocole de test](TEST_PROTOCOL.md).
 
 ## 0.24.0 — validation ciblée
 

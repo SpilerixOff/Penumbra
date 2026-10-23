@@ -8,5 +8,10 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 @Environment(EnvType.CLIENT)
 public final class OriginelRenderState extends LivingEntityRenderState {
     public boolean caveAnimation;
+    public boolean windingUp;
+    public boolean lunging;
+    public boolean recovering;
+    public float windupProgress;
     public float lungeProgress;
+    public float recoveryProgress;
 }

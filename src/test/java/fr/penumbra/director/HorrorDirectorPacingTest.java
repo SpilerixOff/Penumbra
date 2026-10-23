@@ -9,6 +9,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HorrorDirectorPacingTest {
 
     @Test
+    void concealedPresenceReservesPressureWithoutClaimingAnImmediateSighting() {
+        assertTrue(HorrorDirector.isPressureEvent("second_presence"));
+        assertTrue(HorrorDirector.isAggressiveEvent("second_presence"));
+        assertTrue(HorrorDirector.consumesHostSlot("second_presence"));
+        assertTrue(HorrorDirector.usesGroupCoordination("second_presence"));
+        assertEquals(2, HorrorDirector.minimumStageForEvent("second_presence"));
+        assertFalse(HorrorDirector.countsAsManifestation("second_presence"));
+        assertFalse(HorrorDirector.isHostObservationEvent("second_presence"));
+    }
+
+    @Test
     void pressureGuardIncludesStingsAndCreaturesBeyondTheOldHostOnlyFilter() {
         for (String event : new String[]{"watcher_group", "listener_passage", "sleep_interrupt",
                 "fake_creeper", "binoculars_reveal", "false_companion", "mining_bait"}) {

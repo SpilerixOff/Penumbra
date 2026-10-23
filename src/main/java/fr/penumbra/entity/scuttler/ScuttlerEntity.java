@@ -38,6 +38,8 @@ public final class ScuttlerEntity extends Monster {
 
     private static final EntityDataAccessor<Integer> DATA_SCENE =
             SynchedEntityData.defineId(ScuttlerEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_FEINT =
+            SynchedEntityData.defineId(ScuttlerEntity.class, EntityDataSerializers.INT);
 
     /**
      * Filet de sécurité, pas une durée de scène : à 0,30 bloc par tick, la
@@ -63,6 +65,8 @@ public final class ScuttlerEntity extends Monster {
     private int sceneTicks;
     private int lifetimeLimit = CROSSING_MAX_TICKS;
     private BlockPos crossingEnd = BlockPos.ZERO;
+    private boolean feintUsed;
+    private Vec3 feintEscape = Vec3.ZERO;
 
     public ScuttlerEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -82,6 +86,7 @@ public final class ScuttlerEntity extends Monster {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_SCENE, SCENE_CROSSING);
+        builder.define(DATA_FEINT, 0);
     }
 
     /** Aucun goal d'attaque, de cible ou de modification du monde. */
@@ -130,6 +135,12 @@ public final class ScuttlerEntity extends Monster {
 
     public int getScene() {
         return this.entityData.get(DATA_SCENE);
+    }
+
+    public boolean isFeinting() { return this.entityData.get(DATA_FEINT) > 0; }
+
+    public float getFeintTicks(float partialTick) {
+        return ScuttlerFeint.elapsed(this.entityData.get(DATA_FEINT), partialTick);
     }
 
     public boolean isOwnedBy(ServerPlayer player) {
@@ -204,14 +215,15 @@ public final class ScuttlerEntity extends Monster {
         }
 
         if (getScene() == SCENE_CHASE) {
-            tickChase(owner);
+            tickChase(level, owner);
         } else {
             tickCrossing(level);
         }
 
         // Petits frottements secs, diffusés par le moteur sonore vanilla à tous
         // les joueurs réellement proches de l'entité.
-        if (sceneTicks % (getScene() == SCENE_CROSSING ? 3 : 5) == 0) {
+        if ((!isFeinting() || ScuttlerFeint.recoiling(this.entityData.get(DATA_FEINT) - 1))
+                && sceneTicks % (getScene() == SCENE_CROSSING ? 3 : 5) == 0) {
             this.playSound(SoundEvents.SPIDER_STEP, 0.28f,
                     1.52f + random.nextFloat() * 0.28f);
         }
@@ -262,7 +274,30 @@ public final class ScuttlerEntity extends Monster {
         }
     }
 
-    private void tickChase(ServerPlayer owner) {
+    private void tickChase(ServerLevel level, ServerPlayer owner) {
+        if (isFeinting()) {
+            tickFeint(level);
+            return;
+        }
+        if (ScuttlerFeint.canStart(feintUsed, sceneTicks, lifetimeLimit - sceneTicks,
+                distanceToSqr(owner), this.onGround(), this.hasLineOfSight(owner))) {
+            feintUsed = true;
+            this.entityData.set(DATA_FEINT, 1);
+            this.getNavigation().stop();
+            this.setDeltaMovement(this.getDeltaMovement().multiply(0.0, 1.0, 0.0));
+            Vec3 away = this.position().subtract(owner.position()).multiply(1.0, 0.0, 1.0);
+            if (away.lengthSqr() < 1.0E-5) away = new Vec3(1.0, 0.0, 0.0);
+            away = away.normalize();
+            // A fixed diagonal retreat avoids tracking the owner's feet during
+            // the feint. The normal movement/collision solver remains in charge.
+            double side = (getId() & 1) == 0 ? 1.0 : -1.0;
+            feintEscape = away.add(-away.z * side, 0.0, away.x * side).normalize();
+            float heading = (float) (Mth.atan2(-away.z, -away.x) * Mth.RAD_TO_DEG) - 90.0f;
+            setYRot(heading);
+            setYHeadRot(heading);
+            setYBodyRot(heading);
+            return;
+        }
         Vec3 destination = owner.position();
         if (distanceToSqr(owner) < 2.1 * 2.1) {
             // À portée des chaussures, elle tourne autour au lieu d'attaquer.
@@ -273,6 +308,25 @@ public final class ScuttlerEntity extends Monster {
         if (sceneTicks == 1 || sceneTicks % 4 == 0 || getNavigation().isDone()) {
             getNavigation().moveTo(
                     destination.x, destination.y, destination.z, CHASE_SPEED);
+        }
+    }
+
+    private void tickFeint(ServerLevel level) {
+        int elapsed = this.entityData.get(DATA_FEINT);
+        this.getNavigation().stop();
+        Vec3 movement = feintEscape.scale(ScuttlerFeint.recoilSpeed(elapsed));
+        AABB swept = this.getBoundingBox().expandTowards(movement);
+        if (!level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ))
+                || !level.getWorldBorder().isWithinBounds(swept)
+                || !level.noCollision(this, swept)) {
+            movement = Vec3.ZERO;
+        }
+        this.setDeltaMovement(movement.x, this.getDeltaMovement().y, movement.z);
+        if (elapsed >= ScuttlerFeint.TOTAL_TICKS) {
+            this.entityData.set(DATA_FEINT, 0);
+        } else {
+            this.entityData.set(DATA_FEINT, elapsed + 1);
         }
     }
 

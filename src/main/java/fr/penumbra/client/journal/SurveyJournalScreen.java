@@ -3,6 +3,7 @@ package fr.penumbra.client.journal;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.config.PenumbraConfig;
 import fr.penumbra.journal.JournalEntry;
+import fr.penumbra.journal.JournalCrafting;
 import fr.penumbra.journal.StoryGuide;
 import fr.penumbra.registry.PenumbraSounds;
 import net.fabricmc.api.EnvType;
@@ -12,6 +13,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.MutableComponent;
@@ -19,6 +21,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -48,6 +52,8 @@ public final class SurveyJournalScreen extends Screen {
     private final int progress;
     private final int total;
     private final StoryGuide.Snapshot story;
+    private final List<JournalCrafting.Recipe> recipes;
+    private final String focusId;
     private final RandomSource smudgeRandom = RandomSource.create(0x5E1EC7L);
     private final List<Sheet> sheets = new ArrayList<>();
     private JournalLayout.Spread layout;
@@ -56,10 +62,17 @@ public final class SurveyJournalScreen extends Screen {
 
     public SurveyJournalScreen(Set<String> readableIds, int progress, int total,
                                StoryGuide.Snapshot story) {
+        this(readableIds, progress, total, story, "");
+    }
+
+    public SurveyJournalScreen(Set<String> readableIds, int progress, int total,
+                               StoryGuide.Snapshot story, String focusId) {
         super(Component.translatable("screen.penumbra.journal.title"));
         this.progress = Math.max(0, progress);
         this.total = Math.max(1, total);
         this.story = story;
+        this.recipes = JournalCrafting.available(readableIds);
+        this.focusId = focusId == null ? "" : focusId;
         this.states = new EnumMap<>(JournalEntry.class);
         for (JournalEntry entry : JournalEntry.ORDER) {
             this.states.put(entry, readableIds.contains(entry.id())
@@ -82,8 +95,8 @@ public final class SurveyJournalScreen extends Screen {
     private record BodyLine(FormattedCharSequence text, int color, JournalLayout.Line position) {
     }
 
-    private record Sheet(JournalEntry entry, boolean guide, List<BodyLine> lines, boolean continued,
-                         boolean lastForEntry) {
+    private record Sheet(JournalEntry entry, boolean guide, JournalCrafting.Recipe recipe,
+                         List<BodyLine> lines, boolean continued, boolean lastForEntry) {
     }
 
     @Override
@@ -100,8 +113,18 @@ public final class SurveyJournalScreen extends Screen {
             for (int index = 0; index < this.sheets.size(); index++) {
                 Sheet candidate = this.sheets.get(index);
                 if (candidate.entry() == previous.entry() && candidate.guide() == previous.guide()
+                        && java.util.Objects.equals(candidate.recipe(), previous.recipe())
                         && (candidate.lines().isEmpty() || candidate.lines().stream()
                         .anyMatch(line -> line.position().paragraph() == paragraph))) {
+                    this.page = index;
+                    break;
+                }
+            }
+        } else if (!this.focusId.isEmpty()) {
+            for (int index = 0; index < this.sheets.size(); index++) {
+                Sheet candidate = this.sheets.get(index);
+                if (!candidate.guide() && candidate.recipe() == null
+                        && candidate.entry().id().equals(this.focusId)) {
                     this.page = index;
                     break;
                 }
@@ -119,9 +142,17 @@ public final class SurveyJournalScreen extends Screen {
         for (JournalEntry entry : JournalEntry.ORDER) {
             paginateEntry(entry, false, paragraphs(entry));
         }
+        for (JournalCrafting.Recipe recipe : this.recipes) {
+            paginateContent(JournalEntry.FRONTISPIECE, false, recipe, recipeParagraphs(recipe));
+        }
     }
 
     private void paginateEntry(JournalEntry entry, boolean guide, List<Paragraph> paragraphs) {
+        paginateContent(entry, guide, null, paragraphs);
+    }
+
+    private void paginateContent(JournalEntry entry, boolean guide, JournalCrafting.Recipe recipe,
+                                 List<Paragraph> paragraphs) {
         List<List<FormattedCharSequence>> wrapped = paragraphs.stream()
                 .map(paragraph -> this.font.split(paragraph.text(),
                         this.layout.rightBody().width() - 4)).toList();
@@ -132,8 +163,29 @@ public final class SurveyJournalScreen extends Screen {
             List<BodyLine> lines = pages.get(index).stream().map(position -> new BodyLine(
                     wrapped.get(position.paragraph()).get(position.index()),
                     paragraphs.get(position.paragraph()).color(), position)).toList();
-            this.sheets.add(new Sheet(entry, guide, lines, index > 0, index == pages.size() - 1));
+            this.sheets.add(new Sheet(entry, guide, recipe, lines,
+                    index > 0, index == pages.size() - 1));
         }
+    }
+
+    private List<Paragraph> recipeParagraphs(JournalCrafting.Recipe recipe) {
+        List<Paragraph> result = new ArrayList<>();
+        result.add(new Paragraph(Component.translatable("screen.penumbra.journal.crafting.ingredients"),
+                INK_RED));
+        for (JournalCrafting.Ingredient ingredient : recipe.ingredients()) {
+            result.add(new Paragraph(Component.translatable("screen.penumbra.journal.crafting.ingredient",
+                    ingredient.count(), recipeItem(ingredient.itemId(), 1).getHoverName()), INK));
+        }
+        result.add(new Paragraph(Component.translatable(recipe.shapeless()
+                ? "screen.penumbra.journal.crafting.shapeless"
+                : "screen.penumbra.journal.crafting.shaped"), INK_SOFT));
+        result.add(new Paragraph(Component.translatable(recipe.useKey()), INK));
+        return result;
+    }
+
+    private static ItemStack recipeItem(String id, int count) {
+        Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(id));
+        return item == null ? ItemStack.EMPTY : new ItemStack(item, count);
     }
 
     /** Les indices des pages arrachées sont paginés aussi : ils ne doivent jamais disparaître. */
@@ -182,7 +234,11 @@ public final class SurveyJournalScreen extends Screen {
         drawPaper(graphics, this.layout.rightPaper(), PAPER_RIGHT);
         Sheet sheet = sheet();
         JournalEntry.State state = this.states.getOrDefault(sheet.entry(), sheet.entry().defaultState());
-        drawLeftPage(graphics, sheet, state, mouseX, mouseY);
+        if (sheet.recipe() != null) {
+            drawRecipeDiagram(graphics, sheet.recipe(), mouseX, mouseY);
+        } else {
+            drawLeftPage(graphics, sheet, state, mouseX, mouseY);
+        }
         drawRightPage(graphics, sheet, state);
         drawFooter(graphics, mouseX, mouseY);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -193,6 +249,44 @@ public final class SurveyJournalScreen extends Screen {
         graphics.outline(paper.x(), paper.y(), paper.width(), paper.height(), PAPER_SHADE);
         graphics.fill(paper.x() + 1, paper.y() + 1, paper.x() + 3, paper.bottom() - 1,
                 0x14664D2C);
+    }
+
+    private void drawRecipeDiagram(GuiGraphicsExtractor graphics, JournalCrafting.Recipe recipe,
+                                   int mouseX, int mouseY) {
+        JournalCraftingLayout.Diagram diagram = JournalCraftingLayout.fit(this.layout.leftBody());
+        ItemStack output = recipeItem(recipe.resultId(), recipe.resultCount());
+        Component title = output.getHoverName();
+        List<FormattedCharSequence> titleLines = this.font.split(title, diagram.caption().width() - 4);
+        drawCenteredLines(graphics, titleLines, diagram.caption(), diagram.caption().y(),
+                this.font.lineHeight + 1, INK);
+        if (diagram.caption().contains(mouseX, mouseY)) {
+            graphics.setTooltipForNextFrame(title, mouseX, mouseY);
+        }
+        for (int index = 0; index < recipe.slots().size(); index++) {
+            String itemId = recipe.slots().get(index);
+            drawRecipeSlot(graphics, diagram.ingredients().get(index),
+                    itemId.isEmpty() ? ItemStack.EMPTY : recipeItem(itemId, 1), mouseX, mouseY);
+        }
+        JournalLayout.Rect arrow = diagram.arrow();
+        graphics.fill(arrow.x(), arrow.y() + 3, arrow.right() - 3, arrow.y() + 5, INK_SOFT);
+        for (int step = 0; step < 4; step++) {
+            graphics.fill(arrow.right() - 4 + step, arrow.y() + step,
+                    arrow.right() - 3 + step, arrow.bottom() - step, INK_SOFT);
+        }
+        drawRecipeSlot(graphics, diagram.result(), output, mouseX, mouseY);
+    }
+
+    private void drawRecipeSlot(GuiGraphicsExtractor graphics, JournalLayout.Rect slot,
+                                ItemStack stack, int mouseX, int mouseY) {
+        graphics.fill(slot.x(), slot.y(), slot.right(), slot.bottom(), 0x443E2F1E);
+        graphics.outline(slot.x(), slot.y(), slot.width(), slot.height(), PAPER_SHADE);
+        if (!stack.isEmpty()) {
+            graphics.fakeItem(stack, slot.x() + 1, slot.y() + 1);
+            graphics.itemDecorations(this.font, stack, slot.x() + 1, slot.y() + 1);
+            if (slot.contains(mouseX, mouseY)) {
+                graphics.setTooltipForNextFrame(this.font, stack, mouseX, mouseY);
+            }
+        }
     }
 
     private void drawLeftPage(GuiGraphicsExtractor graphics, Sheet sheet, JournalEntry.State state,
@@ -328,23 +422,44 @@ public final class SurveyJournalScreen extends Screen {
     private void drawFooter(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         JournalLayout.Rect footer = this.layout.footer();
         graphics.fill(footer.x() - 2, footer.y(), footer.right() + 2, footer.bottom(), PAPER_RIGHT);
-        Component label = Component.translatable("screen.penumbra.journal.footer",
-                this.page + 1, this.sheets.size(), this.progress, this.total);
-        List<FormattedCharSequence> lines = this.font.split(label, footer.width() - 4);
-        int advance = this.font.lineHeight + 1;
-        if (lines.size() * advance > footer.height()) {
-            lines = this.font.split(Component.literal((this.page + 1) + " / " + this.sheets.size()
-                    + "  ·  " + this.progress + " / " + this.total), footer.width() - 4);
-        }
+        drawTab(graphics, JournalCraftingLayout.investigationTab(footer),
+                "screen.penumbra.journal.tab.investigation", sheet().guide(), mouseX, mouseY);
+        drawTab(graphics, JournalCraftingLayout.craftingTab(footer),
+                "screen.penumbra.journal.tab.crafting", sheet().recipe() != null, mouseX, mouseY);
+        JournalLayout.Rect counter = new JournalLayout.Rect(footer.x(), footer.y() + 13,
+                footer.width(), footer.height() - 13);
+        Component label = Component.literal((this.page + 1) + " / " + this.sheets.size()
+                + "  ·  " + this.progress + " / " + this.total);
+        List<FormattedCharSequence> lines = this.font.split(label, counter.width() - 4);
+        int advance = this.font.lineHeight;
         drawCenteredLines(graphics, lines, footer,
-                footer.y() + Math.max(0, (footer.height() - lines.size() * advance) / 2),
+                counter.y() + Math.max(0, (counter.height() - lines.size() * advance) / 2),
                 advance, INK_SOFT);
+        if (counter.contains(mouseX, mouseY)) {
+            graphics.setTooltipForNextFrame(Component.translatable("screen.penumbra.journal.footer",
+                    this.page + 1, this.sheets.size(), this.progress, this.total), mouseX, mouseY);
+        }
         if (this.page > 0) {
             drawArrow(graphics, this.layout.previous(), false,
                     this.layout.previous().contains(mouseX, mouseY));
         }
         if (this.page < this.sheets.size() - 1) {
             drawArrow(graphics, this.layout.next(), true, this.layout.next().contains(mouseX, mouseY));
+        }
+    }
+
+    private void drawTab(GuiGraphicsExtractor graphics, JournalLayout.Rect bounds, String key,
+                         boolean selected, int mouseX, int mouseY) {
+        boolean hovered = bounds.contains(mouseX, mouseY);
+        if (hovered || selected) {
+            graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), PAPER_SHADE);
+        }
+        Component title = Component.translatable(key);
+        List<FormattedCharSequence> lines = this.font.split(title, bounds.width() - 4);
+        drawCenteredLines(graphics, lines, bounds, bounds.y() + 1, this.font.lineHeight,
+                hovered || selected ? INK_RED : INK_SOFT);
+        if (hovered) {
+            graphics.setTooltipForNextFrame(title, mouseX, mouseY);
         }
     }
 
@@ -369,6 +484,23 @@ public final class SurveyJournalScreen extends Screen {
         }
         if (event.button() != 0) {
             return false;
+        }
+        if (JournalCraftingLayout.investigationTab(this.layout.footer()).contains(event.x(), event.y())) {
+            turn(-this.page);
+            return true;
+        }
+        if (JournalCraftingLayout.craftingTab(this.layout.footer()).contains(event.x(), event.y())) {
+            for (int index = 0; index < this.sheets.size(); index++) {
+                if (this.sheets.get(index).recipe() != null) {
+                    turn(index - this.page);
+                    return true;
+                }
+            }
+            return true;
+        }
+        // Item tooltips must remain usable without an incidental page turn.
+        if (sheet().recipe() != null && this.layout.leftBody().contains(event.x(), event.y())) {
+            return true;
         }
         if (this.layout.previous().contains(event.x(), event.y())) {
             return turn(-1);

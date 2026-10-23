@@ -1,6 +1,7 @@
 package fr.penumbra.entity;
 
 import fr.penumbra.config.PenumbraConfig;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.entity.ai.ChasePlayerGoal;
 import fr.penumbra.entity.ai.HiddenWatchGoal;
 import fr.penumbra.entity.ai.ObservePlayerGoal;
@@ -22,6 +23,8 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.PositionMoveRotation;
+import net.minecraft.world.entity.Relative;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
@@ -60,6 +63,9 @@ public class HostEntity extends Monster {
             SynchedEntityData.defineId(HostEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_RECOVERY =
             SynchedEntityData.defineId(HostEntity.class, EntityDataSerializers.INT);
+    /** Zero is inactive; elapsed + 1 keeps the contact pose visible at tick zero. */
+    private static final EntityDataAccessor<Integer> DATA_GRAPPLE =
+            SynchedEntityData.defineId(HostEntity.class, EntityDataSerializers.INT);
 
     private UUID ownerUuid;
     private int lifetimeTicks;
@@ -69,6 +75,10 @@ public class HostEntity extends Monster {
     private Vec3 lungeStartPosition;
     private Vec3 lungeTargetPosition;
     private int lungeWindupTicks;
+    private Vec3 grappleStartPosition;
+    private Vec3 grappleDirection;
+    private Vec3 grapplePreviousAnchor;
+    private boolean grappleThrown;
     private boolean autonomousStareEnabled = true;
     /**
      * Certaines scènes asymétriques montrent l'Hôte à un seul témoin. Ce
@@ -102,6 +112,7 @@ public class HostEntity extends Monster {
         builder.define(DATA_LUNGE_STATE, 0);
         builder.define(DATA_WINDUP, 0);
         builder.define(DATA_RECOVERY, 0);
+        builder.define(DATA_GRAPPLE, 0);
     }
 
     public HostBehavior getBehavior() {
@@ -170,7 +181,7 @@ public class HostEntity extends Monster {
     }
 
     public boolean canReactToStare() {
-        return this.autonomousStareEnabled && !this.isLunging() && !this.isRecovering()
+        return this.autonomousStareEnabled && !this.isLunging() && !this.isGrappling() && !this.isRecovering()
                 && HostLunge.canArmFrom(this.getBehavior());
     }
 
@@ -180,6 +191,13 @@ public class HostEntity extends Monster {
     }
 
     public boolean isRecovering() { return this.entityData.get(DATA_RECOVERY) > 0; }
+
+    public boolean isGrappling() { return this.entityData.get(DATA_GRAPPLE) > 0; }
+
+    public float getGrappleProgress(float partialTick) {
+        int state = this.entityData.get(DATA_GRAPPLE);
+        return state == 0 ? 0.0f : HostGrapple.progress(state - 1, partialTick);
+    }
 
     public float getWindupProgress(float partialTick) {
         int left = this.entityData.get(DATA_WINDUP);
@@ -200,10 +218,11 @@ public class HostEntity extends Monster {
      * parcourt la distance jusqu'au visage avant de frapper et hurler.
      */
     public boolean beginStareLunge(ServerPlayer watcher) {
-        if (this.isLunging() || this.isRecovering() || !HostLunge.canArmFrom(this.getBehavior())
+        if (this.isLunging() || this.isGrappling() || this.isRecovering() || !HostLunge.canArmFrom(this.getBehavior())
                 || !PenumbraConfig.get().hostEnabled
                 || watcher == null || !watcher.isAlive() || watcher.isRemoved()
                 || watcher.isSpectator() || watcher.isSleeping()
+                || watcher.isPassenger() || watcher.getAbilities().flying || watcher.isFallFlying()
                 || watcher.level() != this.level() || !this.isOwnedBy(watcher)
                 || !this.hasLineOfSight(watcher)) {
             return false;
@@ -281,20 +300,28 @@ public class HostEntity extends Monster {
     public void tick() {
         super.tick();
         if (!this.level().isClientSide()) {
+            // Scene cancellation must precede physical contact in the world tick,
+            // not wait until the scene manager's END_SERVER_TICK callback.
+            if (SecondPresenceManager.mustCancelBeforeActorTick(this)) {
+                this.discard();
+                return;
+            }
             // A killed body can remain for vanilla's death animation. It must
             // never finish a queued charge or apply contact during those ticks.
             if (!this.isAlive() || this.isRemoved()) {
                 this.discard();
                 return;
             }
-            if ((this.isLunging() || this.isRecovering()) && this.level() instanceof ServerLevel level) {
+            if ((this.isLunging() || this.isGrappling() || this.isRecovering())
+                    && this.level() instanceof ServerLevel level) {
                 ServerPlayer owner = this.getOwnerPlayer();
                 if (owner == null || !owner.isAlive() || owner.isRemoved()
-                        || owner.isSpectator() || owner.isSleeping()
+                        || owner.isSpectator() || owner.isSleeping() || owner.isChangingDimension()
                         || !PenumbraConfig.get().hostEnabled) {
                     this.discard();
                 } else {
                     if (this.isRecovering()) this.tickRecovery(level, owner);
+                    else if (this.isGrappling()) this.tickGrapple(level, owner);
                     else this.tickStareLunge(level, owner);
                 }
                 return;
@@ -364,7 +391,8 @@ public class HostEntity extends Monster {
         this.entityData.set(DATA_LUNGE_STATE, StareLunge.pack(elapsed, duration));
 
         double eased = StareLunge.easedProgress(elapsed, duration);
-        Vec3 next = this.lungeStartPosition.lerp(this.lungeTargetPosition, eased);
+        Vec3 next = this.lungeStartPosition.lerp(this.lungeTargetPosition, eased)
+                .add(0.0, HostGrapple.leapHeight(elapsed / (double) duration), 0.0);
         AABB swept = this.getBoundingBox().expandTowards(next.subtract(this.position()));
         if (!level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
                 Mth.floor(swept.maxX), Mth.floor(swept.maxZ)) || !level.noCollision(this, swept)) {
@@ -376,16 +404,89 @@ public class HostEntity extends Monster {
         this.faceLungeTarget(owner);
 
         if (elapsed >= duration) {
-            if (StareLunge.canContact(this.distanceToSqr(owner), this.hasLineOfSight(owner))) {
+            if (!owner.isPassenger() && !owner.getAbilities().flying && !owner.isFallFlying()
+                    && HostGrapple.canGrab(this.position(), owner.position(),
+                    this.hasLineOfSight(owner))) this.beginGrapple(owner);
+            else this.beginRecovery(owner);
+        }
+    }
+
+    private void beginGrapple(ServerPlayer owner) {
+        // The director can allow two manifestations. They must never pull the
+        // same player towards competing anchors on alternating server ticks.
+        if (this.level() instanceof ServerLevel level && !level.getEntitiesOfClass(HostEntity.class,
+                owner.getBoundingBox().inflate(4.0), other -> other != this && other.isAlive()
+                        && !other.isRemoved() && other.isOwnedBy(owner) && other.isGrappling()).isEmpty()) {
+            this.beginRecovery(owner);
+            return;
+        }
+        this.grappleStartPosition = owner.position();
+        this.grapplePreviousAnchor = owner.position();
+        this.grappleDirection = HostGrapple.direction(this.position(), owner.position(), this.getLookAngle());
+        this.grappleThrown = false;
+        this.entityData.set(DATA_LUNGE_STATE, 0);
+        this.entityData.set(DATA_WINDUP, 0);
+        this.entityData.set(DATA_GRAPPLE, 1);
+        this.setDeltaMovement(Vec3.ZERO);
+        if (PenumbraConfig.get().jumpscareFrequency > 0.0f) {
+            this.playContactSound(owner, PenumbraConfig.get().screamersEnabled
+                    ? PenumbraSounds.SCREAMER_SHRIEK : PenumbraSounds.HOST_STINGER, 1.0f, 0.94f);
+        }
+    }
+
+    private void tickGrapple(ServerLevel level, ServerPlayer owner) {
+        int elapsed = this.entityData.get(DATA_GRAPPLE) - 1;
+        this.setDeltaMovement(Vec3.ZERO);
+        this.faceLungeTarget(owner);
+        if (elapsed >= HostGrapple.TOTAL_TICKS || this.grappleStartPosition == null
+                || this.grappleDirection == null || owner.isPassenger()
+                || owner.getAbilities().flying || owner.isFallFlying()) {
+            this.beginRecovery(owner);
+            return;
+        }
+        int nextTick = elapsed + 1;
+        if (!this.grappleThrown) {
+            if (!this.hasLineOfSight(owner)
+                    || !HostGrapple.canContinueHolding(owner.position(), this.grapplePreviousAnchor)) {
+                this.beginRecovery(owner);
+                return;
+            }
+            if (nextTick < HostGrapple.THROW_START_TICK) {
+                Vec3 next = HostGrapple.heldPosition(this.grappleStartPosition,
+                        this.position(), this.grappleDirection, nextTick);
+                if (!this.canMoveBody(level, owner, next.subtract(owner.position()))) {
+                    this.beginRecovery(owner);
+                    return;
+                }
+                // Vanilla position packet acknowledges each short move. Relative zero
+                // rotation leaves the local camera free, including during network latency.
+                // Never alter gravity, ability flags, riding state or movement attributes.
+                owner.connection.teleport(new PositionMoveRotation(next, Vec3.ZERO, 0.0f, 0.0f),
+                        Relative.ROTATION);
+                owner.resetFallDistance();
+                this.grapplePreviousAnchor = next;
+            } else {
+                this.grappleThrown = true;
+                // Deal the existing attack once, then override vanilla knockback with
+                // a bounded push. Subsequent motion uses vanilla block collisions.
                 this.doHurtTarget(level, owner);
+                Vec3 push = HostGrapple.throwVelocity(this.grappleDirection);
+                if (!this.canMoveBody(level, owner, push)) push = Vec3.ZERO;
+                owner.setDeltaMovement(push);
+                owner.hurtMarked = true; // ServerEntity sends velocity to owner AND observers.
                 if (PenumbraConfig.get().jumpscareFrequency > 0.0f) {
-                    this.playContactSound(owner, PenumbraConfig.get().screamersEnabled
-                            ? PenumbraSounds.SCREAMER_SHRIEK : PenumbraSounds.HOST_STINGER, 1.0f, 0.94f);
                     PenumbraNetworking.sendJumpscare(owner, "impact", 1.0f);
                 }
             }
-            this.beginRecovery(owner);
         }
+        this.entityData.set(DATA_GRAPPLE, nextTick + 1);
+    }
+
+    /** All swept player/head space must be loaded and empty before moving the grab. */
+    private boolean canMoveBody(ServerLevel level, Entity body, Vec3 movement) {
+        AABB swept = body.getBoundingBox().expandTowards(movement);
+        return level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ)) && level.noCollision(body, swept);
     }
 
     /** The camera ends this manifestation's attack; no second attempt after recoil. */
@@ -400,7 +501,11 @@ public class HostEntity extends Monster {
     private void beginRecovery(ServerPlayer owner) {
         this.entityData.set(DATA_LUNGE_STATE, 0);
         this.entityData.set(DATA_WINDUP, 0);
+        this.entityData.set(DATA_GRAPPLE, 0);
         this.entityData.set(DATA_RECOVERY, 1);
+        this.grappleStartPosition = null;
+        this.grappleDirection = null;
+        this.grapplePreviousAnchor = null;
         this.lungeWindupTicks = 0;
         this.getNavigation().stop();
         this.setTarget(null);
@@ -458,7 +563,8 @@ public class HostEntity extends Monster {
     /** Une charge de quelques ticks ne doit jamais être sauvegardée à mi-trajectoire. */
     @Override
     public boolean shouldBeSaved() {
-        return !this.privateToOwner && !this.isLunging() && !this.isRecovering() && super.shouldBeSaved();
+        return !this.privateToOwner && !this.isLunging() && !this.isGrappling()
+                && !this.isRecovering() && super.shouldBeSaved();
     }
 
     /**

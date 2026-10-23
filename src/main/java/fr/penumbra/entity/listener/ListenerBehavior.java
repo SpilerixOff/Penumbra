@@ -17,7 +17,10 @@ public enum ListenerBehavior {
     CLOSING,
 
     /** Il renonce, s'éloigne et se dissipe loin du joueur. */
-    LEAVING;
+    LEAVING,
+
+    /** One committed arm sweep and visible recoil before leaving. */
+    STRIKING;
 
     private static final ListenerBehavior[] VALUES = values();
 

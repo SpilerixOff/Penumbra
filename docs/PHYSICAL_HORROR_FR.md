@@ -1,4 +1,4 @@
-# Penumbra 0.24.0 — L'horreur dans le monde
+# Penumbra 0.26.0 — L'horreur dans le monde
 
 La 0.24.0 prépare des sursauts produits par les créatures et leur comportement.
 Le visage plaqué à l'écran, les rémanences de visages et le noir de screamer
@@ -7,6 +7,20 @@ Les descriptions suivantes portent sur le code implémenté ; les résultats
 d'essais sont suivis dans [les problèmes connus](KNOWN_ISSUES.md).
 
 ## Ce que le joueur rencontre
+
+La 0.26.0 donne aux huit autres monstres des gestes distincts, décrits avec
+leurs inspirations dans [le guide des animations](MONSTER_ANIMATIONS_FR.md).
+Les leurres restent inoffensifs ; les animations de contact suivent les états
+serveur et les règles de portée, de bruit ou de visibilité de chaque créature.
+
+Depuis la 0.25.0, l'Hôte prolonge un contact réussi par une prise physique :
+après s'être ramassé, il bondit en arc, plonge avec ses deux mains tendues,
+saisit le joueur, le soulève brièvement puis le projette devant lui. La levée
+et la projection déplacent réellement le joueur ; tourner la caméra reste
+possible. La distance parcourue dépend du terrain et des collisions.
+Une esquive pendant la préparation évite la prise ; un flash réussi la rompt
+avant le lancer. Un obstacle ou un plafond insuffisant interrompt le mouvement.
+Ces étapes concernent la charge de regard de l'Hôte, pas toutes les créatures.
 
 L'Hôte et l'Observateur peuvent s'immobiliser, incliner la tête et préparer leurs
 bras avant de bondir. La charge vise la position repérée au début : partir sur
@@ -65,7 +79,7 @@ le flash si le torse ou une autre partie échantillonnée du corps reste visible
 Le verre et les autres blocs qui arrêtent le rayon physique font obstacle,
 même si une photographie peut montrer le sujet derrière eux.
 
-Un flash réussi interrompt la préparation, le bond ou la poursuite concernée,
+Un flash réussi interrompt la préparation, le bond, la saisie ou la poursuite concernée,
 puis laisse voir le retrait. Il ne supprime pas les effets des attaques déjà
 reçues. La recharge entre les clichés reste nécessaire. Les règles propres à
 L'Absent et au reflet du duel final restent celles de leurs rencontres : la

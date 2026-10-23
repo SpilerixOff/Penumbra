@@ -3,7 +3,7 @@ package fr.penumbra.entity.listener;
 /** Tick-based reaction window and silence counterplay, independent of rendering. */
 final class ListenerPursuit {
 
-    static final int WARNING_TICKS = 12;
+    static final int WARNING_TICKS = ListenerStrike.WARNING_TICKS;
     static final double CONTACT_DISTANCE = 1.05;
     static final int MAX_CHARGE_TICKS = 120;
 
@@ -33,6 +33,8 @@ final class ListenerPursuit {
     }
 
     boolean exhausted() { return age >= MAX_CHARGE_TICKS; }
+
+    int warningAge() { return Math.min(WARNING_TICKS, age); }
 
     /** Cover muffles sound: it can invite a search, but cannot initiate a blind charge. */
     static double heardRadius(double radius, boolean clearPath) {

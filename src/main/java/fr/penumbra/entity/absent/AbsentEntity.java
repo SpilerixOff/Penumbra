@@ -84,6 +84,16 @@ public final class AbsentEntity extends Monster {
             SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> DATA_LUNGING =
             SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_ATTACK_TICK =
+            SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_REVEAL_TICK =
+            SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_FOLLOW_THROUGH =
+            SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_CONTACT_POSE =
+            SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_CONFRONTATION =
+            SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> DATA_SCENE_MODE =
             SynchedEntityData.defineId(AbsentEntity.class, EntityDataSerializers.INT);
 
@@ -160,6 +170,11 @@ public final class AbsentEntity extends Monster {
         builder.define(DATA_REVEAL_PROGRESS, 0.0f);
         builder.define(DATA_MODEL_PARTS, ALL_MODEL_PARTS);
         builder.define(DATA_LUNGING, false);
+        builder.define(DATA_ATTACK_TICK, 0);
+        builder.define(DATA_REVEAL_TICK, 0);
+        builder.define(DATA_FOLLOW_THROUGH, 0);
+        builder.define(DATA_CONTACT_POSE, 0.0f);
+        builder.define(DATA_CONFRONTATION, false);
         builder.define(DATA_SCENE_MODE, AbsentSceneMode.NORMAL.ordinal());
     }
 
@@ -235,6 +250,28 @@ public final class AbsentEntity extends Monster {
         return this.entityData.get(DATA_LUNGING);
     }
 
+    public float getAttackProgress(float partialTick) {
+        return AbsentAttack.progress(this.entityData.get(DATA_ATTACK_TICK),
+                partialTick, AbsentAttack.LUNGE_TICKS);
+    }
+    public float getRevealAnimationProgress(float partialTick) {
+        return AbsentAttack.progress(this.entityData.get(DATA_REVEAL_TICK), partialTick, REVEAL_TICKS);
+    }
+    public boolean isFollowingThrough() { return this.entityData.get(DATA_FOLLOW_THROUGH) > 0; }
+    public float getFollowThroughProgress(float partialTick) {
+        return AbsentAttack.progress(this.entityData.get(DATA_FOLLOW_THROUGH),
+                partialTick, AbsentAttack.FOLLOW_THROUGH_TICKS);
+    }
+    public float getContactPose() { return this.entityData.get(DATA_CONTACT_POSE); }
+
+    private void clearAttackVisuals() {
+        this.entityData.set(DATA_LUNGING, false);
+        this.entityData.set(DATA_ATTACK_TICK, 0);
+        this.entityData.set(DATA_REVEAL_TICK, 0);
+        this.entityData.set(DATA_FOLLOW_THROUGH, 0);
+        this.lungeTicks = 0;
+    }
+
     public AbsentSceneMode getSceneMode() {
         return AbsentSceneMode.byId(this.entityData.get(DATA_SCENE_MODE));
     }
@@ -249,6 +286,7 @@ public final class AbsentEntity extends Monster {
      * jamais atteindre les phases agressives de L'Absent.
      */
     public void configureFalseCompanion(int lifetimeTicks) {
+        this.clearAttackVisuals();
         this.entityData.set(DATA_SCENE_MODE, AbsentSceneMode.FALSE_COMPANION.ordinal());
         this.perceptionLifetimeTicks = Mth.clamp(lifetimeTicks,
                 PerceptionRules.MIN_LIFETIME_TICKS,
@@ -336,6 +374,8 @@ public final class AbsentEntity extends Monster {
     /** Transient finale actor: the story manager owns movement and its lifetime. */
     public void configureConfrontation() {
         this.confrontationDouble = true;
+        this.entityData.set(DATA_CONFRONTATION, true);
+        this.clearAttackVisuals();
         this.setNoAi(true);
         this.setInvulnerable(true);
         this.setSilent(true);
@@ -346,7 +386,7 @@ public final class AbsentEntity extends Monster {
     }
 
     public boolean isConfrontationDouble() {
-        return this.confrontationDouble;
+        return this.entityData.get(DATA_CONFRONTATION);
     }
 
     /** Uses existing synchronized visual channels; no screen flash is required. */
@@ -452,6 +492,7 @@ public final class AbsentEntity extends Monster {
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
+        this.clearAttackVisuals();
         this.lifetimeTicks = Math.max(0, input.getIntOr("PenumbraLifetime", 0));
         this.phaseTicks = Math.max(0, input.getIntOr("PenumbraPhaseTicks", 0));
         this.lureMessageIndex = Mth.clamp(input.getIntOr("PenumbraLureMessage", 0), 0, 3);
@@ -530,6 +571,13 @@ public final class AbsentEntity extends Monster {
             return;
         }
         PenumbraConfig config = PenumbraConfig.get();
+        if (!this.isAlive() || this.isRemoved()) {
+            this.clearAttackVisuals();
+            this.getNavigation().stop();
+            this.setDeltaMovement(Vec3.ZERO);
+            if (!this.isRemoved()) this.discard();
+            return;
+        }
         boolean featureEnabled = this.isFalseCompanion()
                 ? config.individualPerceptionsEnabled && config.falseCompanionsEnabled
                 : config.absentEnabled;
@@ -952,6 +1000,7 @@ public final class AbsentEntity extends Monster {
     }
 
     private void tickReveal(ServerLevel level, ServerPlayer owner) {
+        this.entityData.set(DATA_REVEAL_TICK, this.phaseTicks + 1);
         this.getNavigation().stop();
         this.setDeltaMovement(Vec3.ZERO);
         this.setShiftKeyDown(false);
@@ -970,14 +1019,24 @@ public final class AbsentEntity extends Monster {
     private void tickHunt(ServerLevel level, ServerPlayer owner) {
         this.setShiftKeyDown(false);
         this.getLookControl().setLookAt(owner, 50.0f, 50.0f);
+        if (this.isFollowingThrough()) {
+            this.getNavigation().stop();
+            this.setDeltaMovement(Vec3.ZERO);
+            int elapsed = this.entityData.get(DATA_FOLLOW_THROUGH);
+            if (elapsed >= AbsentAttack.FOLLOW_THROUGH_TICKS) this.vanish(level, true);
+            else this.entityData.set(DATA_FOLLOW_THROUGH, elapsed + 1);
+            return;
+        }
         if (this.lungeCooldownTicks > 0) {
             this.lungeCooldownTicks--;
         }
         if (this.lungeTicks > 0) {
             this.lungeTicks--;
             this.getNavigation().stop();
+            this.entityData.set(DATA_ATTACK_TICK, AbsentAttack.LUNGE_TICKS - this.lungeTicks + 1);
             if (this.lungeTicks == 0) {
                 this.entityData.set(DATA_LUNGING, false);
+                this.entityData.set(DATA_ATTACK_TICK, 0);
             }
         } else if (this.distanceToSqr(owner) >= 1.7 * 1.7
                 && this.distanceToSqr(owner) <= 6.0 * 6.0
@@ -988,9 +1047,10 @@ public final class AbsentEntity extends Monster {
             if (horizontal.lengthSqr() > 1.0E-5) {
                 this.getNavigation().stop();
                 this.entityData.set(DATA_LUNGING, true);
-                this.lungeTicks = 9;
+                this.entityData.set(DATA_ATTACK_TICK, 1);
+                this.lungeTicks = AbsentAttack.LUNGE_TICKS;
                 this.lungeCooldownTicks = 38;
-                this.setDeltaMovement(horizontal.normalize().scale(0.78)
+                this.setDeltaMovement(horizontal.normalize().scale(0.975)
                         .add(0.0, 0.26, 0.0));
             }
         } else if (this.phaseTicks % 5 == 1 || this.getNavigation().isDone()) {
@@ -1007,7 +1067,14 @@ public final class AbsentEntity extends Monster {
                 this.broadcastSound(level, PenumbraSounds.whisperVariant(this.random),
                         0.8f, 0.55f);
             }
-            this.vanish(level, true);
+            this.entityData.set(DATA_CONTACT_POSE, this.isLunging()
+                    ? this.getAttackProgress(0.0f) : .25f);
+            this.entityData.set(DATA_FOLLOW_THROUGH, 1);
+            this.entityData.set(DATA_LUNGING, false);
+            this.entityData.set(DATA_ATTACK_TICK, 0);
+            this.lungeTicks = 0;
+            this.getNavigation().stop();
+            this.setDeltaMovement(Vec3.ZERO);
             return;
         }
         if (this.phaseTicks > HUNT_TIMEOUT_TICKS) {
@@ -1038,8 +1105,7 @@ public final class AbsentEntity extends Monster {
             return;
         }
         this.entityData.set(DATA_PHASE, clamped);
-        this.entityData.set(DATA_LUNGING, false);
-        this.lungeTicks = 0;
+        this.clearAttackVisuals();
         this.phaseTicks = 0;
         if (clamped != PHASE_LURE) {
             this.followTicks = 0;
@@ -1078,6 +1144,8 @@ public final class AbsentEntity extends Monster {
         if (this.flashStunRecoveryTicks <= 0) {
             this.cameraStunTicks = Math.max(this.cameraStunTicks, photographed ? 18 : 10);
             this.flashStunRecoveryTicks = FLASH_STUN_RECOVERY_TICKS;
+            // The already-landed hit remains terminal; otherwise stop its visual clock.
+            if (!this.isFollowingThrough()) this.clearAttackVisuals();
         }
         this.forcedRevealTicks = Math.max(this.forcedRevealTicks, photographed ? 22 : 12);
         this.entityData.set(DATA_REVEAL_PROGRESS,

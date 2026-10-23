@@ -34,7 +34,7 @@ public enum JournalEntry {
     FRONTISPIECE("frontispiece", Kind.FRONTISPIECE, 0, 6, null),
 
     // ——— Créatures, dans l'ordre où l'ancien les a rencontrées ———
-    HOST("host", Kind.CREATURE, 1, 5, null),
+    HOST("host", Kind.CREATURE, 1, 6, null),
     WATCHER("watcher", Kind.CREATURE, 2, 4, null),
     SCUTTLER("scuttler", Kind.CREATURE, 3, 4, null),
     CONTREFAIT("contrefait", Kind.CREATURE, 4, 4, null),
@@ -46,10 +46,10 @@ public enum JournalEntry {
     ORIGINEL("originel", Kind.CREATURE, 10, 5, null),
 
     // ——— Pages arrachées, une par structure ———
-    METHOD_CAMERA("method_camera", Kind.METHOD, 11, 6, StructureType.OBSERVATION_POST),
-    METHOD_REFUGE("method_refuge", Kind.METHOD, 12, 5, StructureType.SHIFTED_HOUSE),
-    METHOD_STILLNESS("method_stillness", Kind.METHOD, 13, 5, StructureType.ASH_SANCTUM),
-    LAST_PAGE("last_page", Kind.METHOD, 14, 6, StructureType.PENUMBRA_WELL);
+    METHOD_CAMERA("method_camera", Kind.METHOD, 11, 8, StructureType.OBSERVATION_POST),
+    METHOD_REFUGE("method_refuge", Kind.METHOD, 12, 8, StructureType.SHIFTED_HOUSE),
+    METHOD_STILLNESS("method_stillness", Kind.METHOD, 13, 8, StructureType.ASH_SANCTUM),
+    LAST_PAGE("last_page", Kind.METHOD, 14, 8, StructureType.PENUMBRA_WELL);
 
     /** Famille d'une page : elle décide de son état par défaut. */
     public enum Kind {

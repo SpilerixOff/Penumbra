@@ -28,5 +28,11 @@ public final class AbsentRenderState extends HumanoidRenderState {
     public boolean slimArms;
     public int modelPartsMask;
     public boolean lunging;
+    public float attackProgress;
+    public float revealAnimationProgress;
+    public boolean followingThrough;
+    public float followThroughProgress;
+    public float contactPose;
+    public boolean confrontationDouble;
     public Identifier skinTexture;
 }

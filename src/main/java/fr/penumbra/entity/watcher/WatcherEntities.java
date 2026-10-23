@@ -36,6 +36,7 @@ public final class WatcherEntities {
                     .sized(0.6f, 2.4f)
                     .eyeHeight(2.1f)
                     .clientTrackingRange(4)
+                    .updateInterval(1)
                     .build(WATCHER_KEY));
 
     private WatcherEntities() {

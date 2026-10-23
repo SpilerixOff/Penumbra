@@ -9,11 +9,19 @@ public final class StoryGuide {
 
     /** Only the reader's current evidence is sent, never another player's history. */
     public record Snapshot(boolean storyEnabled, int stage, boolean won, boolean copiesEnabled,
-                           int bedUses, boolean refugeSeen, int hostObservations) {
+                           int bedUses, boolean refugeSeen, int hostObservations,
+                           boolean investigationEnabled, int volumesMask, boolean cassetteHeard) {
+        public Snapshot(boolean storyEnabled, int stage, boolean won, boolean copiesEnabled,
+                        int bedUses, boolean refugeSeen, int hostObservations) {
+            this(storyEnabled, stage, won, copiesEnabled, bedUses, refugeSeen, hostObservations,
+                    false, 0, false);
+        }
+
         public Snapshot {
             stage = Math.clamp(stage, 0, 6);
             bedUses = Math.clamp(bedUses, 0, 2);
             hostObservations = Math.clamp(hostObservations, 0, 4);
+            volumesMask = Math.clamp(volumesMask, 0, 15);
         }
     }
 
@@ -43,6 +51,14 @@ public final class StoryGuide {
             result.add(new Line("won.body"));
             result.add(new Line("won.calm"));
             result.add(new Line("won.continue"));
+        } else if (state.investigationEnabled() && state.stage() < 6) {
+            result.add(new Line("investigation.count", Integer.bitCount(state.volumesMask())));
+            int missing = InvestigationRules.firstMissing(state.volumesMask());
+            if (missing >= 0) result.add(new Line("investigation.book" + (missing + 1)));
+            else result.add(new Line(state.cassetteHeard() ? "investigation.ready" : "investigation.tape"));
+            result.add(new Line("investigation.compass"));
+            result.add(new Line("investigation.recovery"));
+            result.add(new Line("investigation.refuge"));
         } else {
             result.add(new Line("stage" + state.stage() + ".body"));
             switch (state.stage()) {
@@ -73,6 +89,9 @@ public final class StoryGuide {
                 }
                 default -> throw new IllegalStateException("Unbounded story stage");
             }
+        }
+        if (state.cassetteHeard()) {
+            for (int i = 1; i <= 5; i++) result.add(new Line("journal.penumbra.tape.line" + i, List.of()));
         }
         result.add(new Line("personal"));
         return List.copyOf(result);

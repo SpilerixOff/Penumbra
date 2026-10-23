@@ -73,6 +73,10 @@ public class WatcherEntity extends Monster {
     private static final EntityDataAccessor<Integer> DATA_RECOVERY =
             SynchedEntityData.defineId(WatcherEntity.class, EntityDataSerializers.INT);
     private static final int WINDUP_TICKS = 14;
+    private static final EntityDataAccessor<Boolean> DATA_CONTACT =
+            SynchedEntityData.defineId(WatcherEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_RECOVERY_POSE =
+            SynchedEntityData.defineId(WatcherEntity.class, EntityDataSerializers.FLOAT);
 
     /** Rayon de suivi du joueur le plus proche (blocs). */
     private static final double TRACK_RADIUS = 48.0;
@@ -126,6 +130,8 @@ public class WatcherEntity extends Monster {
         builder.define(DATA_LUNGE_STATE, 0);
         builder.define(DATA_WINDUP, 0);
         builder.define(DATA_RECOVERY, 0);
+        builder.define(DATA_CONTACT, false);
+        builder.define(DATA_RECOVERY_POSE, 0.0f);
     }
 
     /** Vrai sur les deux cotes pendant la lunge synchronisee. */
@@ -140,6 +146,8 @@ public class WatcherEntity extends Monster {
 
     public boolean isWindingUp() { return this.entityData.get(DATA_WINDUP) > 0; }
     public boolean isRecovering() { return this.entityData.get(DATA_RECOVERY) > 0; }
+    public boolean hasContacted() { return this.entityData.get(DATA_CONTACT); }
+    public float getRecoveryPose() { return this.entityData.get(DATA_RECOVERY_POSE); }
 
     public float getWindupProgress(float partialTick) {
         int left = this.entityData.get(DATA_WINDUP);
@@ -402,6 +410,7 @@ public class WatcherEntity extends Monster {
         this.setInvulnerable(true);
         this.noPhysics = false;
         this.entityData.set(DATA_WINDUP, WINDUP_TICKS);
+        this.entityData.set(DATA_CONTACT, false);
         this.entityData.set(DATA_LUNGE_STATE, WatcherLunge.pack(0, duration));
         PenumbraNetworking.sendSceneHush(owner, WINDUP_TICKS + duration);
         PenumbraNetworking.sendSoundPrioritySpatial(owner, PenumbraSounds.HOST_WHISPER,
@@ -452,6 +461,7 @@ public class WatcherEntity extends Monster {
         if (elapsed >= duration) {
             if (StareLunge.canContact(this.distanceToSqr(owner), this.hasLineOfSight(owner))) {
                 this.doHurtTarget(level, owner);
+                this.entityData.set(DATA_CONTACT, true);
                 if (PenumbraConfig.get().jumpscareFrequency > 0.0f) {
                     PenumbraNetworking.sendSoundPrioritySpatial(owner, PenumbraConfig.get().screamersEnabled
                                     ? PenumbraSounds.SCREAMER_SHRIEK : PenumbraSounds.HOST_STINGER,
@@ -473,6 +483,8 @@ public class WatcherEntity extends Monster {
     }
 
     private void beginRecovery(ServerPlayer owner) {
+        this.entityData.set(DATA_RECOVERY_POSE, this.isWindingUp() ? this.getWindupProgress(0)
+                : this.isLunging() ? 2 + this.getLungeProgress(0) : 0);
         this.entityData.set(DATA_LUNGE_STATE, 0);
         this.entityData.set(DATA_WINDUP, 0);
         this.entityData.set(DATA_RECOVERY, 1);

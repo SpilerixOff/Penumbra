@@ -49,5 +49,7 @@ public class HostEntityRenderer extends MobRenderer<HostEntity, HostRenderState,
         state.windupProgress = entity.getWindupProgress(partialTick);
         state.recovering = entity.isRecovering();
         state.recoveryProgress = entity.getRecoveryProgress(partialTick);
+        state.grappling = entity.isGrappling();
+        state.grappleProgress = entity.getGrappleProgress(partialTick);
     }
 }

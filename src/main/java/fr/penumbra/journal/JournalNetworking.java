@@ -42,8 +42,12 @@ public final class JournalNetworking {
      * @param total       pages révélables au total
      */
     public record OpenJournalS2CPacket(List<String> readableIds, int progress, int total,
-                                       StoryGuide.Snapshot story)
+                                       StoryGuide.Snapshot story, String focusId)
             implements CustomPacketPayload {
+
+        public OpenJournalS2CPacket(List<String> readableIds, int progress, int total, StoryGuide.Snapshot story) {
+            this(readableIds, progress, total, story, "");
+        }
 
         public OpenJournalS2CPacket {
             readableIds = List.copyOf(readableIds);
@@ -51,6 +55,9 @@ public final class JournalNetworking {
             total = Math.clamp(total, 1, MAX_IDS);
             progress = Math.clamp(progress, 0, total);
             Objects.requireNonNull(story, "story");
+            if (focusId == null) focusId = "";
+            if (focusId.length() > 64) throw new IllegalArgumentException("Journal focus is too long");
+            if (JournalEntry.byId(focusId) == null) focusId = "";
         }
 
         public static final CustomPacketPayload.Type<OpenJournalS2CPacket> TYPE =
@@ -63,6 +70,7 @@ public final class JournalNetworking {
                         ByteBufCodecs.VAR_INT, OpenJournalS2CPacket::progress,
                         ByteBufCodecs.VAR_INT, OpenJournalS2CPacket::total,
                         STORY_CODEC, OpenJournalS2CPacket::story,
+                        ByteBufCodecs.stringUtf8(64), OpenJournalS2CPacket::focusId,
                         OpenJournalS2CPacket::new);
 
         @Override
@@ -77,7 +85,8 @@ public final class JournalNetworking {
                 public StoryGuide.Snapshot decode(RegistryFriendlyByteBuf buffer) {
                     return new StoryGuide.Snapshot(buffer.readBoolean(), buffer.readVarInt(),
                             buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
-                            buffer.readBoolean(), buffer.readVarInt());
+                            buffer.readBoolean(), buffer.readVarInt(), buffer.readBoolean(),
+                            buffer.readVarInt(), buffer.readBoolean());
                 }
 
                 @Override
@@ -89,6 +98,9 @@ public final class JournalNetworking {
                     buffer.writeVarInt(story.bedUses());
                     buffer.writeBoolean(story.refugeSeen());
                     buffer.writeVarInt(story.hostObservations());
+                    buffer.writeBoolean(story.investigationEnabled());
+                    buffer.writeVarInt(story.volumesMask());
+                    buffer.writeBoolean(story.cassetteHeard());
                 }
             };
 
@@ -103,18 +115,25 @@ public final class JournalNetworking {
 
     /** Envoie l'état courant du carnet et déclenche son ouverture chez le joueur. */
     public static void open(ServerPlayer player) {
+        open(player, "");
+    }
+
+    public static void open(ServerPlayer player, String focusId) {
         MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         JournalKnowledge knowledge = JournalKnowledge.get(server);
+        InvestigationProgress.sync(player);
         PenumbraConfig config = PenumbraConfig.get();
         Map<String, Integer> evidence = StoryManager.getCounters(player);
         StoryGuide.Snapshot story = new StoryGuide.Snapshot(
                 config.storyEnabled, StoryManager.getStage(player), ConfrontationManager.isWon(player),
                 config.imperfectCopiesEnabled, evidence.getOrDefault(StoryManager.KEY_BED_USED, 0),
                 evidence.getOrDefault(StoryManager.KEY_REFUGE_HOST_SEEN, 0) > 0,
-                evidence.getOrDefault(StoryManager.KEY_HOST_OBSERVED, 0));
+                evidence.getOrDefault(StoryManager.KEY_HOST_OBSERVED, 0),
+                InvestigationProgress.required(player), InvestigationProgress.volumesMask(player),
+                InvestigationProgress.cassetteHeard(player));
         List<String> readable = knowledge.readableIds(player.getUUID());
         if (readable.size() > MAX_IDS) {
             readable = readable.subList(0, MAX_IDS);
@@ -122,6 +141,6 @@ public final class JournalNetworking {
         ServerPlayNetworking.send(player, new OpenJournalS2CPacket(
                 readable,
                 knowledge.progress(player.getUUID()),
-                JournalEntry.discoverableCount(), story));
+                JournalEntry.discoverableCount(), story, focusId));
     }
 }

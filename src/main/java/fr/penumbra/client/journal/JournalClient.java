@@ -26,7 +26,7 @@ public final class JournalClient {
                 (packet, context) -> context.client().execute(() -> {
                     Set<String> readable = new LinkedHashSet<>(packet.readableIds());
                     context.client().setScreen(new SurveyJournalScreen(
-                            readable, packet.progress(), packet.total(), packet.story()));
+                            readable, packet.progress(), packet.total(), packet.story(), packet.focusId()));
                 }));
     }
 }

@@ -68,6 +68,66 @@ class StoryGuideTest {
         assertThrows(UnsupportedOperationException.class, () -> StoryGuide.lines(state).clear());
     }
 
+    @Test
+    void bookTrailAlwaysPointsAtTheFirstMissingVolumeEvenWhenFoundOutOfOrder() {
+        for (int mask = 0; mask < 15; mask++) {
+            StoryGuide.Snapshot state = investigation(3, false, mask, false);
+            List<String> keys = keys(state);
+            int expectedBook = 1;
+            while ((mask & (1 << (expectedBook - 1))) != 0) expectedBook++;
+            assertTrue(keys.contains("journal.penumbra.guide.investigation.book" + expectedBook));
+            for (int other = 1; other <= 4; other++) {
+                if (other != expectedBook) {
+                    assertFalse(keys.contains("journal.penumbra.guide.investigation.book" + other));
+                }
+            }
+            assertEquals(List.of(Integer.bitCount(mask)), StoryGuide.lines(state).stream()
+                    .filter(line -> line.key().endsWith("investigation.count"))
+                    .findFirst().orElseThrow().arguments());
+            assertTrue(keys.contains("journal.penumbra.guide.investigation.compass"));
+            assertTrue(keys.contains("journal.penumbra.guide.investigation.recovery"));
+            assertFalse(keys.contains("journal.penumbra.guide.investigation.ready"));
+            assertFalse(keys.contains("journal.penumbra.guide.stage3.body"));
+        }
+    }
+
+    @Test
+    void fourBooksStillRequireListeningToTheCassetteBeforeTheFinalObjective() {
+        List<String> waiting = keys(investigation(5, false, 15, false));
+        assertTrue(waiting.contains("journal.penumbra.guide.investigation.tape"));
+        assertFalse(waiting.contains("journal.penumbra.guide.investigation.ready"));
+        List<String> ready = keys(investigation(5, false, 15, true));
+        assertTrue(ready.contains("journal.penumbra.guide.investigation.ready"));
+        assertFalse(ready.contains("journal.penumbra.guide.investigation.tape"));
+        assertTrue(ready.contains("journal.penumbra.guide.investigation.recovery"));
+    }
+
+    @Test
+    void confrontationAndVictoryKeepTheirSpecificInstructionsWithTheBookTrailEnabled() {
+        List<String> confrontation = keys(investigation(6, false, 15, true));
+        assertTrue(confrontation.contains("journal.penumbra.guide.stage6.focus"));
+        assertTrue(confrontation.contains("journal.penumbra.guide.stage6.flash"));
+        assertTrue(confrontation.stream().noneMatch(key -> key.contains(".investigation.")));
+        List<String> victory = keys(investigation(6, true, 15, true));
+        assertTrue(victory.contains("journal.penumbra.guide.won.continue"));
+        assertTrue(victory.stream().noneMatch(key -> key.contains(".investigation.") || key.contains("stage6")));
+    }
+
+    @Test
+    void disabledStorySuppressesBookObjectivesAndVolumeCountersAreBounded() {
+        StoryGuide.Snapshot disabled = new StoryGuide.Snapshot(false, 2, false, true, 0, false, 0,
+                true, 15, true);
+        assertTrue(keys(disabled).stream().noneMatch(key -> key.contains(".investigation.")));
+        assertEquals(0, investigation(0, false, -1, false).volumesMask());
+        assertEquals(15, investigation(0, false, Integer.MAX_VALUE, false).volumesMask());
+        assertFalse(state(0, false, true, 0, false, 0).investigationEnabled(),
+                "The legacy constructor preserves the original story guide");
+    }
+
+    private static StoryGuide.Snapshot investigation(int stage, boolean won, int mask, boolean heard) {
+        return new StoryGuide.Snapshot(true, stage, won, true, 2, true, 4, true, mask, heard);
+    }
+
     private static StoryGuide.Snapshot state(int stage, boolean won, boolean copies,
                                              int beds, boolean visitor, int observations) {
         return new StoryGuide.Snapshot(true, stage, won, copies, beds, visitor, observations);

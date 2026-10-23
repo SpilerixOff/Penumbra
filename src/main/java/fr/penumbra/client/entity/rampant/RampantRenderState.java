@@ -11,4 +11,6 @@ public final class RampantRenderState extends LivingEntityRenderState {
     public int attachment;
     public float phaseTicks;
     public boolean ambushWarning;
+    public float warningProgress;
+    public float dropRelease;
 }

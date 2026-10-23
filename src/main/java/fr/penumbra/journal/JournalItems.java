@@ -46,7 +46,7 @@ public final class JournalItems {
                     .networkSynchronized(ByteBufCodecs.STRING_UTF8)
                     .build());
 
-    /** Route choisie par le joueur ; les anciennes boussoles visent le camp. */
+    /** Route choisie ; les boussoles sans réglage commencent désormais par l'enquête. */
     public static final DataComponentType<Integer> COMPASS_MODE = Registry.register(
             BuiltInRegistries.DATA_COMPONENT_TYPE,
             PenumbraMod.id("compass_mode"),
@@ -103,6 +103,34 @@ public final class JournalItems {
                     .stacksTo(1)
                     .setId(SURVEY_COMPASS_KEY)));
 
+    public static final Item VOLUME_ONE = volume("warrick_volume_1", JournalEntry.METHOD_CAMERA);
+    public static final Item VOLUME_TWO = volume("warrick_volume_2", JournalEntry.METHOD_REFUGE);
+    public static final Item VOLUME_THREE = volume("warrick_volume_3", JournalEntry.METHOD_STILLNESS);
+    public static final Item VOLUME_FOUR = volume("warrick_volume_4", JournalEntry.LAST_PAGE);
+    public static final Item WARRICK_CASSETTE = cassette();
+
+    private static Item volume(String id, JournalEntry entry) {
+        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, PenumbraMod.id(id));
+        return Registry.register(BuiltInRegistries.ITEM, key,
+                new InvestigationVolumeItem(new Item.Properties().stacksTo(1).setId(key), entry));
+    }
+
+    private static Item cassette() {
+        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, PenumbraMod.id("warrick_cassette"));
+        return Registry.register(BuiltInRegistries.ITEM, key,
+                new WarrickCassetteItem(new Item.Properties().stacksTo(1).setId(key)));
+    }
+
+    public static Item volumeItem(JournalEntry entry) {
+        return switch (entry) {
+            case METHOD_CAMERA -> VOLUME_ONE;
+            case METHOD_REFUGE -> VOLUME_TWO;
+            case METHOD_STILLNESS -> VOLUME_THREE;
+            case LAST_PAGE -> VOLUME_FOUR;
+            default -> throw new IllegalArgumentException("Not an investigation volume: " + entry);
+        };
+    }
+
     private JournalItems() {
     }
 
@@ -129,6 +157,11 @@ public final class JournalItems {
                 .register(entries -> {
                     entries.accept(SURVEY_JOURNAL);
                     entries.accept(SURVEY_COMPASS);
+                    entries.accept(VOLUME_ONE);
+                    entries.accept(VOLUME_TWO);
+                    entries.accept(VOLUME_THREE);
+                    entries.accept(VOLUME_FOUR);
+                    entries.accept(WARRICK_CASSETTE);
                     for (JournalEntry entry : JournalEntry.ORDER) {
                         if (entry.kind() == JournalEntry.Kind.METHOD) {
                             entries.accept(pageStack(entry));

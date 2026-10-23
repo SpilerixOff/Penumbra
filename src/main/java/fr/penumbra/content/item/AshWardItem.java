@@ -1,6 +1,7 @@
 package fr.penumbra.content.item;
 
 import fr.penumbra.PenumbraMod;
+import fr.penumbra.entity.HostEntity;
 import fr.penumbra.entity.absent.AbsentEntity;
 import fr.penumbra.entity.contrefait.ContrefaitEntity;
 import fr.penumbra.entity.originel.OriginelEntity;
@@ -71,7 +72,8 @@ public final class AshWardItem extends Item {
                     && !absent.beginAshBanishment(serverPlayer)) {
                 continue;
             }
-            if (target instanceof AbsentEntity absent && absent.isFalseCompanion()) {
+            if (target instanceof AbsentEntity absent && absent.isFalseCompanion()
+                    || target instanceof HostEntity host && host.isPrivateToOwner()) {
                 serverLevel.sendParticles(serverPlayer, PenumbraParticles.ASH_MOTE,
                         false, false,
                         target.getX(), target.getY() + target.getBbHeight() * 0.5,
@@ -114,6 +116,9 @@ public final class AshWardItem extends Item {
     private static boolean isBanishableFor(ServerPlayer caster, Monster monster) {
         if (!isBanishable(monster)) {
             return false;
+        }
+        if (monster instanceof HostEntity host) {
+            return AshWardPolicy.canBanishFor(host.isPrivateToOwner(), host.isOwnedBy(caster));
         }
         if (monster instanceof OriginelEntity originel) {
             return AshWardPolicy.canBanishFor(true, originel.isOwnedBy(caster));

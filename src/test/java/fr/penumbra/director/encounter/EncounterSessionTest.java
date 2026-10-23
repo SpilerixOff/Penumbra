@@ -26,8 +26,9 @@ class EncounterSessionTest {
         assertEquals(OBSERVE, scene.advance(24, false, true, true));
         assertEquals(OBSERVE, scene.advance(33, true, true, true));
         assertEquals(LUNGE, scene.advance(34, true, true, true));
-        assertEquals(LUNGE, scene.advance(95, true, true, true), "Leave time for the real recoil");
-        assertEquals(DONE, scene.advance(106, true, true, true));
+        assertEquals(LUNGE, scene.advance(122, true, true, true),
+                "The lift and throw must leave time for the complete recoil");
+        assertEquals(DONE, scene.advance(134, true, true, true));
     }
 
     @Test

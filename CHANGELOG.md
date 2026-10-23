@@ -1,5 +1,100 @@
 # Changelog
 
+## [0.28.0] — La Seconde Présence
+
+- Nouvelle rencontre de l'Hôte : pas derrière un obstacle opaque, marche
+  continue autour d'un angle, hésitation au regard et recul. Une approche
+  volontaire après l'aperçu peut déclencher son bond préparé ; certaines
+  variantes se retirent toujours.
+- Cinq secondes d'immobilité hors de sa vue font commencer son départ.
+  Caméra et talisman fournissent d'autres moyens de réaction. La scène est
+  bornée et coordonnée avec le directeur, la cassette et la finale.
+- Le placement reste dans les chunks chargés, exige un chemin sec et solide,
+  refuse les vitrages comme cachettes et ne modifie aucun bloc. Sons et corps
+  sont privés au joueur ; l'approche d'un autre joueur annule la scène.
+- L'annulation est vérifiée avant le contact physique de l'Hôte. Un talisman
+  d'un autre joueur ne peut plus bannir un Hôte privé.
+- Nouvel indice dans le Relevé, option `secondPresenceEnabled` et commandes
+  opérateur `presence test|status|clear`.
+
+Voir le [guide de la rencontre](docs/SECOND_PRESENCE_0280_FR.md), la
+[recherche documentée](docs/HORROR_RESEARCH_0280_FR.md) et les
+[résultats des vérifications](docs/KNOWN_ISSUES.md).
+
+## [0.27.0] — Les quatre volumes de Warrick
+
+- Quatre livres physiques et partageables relient le poste d'observation,
+  la maison décalée, le Sanctuaire de cendre et le puits de Penumbra. Le Relevé
+  indique le premier volume manquant et conserve les découvertes hors ordre.
+- Chaque enquêteur peut retrouver les archives dans un coffre déjà vidé.
+  À l'ancien emplacement d'un coffre détruit, utiliser le Relevé récupère
+  l'indice ; s'accroupir et l'utiliser restitue les livres et la cassette déjà
+  découverts, selon les places disponibles.
+- La cassette endommagée du puits se lit avec une caméra VHS dans l'inventaire :
+  quinze secondes de mécanisme et cinq fragments transcrits dans le chat,
+  puis une transcription permanente dans Enquête. Une lecture interrompue
+  peut être recommencée.
+- Onglets Enquête et Fabrication, grilles 3×3, résultats, quantités et
+  infobulles. Les recettes de boussole, carnet, caméra, talisman et Sceau
+  de cendre sont lues depuis leurs JSON ; les plans avancés apparaissent
+  avec les livres correspondants. Le sceau se fabrique avec quatre charbons
+  de bois autour d'un éclat d'améthyste.
+- Boussole en mode Enquête et secours de navigation : lorsqu'aucun site du
+  type requis n'est connu, un site peut être préparé dans du terrain nouveau
+  et admissible. Les zones déjà générées ne sont pas candidates à ce secours.
+- Le rituel final des nouvelles enquêtes exige quatre volumes, la cassette
+  lue et une caméra. Les anciennes pages restent valables ; les joueurs déjà
+  au stade 5 ou 6 avant l'initialisation de ce parcours conservent leur accès
+  à la finale.
+- Copies du refuge plus reconnaissables : proportions, matériaux, côté de
+  l'entrée et mobilier sélectionné, fenêtre condamnée et passage praticable.
+  La copie représente une pièce bornée, conserve les contrôles du terrain et
+  ne duplique aucun contenu de coffre ni équipement du joueur.
+- Nouveaux puits équipés d'une échelle de retour et d'un auvent rehaussé pour
+  dégager la sortie. Les puits déjà présents dans les sauvegardes sont conservés.
+
+Version de développement, distincte de la préversion publique **0.24.0**.
+Voir [le parcours et les limites](docs/INVESTIGATION_0270.md) et
+[les résultats de validation consignés séparément](docs/KNOWN_ISSUES.md).
+
+## [0.26.1] — Bonds plus vifs
+
+- L'Hôte, l'Observateur, le Contrefait et l'Originel parcourent leur charge en
+  6–9 ticks au lieu de 8–12 : durée réduite de 25 %, soit 0,30–0,45 s à 20 TPS.
+- L'impulsion horizontale des bonds de l'Absent et du Rampant augmente de 25 %.
+  Leur mouvement vertical, leur préparation et leur récupération sont conservés.
+- Les dégâts, la saisie/levée/projection de l'Hôte et la chute du plafond du
+  Rampant restent inchangés. Les contrôles de collision restent actifs.
+
+## [0.26.0] — Huit façons d'approcher
+
+- Animations distinctes pour l'Observateur, le Rampant, l'Écouteur, la Cavaleuse,
+  le Contrefait, le Projectionniste, l'Originel et l'Absent ; l'Hôte conserve sa prise.
+- Squelettes reliés et articulés, préparation, geste d'attaque et récupération
+  visibles, horloges synchronisées avec le serveur.
+- La Cavaleuse effectue une feinte sans dégâts ; le Projectionniste s'arme,
+  se déploie puis se replie sans blesser le joueur.
+- Les charges du Contrefait et de l'Originel s'engagent vers une position fixe
+  et vérifient les collisions ; esquive et obstacle peuvent empêcher le contact.
+- Le Rampant conserve une courte phase de crochet/rebond après le contact,
+  et l'Écouteur revérifie le bruit et la portée au moment de son balayage.
+
+Version de développement ; [recherche et choix](docs/MONSTER_ANIMATIONS_FR.md),
+[résultats et limites des essais](docs/KNOWN_ISSUES.md).
+
+## [0.25.0] — La prise de l'Hôte
+
+- La charge déclenchée par le regard comprend un bond en arc, une plongée,
+  une saisie à deux mains, un soulèvement puis une projection physique.
+- Le corps, les bras et les mains suivent les étapes synchronisées par le
+  serveur. Le joueur garde le contrôle de son regard pendant la prise.
+- La trajectoire reste engagée vers la position initiale : une esquive peut
+  éviter la saisie. Le flash peut interrompre la prise avant la projection.
+- Le déplacement vérifie les obstacles et l'espace au-dessus du joueur ;
+  une interruption ne conserve aucun verrou de mouvement ou de gravité.
+
+Version de développement ; [résultats et limites des essais](docs/KNOWN_ISSUES.md).
+
 ## [0.24.0] — Des présences dans le monde
 
 - Les visages de screamer, les rémanences de visages et les écrans noirs de

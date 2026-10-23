@@ -9,9 +9,9 @@ class WatcherLungeTest {
 
     @Test
     void packedStateKeepsElapsedTickAndBoundedDuration() {
-        int state = WatcherLunge.pack(4, 10);
+        int state = WatcherLunge.pack(4, 8);
         assertEquals(4, WatcherLunge.elapsedTicks(state));
-        assertEquals(10, WatcherLunge.durationTicks(state));
+        assertEquals(8, WatcherLunge.durationTicks(state));
 
         int clamped = WatcherLunge.pack(99, 99);
         assertEquals(WatcherLunge.MAX_DURATION_TICKS, WatcherLunge.elapsedTicks(clamped));
@@ -20,10 +20,10 @@ class WatcherLungeTest {
 
     @Test
     void renderProgressInterpolatesAndClamps() {
-        int state = WatcherLunge.pack(4, 10);
-        assertEquals(0.45f, WatcherLunge.progress(state, 0.5f), 0.0001f);
+        int state = WatcherLunge.pack(4, 8);
+        assertEquals(0.5625f, WatcherLunge.progress(state, 0.5f), 0.0001f);
         assertEquals(0.0f, WatcherLunge.progress(0, 0.5f));
-        assertEquals(1.0f, WatcherLunge.progress(WatcherLunge.pack(10, 10), 1.0f));
+        assertEquals(1.0f, WatcherLunge.progress(WatcherLunge.pack(8, 8), 1.0f));
     }
 
     @Test

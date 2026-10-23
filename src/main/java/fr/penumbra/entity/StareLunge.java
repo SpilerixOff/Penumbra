@@ -5,8 +5,8 @@ import net.minecraft.world.phys.Vec3;
 /** Encodage synchronisé et courbe pure du bond déclenché par le regard. */
 public final class StareLunge {
 
-    public static final int MIN_DURATION_TICKS = 8;
-    public static final int MAX_DURATION_TICKS = 12;
+    public static final int MIN_DURATION_TICKS = 6;
+    public static final int MAX_DURATION_TICKS = 9;
     public static final int RECOVERY_TICKS = 36;
     private static final int ELAPSED_MASK = 0xFFFF;
 

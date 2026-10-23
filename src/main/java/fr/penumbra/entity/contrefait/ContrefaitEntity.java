@@ -9,6 +9,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.EntityType;
@@ -60,6 +61,14 @@ public class ContrefaitEntity extends Monster {
     /** Tick courant et durée de la charge, synchronisés pour la pose client. */
     private static final EntityDataAccessor<Integer> DATA_LUNGE_STATE =
             SynchedEntityData.defineId(ContrefaitEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_WINDUP =
+            SynchedEntityData.defineId(ContrefaitEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_RECOVERY =
+            SynchedEntityData.defineId(ContrefaitEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_RECOVERY_POSE =
+            SynchedEntityData.defineId(ContrefaitEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_OBSERVED =
+            SynchedEntityData.defineId(ContrefaitEntity.class, EntityDataSerializers.BOOLEAN);
 
     /** Distance sous laquelle la disparition s'arme. */
     public static final double VANISH_DISTANCE = 10.0;
@@ -83,6 +92,8 @@ public class ContrefaitEntity extends Monster {
     private UUID ownerUuid;
     private int stareTicks;
     private Vec3 lungeStartPosition;
+    private Vec3 lungeTargetPosition;
+    private Vec3 lungeDirection = Vec3.ZERO;
 
     public ContrefaitEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -93,6 +104,10 @@ public class ContrefaitEntity extends Monster {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_LUNGE_STATE, 0);
+        builder.define(DATA_WINDUP, 0);
+        builder.define(DATA_RECOVERY, 0);
+        builder.define(DATA_RECOVERY_POSE, 0.0f);
+        builder.define(DATA_OBSERVED, false);
     }
 
     /** Attributs : HP 20, vitesse 0.25 (lente, délibérée), followRange 64, knockback ignoré. */
@@ -137,7 +152,7 @@ public class ContrefaitEntity extends Monster {
 
     /** Vrai si un joueur a l'entité « à l'écran » (évalué 1/2 ticks, lu par le goal). */
     public boolean isObserved() {
-        return this.observed;
+        return this.entityData.get(DATA_OBSERVED);
     }
 
     /** Vrai des deux côtés pendant la charge terminale. */
@@ -147,8 +162,21 @@ public class ContrefaitEntity extends Monster {
 
     /** Progression interpolée 0–1 utilisée uniquement par le renderer. */
     public float getLungeProgress(float partialTick) {
-        return ContrefaitLunge.progress(this.entityData.get(DATA_LUNGE_STATE), partialTick);
+        return this.isWindingUp() ? 0.0f
+                : ContrefaitLunge.progress(this.entityData.get(DATA_LUNGE_STATE), partialTick);
     }
+
+    public boolean isWindingUp() { return this.entityData.get(DATA_WINDUP) > 0; }
+    public boolean isRecovering() { return this.entityData.get(DATA_RECOVERY) > 0; }
+    public float getWindupProgress(float partialTick) {
+        return Mth.clamp((this.entityData.get(DATA_WINDUP) - 1
+                + Mth.clamp(partialTick, 0.0f, 1.0f)) / ContrefaitLunge.WINDUP_TICKS, 0.0f, 1.0f);
+    }
+    public float getRecoveryProgress(float partialTick) {
+        return Mth.clamp((this.entityData.get(DATA_RECOVERY) - 1
+                + Mth.clamp(partialTick, 0.0f, 1.0f)) / ContrefaitLunge.RECOVERY_TICKS, 0.0f, 1.0f);
+    }
+    public float getRecoveryPose() { return this.entityData.get(DATA_RECOVERY_POSE); }
 
     public void setOwner(ServerPlayer owner) {
         this.ownerUuid = owner.getUUID();
@@ -177,7 +205,12 @@ public class ContrefaitEntity extends Monster {
         super.readAdditionalSaveData(input);
         this.lifetimeTicks = Math.max(0, input.getIntOr("PenumbraLifetime", 0));
         this.stareTicks = Math.max(0, input.getIntOr("PenumbraStareTicks", 0));
-        this.entityData.set(DATA_LUNGE_STATE, input.getIntOr("PenumbraLungeState", 0));
+        // A transient charge cannot resume without its committed world-space path.
+        this.entityData.set(DATA_LUNGE_STATE, 0);
+        this.entityData.set(DATA_WINDUP, 0);
+        this.entityData.set(DATA_RECOVERY, 0);
+        this.setNoGravity(false);
+        this.noPhysics = false;
         String owner = input.getStringOr("PenumbraOwner", "");
         if (!owner.isBlank()) {
             try {
@@ -193,7 +226,6 @@ public class ContrefaitEntity extends Monster {
         super.addAdditionalSaveData(output);
         output.putInt("PenumbraLifetime", this.lifetimeTicks);
         output.putInt("PenumbraStareTicks", this.stareTicks);
-        output.putInt("PenumbraLungeState", this.entityData.get(DATA_LUNGE_STATE));
         if (this.ownerUuid != null) {
             output.putString("PenumbraOwner", this.ownerUuid.toString());
         }
@@ -203,6 +235,16 @@ public class ContrefaitEntity extends Monster {
     public void tick() {
         super.tick();
         if (!(this.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!this.isAlive() || this.isRemoved()) {
+            this.entityData.set(DATA_LUNGE_STATE, 0);
+            this.entityData.set(DATA_WINDUP, 0);
+            this.entityData.set(DATA_RECOVERY, 0);
+            this.setNoGravity(false);
+            this.noPhysics = false;
+            this.setDeltaMovement(Vec3.ZERO);
+            if (!this.isRemoved()) this.discard();
             return;
         }
         PenumbraConfig config = PenumbraConfig.get();
@@ -220,6 +262,10 @@ public class ContrefaitEntity extends Monster {
 
         // La charge est terminale : proximité, navigation et timeout ne doivent
         // jamais déclencher l'ancienne disparition avant le screamer.
+        if (this.isRecovering()) {
+            this.tickRecovery(level);
+            return;
+        }
         if (this.isLunging()) {
             this.tickLunge(level, owner);
             return;
@@ -231,10 +277,11 @@ public class ContrefaitEntity extends Monster {
         }
         if (this.tickCount % OBSERVED_CHECK_INTERVAL == 0) {
             this.observed = computeObserved(level);
+            this.entityData.set(DATA_OBSERVED, this.observed);
             this.stareTicks = ContrefaitLunge.nextStareTicks(this.stareTicks,
                     this.isPreciselyStaredAtBy(level, owner), OBSERVED_CHECK_INTERVAL);
             if (this.stareTicks >= ContrefaitLunge.stareThresholdTicks(config.watcherStareSeconds)) {
-                this.startLunge();
+                this.startLunge(owner);
                 return;
             }
         }
@@ -243,60 +290,117 @@ public class ContrefaitEntity extends Monster {
         }
     }
 
-    /** Arme une charge personnelle de 8–12 ticks, sans IA, gravité ni collision. */
-    private void startLunge() {
+    /** Eight ticks of visible tension precede a committed, collision-checked charge. */
+    private void startLunge(ServerPlayer owner) {
         int duration = ContrefaitLunge.MIN_DURATION_TICKS
                 + this.random.nextInt(ContrefaitLunge.MAX_DURATION_TICKS
                 - ContrefaitLunge.MIN_DURATION_TICKS + 1);
         this.lungeStartPosition = this.position();
+        this.lungeTargetPosition = ContrefaitLunge.committedTarget(this.position(), owner.position());
+        this.lungeDirection = this.lungeTargetPosition.subtract(this.position())
+                .multiply(1.0, 0.0, 1.0).normalize();
         this.getNavigation().stop();
         this.setDeltaMovement(Vec3.ZERO);
         this.setNoGravity(true);
-        this.noPhysics = true;
+        this.noPhysics = false;
+        this.setNoAi(true);
+        this.entityData.set(DATA_WINDUP, 1);
         this.entityData.set(DATA_LUNGE_STATE, ContrefaitLunge.pack(0, duration));
+        this.faceCommittedDirection();
     }
 
     /**
-     * Fonce en 3D jusqu'à 65 cm du visage ; le screamer n'est envoyé qu'après
-     * l'arrivée. Aucun goal d'attaque ni aucune collision n'intervient.
+     * The whole body sweeps along the captured route. Only physical contact
+     * causes the single hit; a dodge or an obstacle leaves a visible recovery.
      */
     private void tickLunge(ServerLevel level, ServerPlayer owner) {
-        if (!this.hasLineOfSight(owner)) {
-            this.discard();
+        if (!this.hasLineOfSight(owner) || this.lungeStartPosition == null
+                || this.lungeTargetPosition == null) {
+            this.beginRecovery();
             return;
         }
         this.getNavigation().stop();
         this.setDeltaMovement(Vec3.ZERO);
         this.setNoGravity(true);
-        this.noPhysics = true;
+        this.noPhysics = false;
+        this.faceCommittedDirection();
+
+        int windup = this.entityData.get(DATA_WINDUP);
+        if (windup > 0) {
+            if (windup >= ContrefaitLunge.WINDUP_TICKS) this.entityData.set(DATA_WINDUP, 0);
+            else this.entityData.set(DATA_WINDUP, windup + 1);
+            return;
+        }
 
         int state = this.entityData.get(DATA_LUNGE_STATE);
         int duration = ContrefaitLunge.durationTicks(state);
         int elapsed = Math.min(duration, ContrefaitLunge.elapsedTicks(state) + 1);
         this.entityData.set(DATA_LUNGE_STATE, ContrefaitLunge.pack(elapsed, duration));
 
-        if (this.lungeStartPosition == null) {
-            this.lungeStartPosition = this.position();
+        Vec3 next = ContrefaitLunge.position(this.lungeStartPosition,
+                this.lungeTargetPosition, elapsed, duration);
+        Vec3 travel = next.subtract(this.position());
+        int steps = ContrefaitLunge.collisionSteps(travel.length());
+        Vec3 step = travel.scale(1.0 / steps);
+        for (int i = 0; i < steps; i++) {
+            if (!this.canOccupySweep(level, this.getBoundingBox().expandTowards(step))) {
+                this.beginRecovery();
+                return;
+            }
+            this.setPos(this.position().add(step));
+            if (ContrefaitLunge.canHit(this.getBoundingBox(), owner.getBoundingBox(),
+                    this.hasLineOfSight(owner))) {
+                this.doHurtTarget(level, owner);
+                String type = PenumbraConfig.get().screamersEnabled
+                        ? "lunge_screamer" : "apparition";
+                PenumbraNetworking.sendJumpscare(owner, type, 1.0f);
+                this.beginRecovery();
+                return;
+            }
         }
-        Vec3 ownerEye = owner.getEyePosition();
-        Vec3 startEye = this.lungeStartPosition.add(0.0, this.getEyeHeight(), 0.0);
-        Vec3 fromFace = startEye.subtract(ownerEye);
-        if (fromFace.lengthSqr() < 1.0E-6) {
-            fromFace = owner.getLookAngle();
-        }
-        Vec3 endEye = ownerEye.add(fromFace.normalize().scale(0.65));
-        Vec3 endFeet = endEye.subtract(0.0, this.getEyeHeight(), 0.0);
-        double eased = ContrefaitLunge.easedProgress(elapsed, duration);
-        this.setPos(this.lungeStartPosition.lerp(endFeet, eased));
-        this.getLookControl().setLookAt(owner, 180.0f, 180.0f);
+        if (elapsed >= duration) this.beginRecovery();
+    }
 
-        if (elapsed >= duration) {
-            this.doHurtTarget(level, owner);
-            String type = PenumbraConfig.get().screamersEnabled
-                    ? "lunge_screamer" : "apparition";
-            PenumbraNetworking.sendJumpscare(owner, type, 1.0f);
-            this.discard();
+    private boolean canOccupySweep(ServerLevel level, AABB swept) {
+        return level.hasChunksAt(Mth.floor(swept.minX), Mth.floor(swept.minZ),
+                Mth.floor(swept.maxX), Mth.floor(swept.maxZ))
+                && level.getWorldBorder().isWithinBounds(swept)
+                && level.noCollision(this, swept);
+    }
+
+    private void faceCommittedDirection() {
+        float yaw = (float) (Mth.atan2(this.lungeDirection.z, this.lungeDirection.x)
+                * Mth.RAD_TO_DEG) - 90.0f;
+        this.setYRot(yaw);
+        this.setYBodyRot(yaw);
+        this.setYHeadRot(yaw);
+        this.setXRot(0.0f);
+    }
+
+    private void beginRecovery() {
+        this.entityData.set(DATA_RECOVERY_POSE, this.isWindingUp()
+                ? -this.getWindupProgress(1.0f) : this.getLungeProgress(0.0f));
+        this.entityData.set(DATA_LUNGE_STATE, 0);
+        this.entityData.set(DATA_WINDUP, 0);
+        this.entityData.set(DATA_RECOVERY, 1);
+        this.setDeltaMovement(Vec3.ZERO);
+        this.setNoGravity(false);
+        this.noPhysics = false;
+        this.getNavigation().stop();
+    }
+
+    private void tickRecovery(ServerLevel level) {
+        int elapsed = this.entityData.get(DATA_RECOVERY);
+        this.setDeltaMovement(Vec3.ZERO);
+        if (elapsed > 4) {
+            Vec3 step = this.lungeDirection.scale(-0.065);
+            Vec3 next = this.position().add(step);
+            if (this.canOccupySweep(level, this.getBoundingBox().expandTowards(step))
+                    && level.getBlockState(BlockPos.containing(next).below()).isSolidRender()
+                    && level.getFluidState(BlockPos.containing(next)).isEmpty()) this.setPos(next);
         }
+        if (elapsed >= ContrefaitLunge.RECOVERY_TICKS) this.discard();
+        else this.entityData.set(DATA_RECOVERY, elapsed + 1);
     }
 
     /** Disparition au contact : murmure, totem raté éventuel, discard. */

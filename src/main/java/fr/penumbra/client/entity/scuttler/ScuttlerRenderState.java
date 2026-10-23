@@ -8,4 +8,6 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 @Environment(EnvType.CLIENT)
 public final class ScuttlerRenderState extends LivingEntityRenderState {
     public int scene;
+    public boolean feinting;
+    public float feintTicks;
 }

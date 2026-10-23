@@ -13,4 +13,6 @@ public final class WatcherRenderState extends LivingEntityRenderState {
     public float windupProgress;
     public boolean recovering;
     public float recoveryProgress;
+    public boolean contacted;
+    public float recoveryPose;
 }

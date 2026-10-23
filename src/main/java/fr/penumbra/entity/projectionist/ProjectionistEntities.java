@@ -22,7 +22,7 @@ public final class ProjectionistEntities {
                     .sized(0.62f, 2.5f)
                     .eyeHeight(2.18f)
                     .clientTrackingRange(6)
-                    .updateInterval(2)
+                    .updateInterval(1)
                     .build(KEY));
 
     private ProjectionistEntities() {

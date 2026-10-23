@@ -22,6 +22,7 @@ import fr.penumbra.event.impl.ActionEchoEvent;
 import fr.penumbra.event.impl.FauxCreatureEvent;
 import fr.penumbra.event.impl.SilenceEvent;
 import fr.penumbra.event.impl.SoundBaitEvent;
+import fr.penumbra.event.impl.SecondPresenceEvent;
 import fr.penumbra.event.impl.SleepInterruptEvent;
 import fr.penumbra.event.impl.TorchSputterEvent;
 import fr.penumbra.event.impl.WrongFootfallEvent;
@@ -88,7 +89,8 @@ public final class HorrorEvents {
                 new HeldBreathEvent(),
                 new WrongFootfallEvent(),
                 new SoundBaitEvent(),
-                new ListenerPassageEvent()
+                new ListenerPassageEvent(),
+                new SecondPresenceEvent()
         ));
         // Phase 3 : événements nocturnes et souterrains.
         all.addAll(NightEvents.create());

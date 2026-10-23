@@ -26,6 +26,7 @@ public final class AbsentEntities {
                     .sized(0.6f, 1.8f)
                     .eyeHeight(1.62f)
                     .clientTrackingRange(6)
+                    .updateInterval(1)
                     .build(ABSENT_KEY));
 
     /**

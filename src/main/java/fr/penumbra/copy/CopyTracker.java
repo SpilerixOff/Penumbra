@@ -4,11 +4,15 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import fr.penumbra.PenumbraMod;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -48,13 +52,14 @@ import java.util.UUID;
 public class CopyTracker extends SavedData {
 
     /** Nombre maximal de blocs mémorisés par copie. */
-    public static final int MAX_BLOCKS_PER_COPY = 64;
+    public static final int MAX_BLOCKS_PER_COPY = CopyPlan.MAX_BLOCKS;
     /** Nombre maximal de copies conservées (éviction FIFO au-delà). */
     public static final int MAX_COPIES = 32;
     /** Rayon de retrait des mannequins autour du centre d'un site restauré. */
     private static final double MANNEQUIN_CLEANUP_RADIUS = 6.0;
     /** Tag persistant distinguant nos mannequins des porte-armures du joueur. */
     static final String MANNEQUIN_TAG = "penumbra.copy_mannequin";
+    private static final String IMITATION_TAG = "penumbra_copy_imitation";
     /** First opportunity after reaching familiarity; failed sites are retried once a minute. */
     static final long FIRST_ATTEMPT_DELAY_TICKS = 2_400L;
     static final long RETRY_DELAY_TICKS = 1_200L;
@@ -211,8 +216,9 @@ public class CopyTracker extends SavedData {
      * Un bloc n'est restauré que si son état actuel est encore celui posé par
      * la copie (identité d'instances canoniques après résolution du codec) ;
      * toute modification ultérieure du joueur est préservée. Le contenu des
-     * conteneurs factices (coffre « imitation d'inventaire ») est purgé avant
-     * retrait pour ne rien disperser au sol. Les copies traitées sont oubliées ;
+     * conteneurs factices est purgé avant retrait pour ne rien disperser au sol.
+     * Un conteneur où le joueur a déposé des objets est conservé, avec son contenu.
+     * Les copies traitées sont oubliées ;
      * celles dont les chunks sont déchargés restent suivies pour un prochain appel.
      *
      * @return nombre de copies restaurées
@@ -256,14 +262,32 @@ public class CopyTracker extends SavedData {
                 continue; // le joueur a modifié ce bloc depuis : ne jamais écraser
             }
             if (level.getBlockEntity(placed.pos()) instanceof Container container) {
-                container.clearContent(); // purge l'inventaire factice avant retrait
+                // A player may have adopted this chest/furnace. Never delete their stored items.
+                // Old unmarked imitation contents are conservatively treated as player property.
+                if (!containsOnlyImitations(container)) continue;
+                container.clearContent();
             }
-            level.setBlock(placed.pos(), placed.previousState(), Block.UPDATE_ALL);
+            level.setBlock(placed.pos(), placed.previousState(),
+                    Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
         }
         for (ArmorStand stand : level.getEntities(EntityTypeTest.forClass(ArmorStand.class),
                 new AABB(copy.site()).inflate(MANNEQUIN_CLEANUP_RADIUS),
                 stand -> stand.isAlive() && stand.entityTags().contains(MANNEQUIN_TAG))) {
             stand.discard();
+        }
+        return true;
+    }
+
+    static void markImitation(ItemStack item) {
+        CustomData.update(DataComponents.CUSTOM_DATA, item, tag -> tag.putBoolean(IMITATION_TAG, true));
+    }
+
+    static boolean containsOnlyImitations(Container container) {
+        for (int slot = 0; slot < container.getContainerSize(); slot++) {
+            ItemStack item = container.getItem(slot);
+            if (item.isEmpty()) continue;
+            CustomData data = item.get(DataComponents.CUSTOM_DATA);
+            if (!item.is(Items.PAPER) || data == null || !data.copyTag().getBooleanOr(IMITATION_TAG, false)) return false;
         }
         return true;
     }

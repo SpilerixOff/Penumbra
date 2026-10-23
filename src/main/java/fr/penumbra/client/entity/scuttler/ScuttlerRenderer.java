@@ -1,5 +1,6 @@
 package fr.penumbra.client.entity.scuttler;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.entity.scuttler.ScuttlerEntity;
 import net.fabricmc.api.EnvType;
@@ -54,9 +55,18 @@ public final class ScuttlerRenderer
     }
 
     @Override
+    protected void scale(ScuttlerRenderState state, PoseStack poseStack) {
+        super.scale(state, poseStack);
+        // This tiny rig's feet are at y=0, not vanilla's y=24px plane.
+        poseStack.translate(0.0f, 1.5f, 0.0f);
+    }
+
+    @Override
     public void extractRenderState(
             ScuttlerEntity entity, ScuttlerRenderState state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.scene = entity.getScene();
+        state.feinting = entity.isFeinting();
+        state.feintTicks = entity.getFeintTicks(partialTick);
     }
 }

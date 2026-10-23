@@ -1,4 +1,4 @@
-# Protocole de test — Penumbra 0.1.0 à 0.23.0
+# Protocole de test — Penumbra 0.1.0 à 0.26.0
 
 Chaque étape indique le résultat attendu. Toute commande `/penumbra` requiert le niveau
 d'opérateur 2. Avant de tester les événements, monter la tension si besoin :
@@ -2152,3 +2152,55 @@ la version, le mode de jeu, les réglages, les TPS et le nombre réel de clients
 4. Consigner les contrôles réellement exécutés, les configurations et les
    captures disponibles. Un essai forcé ne valide pas le rythme naturel d'une
    campagne ; un client local ne valide pas deux joueurs ni la latence Internet.
+
+## 135. 0.25.0 — Bond, saisie et projection de l'Hôte
+
+1. À 20 TPS, en survie et sans armure, regarder un Hôte situé à neuf blocs
+   dans un espace dégagé. Observer la préparation, le bond en arc, la plongée,
+   la fermeture des deux mains, la levée puis le jet et le recul.
+   Relever la hauteur réelle du joueur et sa position après la projection.
+2. Tourner le regard pendant la prise : la caméra reste contrôlable.
+   Vérifier un seul coup, puis la reprise normale des déplacements.
+3. Esquiver latéralement pendant la préparation : la charge conserve sa cible
+   initiale et ne saisit pas le joueur éloigné. Interposer un mur : aucun passage
+   du corps à travers le bloc. Tester aussi le mur derrière la victime.
+4. Installer un plafond à deux blocs au-dessus de la victime, puis une dalle :
+   la levée s'interrompt avant la collision, sans suffocation ni jet retardé.
+5. Photographier l'Hôte pendant la levée : il libère le joueur et recule.
+   Refaire avec mort/suppression de l'acteur, spectateur, déconnexion,
+   changement de dimension et téléportation externe de la victime.
+6. Avec deux clients, vérifier que seul le propriétaire est saisi et déplacé,
+   et que l'observateur voit les mains, la levée et le jet synchronisés.
+   Deux Hôtes ne doivent pas se disputer la même victime pendant une prise.
+7. Relever les erreurs réseau, corrections de mouvement ou kicks éventuels.
+   Les essais locaux ne couvrent pas la latence Internet, les serveurs avec
+   plugins de déplacement ou l'équilibrage sur tous les terrains.
+
+## 136. 0.26.0 — Signatures des huit autres créatures
+
+1. À 20 TPS, observer chacune des huit créatures du
+   [guide des animations](MONSTER_ANIMATIONS_FR.md), dans un monde isolé.
+   Vérifier tête et épaules reliées au torse, pieds au sol, préparation puis
+   geste distinct et récupération ; consigner les phases réellement vues.
+2. Contrefait et Originel : regarder jusqu'à l'armement, puis comparer contact,
+   déplacement latéral et mur interposé pendant la préparation. Les dégâts
+   doivent survenir une seule fois et seulement au contact ; aucun corps ne
+   doit traverser le mur. Supprimer la créature pendant la préparation/charge.
+3. Rampant : provoquer l'avertissement sous un plafond, puis la chute. Les
+   pattes doivent se libérer successivement sans reprendre leur pose d'accroche
+   au début de la chute. Après contact, crochet et rebond précèdent la chasse.
+4. Écouteur : produire du bruit, le laisser préparer son balayage, puis tester
+   immobilité, couvert, déplacement derrière lui et contact. Le bruit, la portée
+   et la visibilité sont revérifiés au tick de frappe, pas à la fin du retrait.
+5. Cavaleuse : une seule feinte dans une poursuite, pattes arrêtées au freinage,
+   puis repli diagonal collisionné. Projectionniste : armement, déploiement,
+   repli. La santé du joueur reste identique pour ces deux leurres.
+6. Absent : vérifier révélation et attaque, puis faux compagnon et reflet final
+   séparément, avec skins larges/fins, armure et objets. Une mort pendant le
+   bond ne doit provoquer aucun impact tardif.
+7. Si deux clients sont disponibles, rejoindre le suivi au milieu d'une phase :
+   aucune préparation ne doit recommencer sur ce client. Ne pas déduire cette
+   validation d'un seul client ou de tests des courbes.
+8. Archiver version, configuration, TPS, commandes, logs et vidéos. Séparer
+   inspection forcée et rencontre naturelle ; ni compilation ni capture ne
+   garantit la peur ressentie ni l'équilibrage d'une campagne complète.

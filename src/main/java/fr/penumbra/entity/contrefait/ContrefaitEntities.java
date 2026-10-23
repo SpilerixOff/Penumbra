@@ -33,6 +33,7 @@ public final class ContrefaitEntities {
                     .sized(0.6f, 1.95f)
                     .eyeHeight(1.62f)
                     .clientTrackingRange(4)
+                    .updateInterval(1)
                     .build(CONTREFAIT_KEY));
 
     private ContrefaitEntities() {

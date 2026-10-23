@@ -4,11 +4,11 @@
 
 Penumbra is a psychological horror mod for **Minecraft 26.1.2 on Fabric**. A persistent horror director builds tension from in-game events, then stages sounds, apparitions, pursuit and discoveries around each player.
 
-**Status: 0.24.0, public pre-release.** Maintained by [SpilerixOff](https://github.com/SpilerixOff). **390 automated tests in 76 suites passed**, together with the build and resource validation. Targeted in-game checks used **one client connected to a local server**, diagnostic placements and simulation controls. A complete campaign, simultaneous multiplayer and normal-speed balancing remain to be tested; earlier multiplayer reports do not validate this release. Feedback on longer sessions and different mod combinations is welcome.
+**Status: 0.28.0, public pre-release.** Maintained by [SpilerixOff](https://github.com/SpilerixOff). **515 automated tests in 99 suites passed**, together with the build and resource validation. Targeted in-game checks used **one client connected to a local server**, diagnostic placements and simulation controls. A complete campaign, simultaneous multiplayer and normal-speed balancing remain to be tested; earlier multiplayer reports do not validate this release. Feedback on longer sessions and different mod combinations is welcome.
 
-**[Download Penumbra 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
+**[Download Penumbra 0.28.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.28.0)** · **[First session / Premier essai](docs/PLAYTESTING.md)** · **[Send playtest feedback / Donner un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml)**
 
-The playable pre-release includes the changes from 0.20.0 through 0.24.0; no compilation is needed. / Cette préversion jouable rassemble les changements de la 0.20.0 à la 0.24.0, sans compilation.
+The playable pre-release includes the changes through 0.28.0; no compilation is needed. / Cette préversion jouable rassemble les changements jusqu'à la 0.28.0, sans compilation. [Notes de version](docs/RELEASE_0280_FR.md).
 
 ## Play Penumbra
 
@@ -26,6 +26,61 @@ The playable pre-release includes the changes from 0.20.0 through 0.24.0; no com
 - English and French game text. Some documentation remains in French.
 
 These are implemented systems to explore and test, not a promise that every combination is stable. See [known issues](docs/KNOWN_ISSUES.md) and the [French manual](docs/MANUAL_FR.md).
+
+## What is new in 0.28.0
+
+Second Presence gives the Host a concealed, continuous approach around a real
+corner. Footsteps come from its body; noticing it produces hesitation and a
+withdrawal. Following it can provoke its prepared leap, while some encounters
+only retreat. Stillness behind opaque cover, the camera and the owner's ward
+provide counterplay. The encounter never edits terrain and waits for a suitable
+loaded route. See the [encounter guide](docs/SECOND_PRESENCE_0280_FR.md),
+[research and limitations](docs/HORROR_RESEARCH_0280_FR.md) and
+[validation notes](docs/KNOWN_ISSUES.md).
+
+## Also included: 0.27.0
+
+Four recoverable Warrick volumes now form a personal investigation trail:
+observation post → shifted house → ash sanctum → Penumbra well → return to
+the sanctum. Each book supplies the next lead and unlocks relevant illustrated
+crafting plans in the journal. The well also holds a damaged cassette: a
+15-second playback with mechanical sounds and a readable transcript prepares
+the final confrontation. Lost books and the cassette can be recovered from
+the journal; previously collected pages still count.
+
+The Survey compass has an Investigation mode. When no required site is known,
+the route system can place one in suitable newly generated terrain. Personal
+house copies now preserve recognizable proportions, entrance orientation,
+materials and some furnishings, with a deliberate architectural anomaly.
+They represent one bounded room, not a complete building clone.
+
+Read the [0.27.0 investigation and crafting guide, in French](docs/INVESTIGATION_0270.md)
+for the route, recovery controls, legacy-save behavior and terrain limits.
+Version-specific validation is tracked in [known issues](docs/KNOWN_ISSUES.md).
+These additions are included in the public 0.28.0 download above.
+
+## Also included: 0.26.0–0.26.1
+
+The other eight creatures now have distinct body animations: a one-arm statue
+strike, a ceiling predator unfolding, a sound-led sweep, a harmless ankle feint,
+a puppet-like shoulder hook, a deploying projector, a rigid giant's tilt and a
+broken human imitation. Attack timing is synchronized with the server; several
+models now have connected torsos, shoulders and articulated limbs. Counterfeit
+and Originel charges also respect solid obstacles and a committed destination.
+See the [design research and creature guide](docs/MONSTER_ANIMATIONS_FR.md).
+
+Version 0.26.1 shortens the Host, Watcher, Counterfeit and Originel approach
+from 8–12 to 6–9 ticks and increases the Absent and Crawler's horizontal leap
+impulse by 25%. Preparation, damage and post-contact actions retain their timing.
+
+The source build is 0.28.0. See [validation notes](docs/KNOWN_ISSUES.md).
+
+## Also included: 0.25.0
+
+The Host's stare attack now includes a physical leap and dive, a two-handed
+grab, a short lift and a forward throw. Dodging the committed leap or using
+the VHS-camera flash can interrupt it. Solid obstacles limit the movement.
+See [the physical horror guide](docs/PHYSICAL_HORROR_FR.md).
 
 ## What is new in 0.24.0
 
@@ -82,13 +137,13 @@ From the repository root, with JDK 25 available:
 .\gradlew.bat validatePenumbraResources test build
 ```
 
-The mod JAR is `build/libs/penumbra-0.24.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires Penumbra and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
+The source build produces `build/libs/penumbra-0.28.0.jar`; the `-sources.jar` is for developers. Put the mod JAR and the matching Fabric API in the Fabric instance's `mods/` directory. Multiplayer requires the same Penumbra version and Fabric API on **the server and every client**. Development launch tasks are `runClient` and `runServer`.
 
 For detailed setup and manual checks, see [compilation](docs/COMPILE.md), [installation](docs/INSTALL.md) and the [test protocol](docs/TEST_PROTOCOL.md). Older sections may describe earlier versions; use the current version pins and JAR name above.
 
 ## Horror effects and comfort
 
-Penumbra 0.24.0 contains sudden sounds, approaching creatures, camera movement
+Penumbra 0.28.0 contains sudden sounds, approaching creatures, camera movement
 and visual distortion. It no longer draws full-screen horror faces, peripheral
 face images or screamer blackouts. Other visual flashes remain configurable and
 disabled by default (`flashesEnabled: false`). These settings are not a guarantee of comfort for
@@ -97,7 +152,7 @@ photosensitive players.
 Configuration is created at `config/penumbra.json`. With the game stopped, you can disable `screamersEnabled`, `cameraShakeEnabled`, `distortionEnabled` and `fogEnabled`, and lower `jumpscareVolume`, `jumpscareFrequency` and `perceptionIntensity`. The operator command `/penumbra profile gentle` applies a gentler preset; it does not turn off every effect. Client rendering settings and server event settings must be configured in their respective instances.
 
 Since **0.22.0**, **K** opens a personal comfort menu (rebindable in Controls).
-In 0.24.0 it exposes six controls: reduced motion, blocked flashes, grain,
+It exposes six controls: reduced motion, blocked flashes, grain,
 light flicker, sudden-sound volume and ambient volume. The obsolete face and
 afterimage switches are no longer shown; old saved values cannot restore those images.
 Apply saves to `config/penumbra-client.json`; Cancel discards the draft.
@@ -119,9 +174,26 @@ The repository carries the [MIT license](LICENSE). See [asset provenance and thi
 
 **Penumbra est un mod d'horreur psychologique pour Minecraft 26.1.2, sous Fabric.** Son directeur d'horreur fait monter la tension, organise les manifestations et conserve une progression propre à chaque joueur. Le projet est maintenu par **SpilerixOff**.
 
-La **0.24.0 est une préversion publique**. **390 tests automatisés dans 76 suites ont réussi**, avec la compilation et la validation des ressources. Les essais ciblés en jeu utilisent **un seul client connecté à un serveur local**, des placements de diagnostic et des pas de simulation. Ils ne valident ni une campagne complète, ni deux clients simultanés, ni l'équilibrage à vitesse normale ; les anciens retours multijoueurs ne valent pas validation de cette version. Les retours sur les parties longues et les différentes combinaisons de mods sont bienvenus.
+La **0.28.0 est une préversion publique**. **515 tests automatisés dans 99 suites ont réussi**, avec la compilation et la validation des ressources. Les essais ciblés en jeu utilisent **un seul client connecté à un serveur local**, des placements de diagnostic et des pas de simulation. Ils ne valident ni une campagne complète, ni deux clients simultanés, ni l'équilibrage à vitesse normale ; les anciens retours multijoueurs ne valent pas validation de cette version. Les retours sur les parties longues et les différentes combinaisons de mods sont bienvenus.
 
-Pour jouer, téléchargez le JAR de la [préversion 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
+Pour jouer, téléchargez le JAR de la [préversion 0.28.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.28.0), puis suivez le [guide du premier essai](docs/PLAYTESTING.md#français). Pas besoin de compiler. Commencez sur un nouveau monde de test et sauvegardez vos mondes existants. Vous pouvez ensuite [envoyer un retour](https://github.com/SpilerixOff/Penumbra/issues/new?template=playtest_feedback.yml) sur le rythme, les moments marquants ou les problèmes rencontrés.
+
+La **0.28.0** ajoute la Seconde Présence, qui donne à
+l'Hôte une approche masquée derrière un obstacle, suivie d'un contournement
+réel, d'une hésitation et d'un recul. Le suivre peut déclencher son bond ;
+immobilité à couvert, caméra et talisman permettent de réagir. Voir le
+[guide de cette rencontre](docs/SECOND_PRESENCE_0280_FR.md) et les
+[recherches ayant guidé sa conception](docs/HORROR_RESEARCH_0280_FR.md).
+
+La **0.27.0**, également incluse, apporte quatre volumes qui guident chaque
+joueur du poste d'observation à la maison décalée, puis au sanctuaire et au
+puits. La cassette retrouvée au fond du puits se lit pendant quinze secondes,
+avec des sons mécaniques et une transcription. Le Relevé montre les crafts,
+permet de récupérer les archives perdues et prépare le retour au sanctuaire.
+Les copies personnelles reprennent une pièce représentative du refuge avec
+ses proportions, son entrée et certains meubles. Le [guide 0.27.0](docs/INVESTIGATION_0270.md)
+explique le nouveau parcours et ses limites. Ces ajouts sont inclus dans
+le téléchargement public 0.28.0 ci-dessus.
 
 Dans la **0.24.0**, les sursauts reposent sur les créatures dans le monde, avec préparation visible, charge esquivable et recul. Les visages plaqués à l'écran, rémanences de visages et écrans noirs de screamer sont retirés. La caméra peut interrompre un Hôte, un Observateur ou un Rampant proche et cadré ; les fermetures de coffre ou de carnet et les retours au refuge peuvent ouvrir des scènes physiques. [Voir le guide de l'horreur physique](docs/PHYSICAL_HORROR_FR.md) et les [limites de validation](docs/KNOWN_ISSUES.md).
 
@@ -129,7 +201,7 @@ Le parcours personnel de la 0.23.0 est conservé : chaque arrivant reçoit Le Re
 
 L'accalmie dure au plus 48 000 ticks du monde : un serveur actif continue de la décompter hors connexion ; un serveur arrêté la met en pause. La reconnexion ne la réinitialise pas. Voir les [problèmes connus](docs/KNOWN_ISSUES.md).
 
-Pour compiler sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.24.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le mod et Fabric API sont nécessaires sur le serveur et chaque client.
+Pour compiler les sources actuelles sous Windows : `.\gradlew.bat validatePenumbraResources test build`, avec **Java 25**. Installez `build/libs/penumbra-0.28.0.jar` et Fabric API **0.155.2+26.1.2** dans une instance Minecraft **26.1.2** avec Fabric Loader **0.19.3**. En multijoueur, le même JAR Penumbra et Fabric API sont nécessaires sur le serveur et chaque client.
 
 **K** ouvre le menu personnel, réassignable dans les commandes de Minecraft.
 Ses six réglages sont : mouvement réduit, flashs bloqués, grain, scintillement
@@ -140,6 +212,6 @@ les changements. Ces choix réduisent les effets autorisés par la configuration
 de base et laissent les dégâts, la fréquence des événements et la progression
 du serveur inchangés.
 
-Penumbra 0.24.0 contient des sons soudains, des créatures qui approchent, des secousses et des distorsions. Les images de visages ont été retirées. Les autres flashs sont désactivés par défaut. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
+Penumbra 0.28.0 contient des sons soudains, des créatures qui approchent, des secousses et des distorsions. Les images de visages ont été retirées. Les autres flashs sont désactivés par défaut. Le profil opérateur `/penumbra profile doux` réduit plusieurs effets sans tout désactiver. Les réglages détaillés se trouvent dans `config/penumbra.json`.
 
 Consultez le [manuel français](docs/MANUAL_FR.md), les [problèmes connus](docs/KNOWN_ISSUES.md) et le [guide de contribution](CONTRIBUTING.md). Les retours en français sont bienvenus. Licence : [MIT](LICENSE).

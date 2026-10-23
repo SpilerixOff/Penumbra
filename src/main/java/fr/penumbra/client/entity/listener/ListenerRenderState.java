@@ -9,4 +9,7 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 public final class ListenerRenderState extends LivingEntityRenderState {
     public int behavior;
     public float hearingYaw;
+    public float hearingOffset;
+    public float warningProgress;
+    public float strikeTicks;
 }

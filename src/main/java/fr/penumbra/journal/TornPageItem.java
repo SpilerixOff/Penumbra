@@ -55,18 +55,15 @@ public class TornPageItem extends Item {
 
         JournalKnowledge knowledge = JournalKnowledge.get(server);
         if (knowledge.hasPage(serverPlayer.getUUID(), entry)) {
+            InvestigationProgress.sync(serverPlayer);
             serverPlayer.sendSystemMessage(
                     Component.translatable("journal.penumbra.page_already")
                             .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC), true);
             return InteractionResult.CONSUME;
         }
 
-        knowledge.markPageFound(serverPlayer.getUUID(), entry);
+        InvestigationProgress.discover(serverPlayer, entry);
         stack.shrink(1);
-        serverPlayer.sendSystemMessage(
-                Component.translatable("journal.penumbra.page_inserted",
-                                Component.translatable(entry.titleKey()))
-                        .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), false);
         PenumbraNetworking.sendSound(serverPlayer, PenumbraSounds.PAGE_TURN,
                 serverPlayer.position(), 0.5f, 0.88f);
         return InteractionResult.SUCCESS;

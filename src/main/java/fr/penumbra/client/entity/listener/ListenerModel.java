@@ -2,6 +2,7 @@ package fr.penumbra.client.entity.listener;
 
 import fr.penumbra.PenumbraMod;
 import fr.penumbra.client.animation.MonsterAnimationMath;
+import fr.penumbra.client.animation.ListenerAttackAnimation;
 import fr.penumbra.entity.listener.ListenerBehavior;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -73,6 +74,7 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
     private static final float BODY_PIVOT_Y = -37.0f;
 
     private final ModelPart head;
+    private final ModelPart torso;
     private final ModelPart rightEar;
     private final ModelPart leftEar;
     private final ModelPart jaw;
@@ -90,15 +92,16 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
 
     public ListenerModel(ModelPart root) {
         super(root);
-        this.head = root.getChild("head");
+        this.torso = root.getChild("torso");
+        this.head = this.torso.getChild("head");
         this.rightEar = this.head.getChild("right_ear");
         this.leftEar = this.head.getChild("left_ear");
         this.jaw = this.head.getChild("jaw");
-        this.body = root.getChild("body");
-        this.rightArm = root.getChild("right_arm");
+        this.body = this.torso.getChild("body");
+        this.rightArm = this.torso.getChild("right_arm");
         this.rightForearm = this.rightArm.getChild("forearm");
         this.rightHand = this.rightForearm.getChild("hand");
-        this.leftArm = root.getChild("left_arm");
+        this.leftArm = this.torso.getChild("left_arm");
         this.leftForearm = this.leftArm.getChild("forearm");
         this.leftHand = this.leftForearm.getChild("hand");
         this.rightThigh = root.getChild("right_leg");
@@ -117,13 +120,17 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
     public static LayerDefinition createBodyLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
+        // All upper-body parts rotate around the same hips. The old detached
+        // root-level shoulders could not follow a lateral sweep coherently.
+        PartDefinition torso = root.addOrReplaceChild("torso", CubeListBuilder.create(),
+                PartPose.offset(0.0f, -19.0f, 0.0f));
 
         // ——— Tête sans visage, surmontée de deux paraboles ———
-        PartDefinition head = root.addOrReplaceChild("head",
+        PartDefinition head = torso.addOrReplaceChild("head",
                 CubeListBuilder.create().texOffs(0, 0)
                         .addBox(-4.0f, -6.0f, -4.0f, 8.0f, 6.0f, 8.0f,
                                 CubeDeformation.NONE, TEX_SCALE, TEX_SCALE),
-                PartPose.offset(0.0f, -40.0f, 0.0f));
+                PartPose.offset(0.0f, -21.0f, 0.0f));
         head.addOrReplaceChild("right_ear",
                 CubeListBuilder.create().texOffs(32, 0)
                         .addBox(-1.0f, -7.0f, -3.0f, 1.0f, 7.0f, 6.0f,
@@ -141,11 +148,11 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
                                 CubeDeformation.NONE, TEX_SCALE, TEX_SCALE),
                 PartPose.offsetAndRotation(0.0f, -1.0f, -1.5f, 0.16f, 0.0f, 0.0f));
 
-        PartDefinition body = root.addOrReplaceChild("body",
+        PartDefinition body = torso.addOrReplaceChild("body",
                 CubeListBuilder.create().texOffs(0, 24)
                         .addBox(-4.0f, 0.0f, -2.0f, 8.0f, 18.0f, 4.0f,
                                 CubeDeformation.NONE, TEX_SCALE, TEX_SCALE),
-                PartPose.offset(0.0f, BODY_PIVOT_Y, 0.0f));
+                PartPose.offset(0.0f, BODY_PIVOT_Y + 19.0f, 0.0f));
         body.addOrReplaceChild("neck",
                 CubeListBuilder.create().texOffs(24, 14)
                         .addBox(-1.5f, -3.0f, -1.5f, 3.0f, 3.0f, 3.0f,
@@ -153,11 +160,11 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
                 PartPose.offset(0.0f, 0.0f, 0.0f));
 
         // ——— Bras trop longs : les mains arrivent au niveau des genoux ———
-        PartDefinition rightArm = root.addOrReplaceChild("right_arm",
+        PartDefinition rightArm = torso.addOrReplaceChild("right_arm",
                 CubeListBuilder.create().texOffs(24, 24)
                         .addBox(-1.0f, 0.0f, -1.0f, 2.0f, 9.0f, 2.0f,
                                 CubeDeformation.NONE, TEX_SCALE, TEX_SCALE),
-                PartPose.offset(-4.5f, -35.4f, 0.0f));
+                PartPose.offset(-4.5f, -16.4f, 0.0f));
         PartDefinition rightForearm = rightArm.addOrReplaceChild("forearm",
                 CubeListBuilder.create().texOffs(32, 24)
                         .addBox(-1.0f, 0.0f, -1.0f, 2.0f, 9.0f, 2.0f,
@@ -170,11 +177,11 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
                 PartPose.offset(0.0f, 9.0f, 0.0f));
 
         // Épaule gauche 1 px plus haute : la silhouette n'est jamais symétrique.
-        PartDefinition leftArm = root.addOrReplaceChild("left_arm",
+        PartDefinition leftArm = torso.addOrReplaceChild("left_arm",
                 CubeListBuilder.create().texOffs(40, 24)
                         .addBox(-1.0f, 0.0f, -1.0f, 2.0f, 9.0f, 2.0f,
                                 CubeDeformation.NONE, TEX_SCALE, TEX_SCALE),
-                PartPose.offset(4.5f, -36.4f, 0.0f));
+                PartPose.offset(4.5f, -17.4f, 0.0f));
         PartDefinition leftForearm = leftArm.addOrReplaceChild("forearm",
                 CubeListBuilder.create().texOffs(48, 24)
                         .addBox(-1.0f, 0.0f, -1.0f, 2.0f, 9.0f, 2.0f,
@@ -232,6 +239,15 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
         applyTorso(behavior, breath, time, life);
         applyHead(behavior, state, time, listening, closing);
         applyEars(time, listening, closing);
+        // The ears orient before the head, which itself leads the server body.
+        float earAim = Mth.clamp(state.hearingOffset * Mth.DEG_TO_RAD, -0.65f, 0.65f);
+        this.rightEar.yRot = earAim;
+        this.leftEar.yRot = earAim * 0.72f;
+        if (closing && state.warningProgress < 1.0f) applyWarning(state.warningProgress);
+        if (behavior == ListenerBehavior.STRIKING) applyStrike(state.strikeTicks);
+        // Counter-rotate the head locally so its pitch stays readable as the
+        // hip-parent leans. It remains attached to the same neck throughout.
+        this.head.xRot -= this.torso.xRot;
     }
 
     private void applyLegs(ListenerBehavior behavior, float walkPos, float walkSpeed) {
@@ -239,7 +255,7 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
         float amplitude = switch (behavior) {
             case CLOSING -> 1.42f;
             case LEAVING -> 0.78f;
-            case LISTENING -> 0.0f;
+            case LISTENING, STRIKING -> 0.0f;
             default -> 0.92f;
         };
         float rightStride = Mth.cos(walkPos * gait);
@@ -296,11 +312,11 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
             case CLOSING -> 0.62f;
             case SEEKING -> 0.14f;
             case LEAVING -> 0.34f;
-            case LISTENING -> 0.0f;
+            case LISTENING, STRIKING -> 0.0f;
         };
-        this.body.xRot = lean + breath * 0.014f;
-        this.body.zRot = life * Mth.sin(time * 0.011f) * 0.014f;
-        this.body.y = BODY_PIVOT_Y - breath * (behavior == ListenerBehavior.CLOSING ? 0.1f : 0.16f);
+        this.torso.xRot = lean + breath * 0.014f;
+        this.torso.zRot = life * Mth.sin(time * 0.011f) * 0.014f;
+        this.torso.y = -19.0f - breath * (behavior == ListenerBehavior.CLOSING ? 0.1f : 0.16f);
     }
 
     /**
@@ -345,5 +361,60 @@ public final class ListenerModel extends EntityModel<ListenerRenderState> {
         this.leftEar.zRot = 0.26f + amount * 0.7f;
         this.rightEar.xRot = amount * 0.4f;
         this.leftEar.xRot = 0.0f;
+    }
+
+    private void applyWarning(float progress) {
+        ListenerAttackAnimation.Warning cue = ListenerAttackAnimation.warning(progress);
+        // Stop the gait during the same twelve ticks in which the server stops
+        // navigation. Ear -> head -> trunk, then the held pose breaks into a rush.
+        this.rightThigh.xRot = 0.0f;
+        this.leftThigh.xRot = 0.0f;
+        this.rightShin.xRot = 0.0f;
+        this.leftShin.xRot = 0.0f;
+        this.torso.xRot = 0.62f * cue.torso();
+        this.torso.zRot = -0.09f * cue.torso() * (1.0f - cue.torso());
+        this.head.xRot = 0.09f - 0.55f * cue.head();
+        this.head.zRot = 0.11f * (1.0f - cue.head());
+        this.jaw.xRot = 0.16f + 0.62f * cue.torso();
+        this.rightArm.xRot = 0.92f * cue.torso();
+        this.leftArm.xRot = 0.86f * cue.torso();
+        this.rightForearm.xRot = -0.02f - 0.50f * cue.torso();
+        this.leftForearm.xRot = -0.035f - 0.425f * cue.torso();
+        this.rightEar.zRot = -0.22f - 0.22f * cue.ear();
+        this.leftEar.zRot = 0.26f + 0.22f * cue.ear();
+        this.rightEar.xRot = -0.20f * cue.ear();
+        this.leftEar.xRot = -0.20f * cue.ear();
+    }
+
+    private void applyStrike(float ticks) {
+        ListenerAttackAnimation.Sweep pose = ListenerAttackAnimation.sweep(ticks);
+        float reach = pose.reach();
+        float active = pose.active();
+        this.torso.xRot = pose.torsoPitch();
+        this.torso.yRot = pose.torsoYaw();
+        this.torso.zRot = pose.torsoRoll();
+        this.torso.y = -19.0f;
+        this.head.xRot = 0.09f - 0.55f * active;
+        this.head.yRot = -pose.torsoYaw() * 0.82f;
+        this.head.zRot = 0.11f - 0.22f * reach;
+        this.jaw.xRot = 0.26f + 0.52f * active;
+        // Right arm sweeps across the chest; the other arm trails like a dead
+        // weight. Neither hand attaches to or moves the player.
+        this.rightArm.xRot = 0.92f * active - 2.40f * reach;
+        this.rightArm.yRot = -0.38f * active + 1.10f * reach;
+        this.rightArm.zRot = 0.055f + 0.52f * reach;
+        this.rightForearm.xRot = -0.02f - 0.50f * active + 0.40f * reach;
+        this.rightHand.xRot = -0.20f - 0.54f * active + 0.60f * reach;
+        this.rightHand.zRot = 0.12f + 0.34f * reach;
+        this.leftArm.xRot = 0.86f * active + 0.22f * reach;
+        this.leftArm.zRot = -0.04f - 0.25f * active;
+        this.leftForearm.xRot = -0.035f - 0.425f * active;
+        this.leftHand.xRot = -0.15f - 0.53f * active;
+        this.rightEar.zRot = -0.22f - 0.22f * active;
+        this.leftEar.zRot = 0.26f + 0.22f * active;
+        this.rightEar.xRot = -0.20f * active;
+        this.leftEar.xRot = -0.20f * active;
+        this.rightEar.yRot = 0.0f;
+        this.leftEar.yRot = 0.0f;
     }
 }

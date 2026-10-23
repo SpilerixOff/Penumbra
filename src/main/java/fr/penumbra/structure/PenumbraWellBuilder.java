@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LadderBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -23,6 +24,9 @@ abstract class PenumbraWellBuilder {
     private static final BlockState WATER = Blocks.WATER.defaultBlockState();
     private static final BlockState COBWEB = Blocks.COBWEB.defaultBlockState();
     private static final BlockState SOUL = Blocks.SOUL_SOIL.defaultBlockState();
+    /** FACING points away from the support: EAST attaches to the west wall. */
+    private static final BlockState LADDER = Blocks.LADDER.defaultBlockState()
+            .setValue(LadderBlock.FACING, Direction.EAST);
 
     private PenumbraWellBuilder() {
     }
@@ -46,9 +50,10 @@ abstract class PenumbraWellBuilder {
                 }
             }
         }
-        StructureBuilders.set(level, x - 1, y + 1, z - 1, POST);
-        StructureBuilders.set(level, x + 1, y + 1, z + 1, POST);
-        StructureBuilders.fill(level, x - 1, y + 2, z - 1, x + 1, y + 2, z + 1, ROOF);
+        StructureBuilders.fill(level, x - 1, y + 1, z - 1, x - 1, y + 2, z - 1, POST);
+        StructureBuilders.fill(level, x + 1, y + 1, z + 1, x + 1, y + 2, z + 1, POST);
+        // Two clear blocks above the rim let a standing player step off the ladder.
+        StructureBuilders.fill(level, x - 1, y + 3, z - 1, x + 1, y + 3, z + 1, ROOF);
 
         // Fût 1×1 : les 3 premières couches sont maçonnées, puis terre nue.
         for (int dy = 1; dy <= depth; dy++) {
@@ -65,6 +70,13 @@ abstract class PenumbraWellBuilder {
         int bottom = y - depth;
         StructureBuilders.set(level, x, bottom, z, WATER);
         StructureBuilders.set(level, x, bottom + 1, z, WATER);
+
+        // A continuous escape route is part of the archive, even across underground caves.
+        // Leave both water blocks and the north/east gallery entrances unobstructed.
+        for (int ladderY = bottom + 2; ladderY <= y; ladderY++) {
+            StructureBuilders.set(level, x - 1, ladderY, z, LINING);
+            StructureBuilders.set(level, x, ladderY, z, LADDER);
+        }
 
         // Galerie latérale 3×2×3 au fond, reliée au fût.
         Direction gallery = variant == 1 ? Direction.EAST : Direction.NORTH;

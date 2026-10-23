@@ -16,6 +16,7 @@ import fr.penumbra.director.DirectorMemory;
 import fr.penumbra.director.HorrorDirector;
 import fr.penumbra.director.PlayerHorrorProfile;
 import fr.penumbra.director.TensionState;
+import fr.penumbra.director.presence.SecondPresenceManager;
 import fr.penumbra.director.sequence.LinkedSceneManager;
 import fr.penumbra.director.sequence.LinkedSceneType;
 import fr.penumbra.entity.HostEntity;
@@ -297,6 +298,16 @@ public final class PenumbraCommands {
                             .then(Commands.literal("test")
                                     .executes(PenumbraCommands::listenerTest)
                                     .then(targetArgument(PenumbraCommands::listenerTest))))
+                    .then(Commands.literal("presence")
+                            .then(Commands.literal("test")
+                                    .executes(PenumbraCommands::presenceTest)
+                                    .then(targetArgument(PenumbraCommands::presenceTest)))
+                            .then(Commands.literal("status")
+                                    .executes(PenumbraCommands::presenceStatus)
+                                    .then(targetArgument(PenumbraCommands::presenceStatus)))
+                            .then(Commands.literal("clear")
+                                    .executes(PenumbraCommands::presenceClear)
+                                    .then(targetArgument(PenumbraCommands::presenceClear))))
                     .then(Commands.literal("profile")
                             .then(Commands.argument("profile", StringArgumentType.word())
                                     .suggests(PROFILE_SUGGESTIONS)
@@ -984,6 +995,32 @@ public final class PenumbraCommands {
         }
         source.sendFailure(Component.translatable("command.penumbra.listener_failed"));
         return 0;
+    }
+
+    /** Diagnostic entry point: terrain and active-scene guards still apply. */
+    private static int presenceTest(CommandContext<CommandSourceStack> context)
+            throws CommandSyntaxException {
+        ServerPlayer player = commandPlayer(context);
+        boolean started = SecondPresenceManager.force(player);
+        if (started) context.getSource().sendSystemMessage(Component.translatable(
+                "command.penumbra.presence.started", player.getGameProfile().name()));
+        else context.getSource().sendFailure(Component.translatable("command.penumbra.presence.failed"));
+        return started ? 1 : 0;
+    }
+
+    private static int presenceStatus(CommandContext<CommandSourceStack> context)
+            throws CommandSyntaxException {
+        context.getSource().sendSystemMessage(Component.literal(
+                SecondPresenceManager.snapshot(commandPlayer(context))));
+        return 1;
+    }
+
+    private static int presenceClear(CommandContext<CommandSourceStack> context)
+            throws CommandSyntaxException {
+        ServerPlayer player = commandPlayer(context);
+        SecondPresenceManager.onPlayerDisconnect(player.level().getServer(), player.getUUID());
+        context.getSource().sendSystemMessage(Component.translatable("command.penumbra.presence.cleared"));
+        return 1;
     }
 
     /**

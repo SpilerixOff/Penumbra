@@ -10,6 +10,11 @@ public final class OriginelTiming {
     public static final int MAX_SIGHTING_DELAY_TICKS = 7 * 60 * 20;
     public static final int MIN_CAVE_SCENE_TICKS = 80;
     public static final int MAX_CAVE_SCENE_TICKS = 220;
+    public static final int WINDUP_TICKS = 14;
+    public static final int MIN_LUNGE_TICKS = 6;
+    public static final int MAX_LUNGE_TICKS = 9;
+    public static final int RECOVERY_TICKS = 20;
+    public static final double COLLISION_STEP = 0.20;
 
     private OriginelTiming() {
     }
@@ -30,6 +35,12 @@ public final class OriginelTiming {
     public static double lungeEase(double progress) {
         double t = Math.max(0.0, Math.min(1.0, progress));
         return t * t * t;
+    }
+
+    /** Bound every swept collision/contact check even at the fastest final frame. */
+    public static int collisionSteps(double travelDistance) {
+        if (!Double.isFinite(travelDistance) || travelDistance <= 0.0) return 1;
+        return Math.max(1, (int) Math.ceil(Math.min(64.0, travelDistance) / COLLISION_STEP));
     }
 
     /**

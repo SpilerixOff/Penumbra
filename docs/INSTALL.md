@@ -1,10 +1,10 @@
-# Installation de Penumbra 0.24.0
+# Installation de Penumbra 0.28.0
 
-Téléchargez **`penumbra-0.24.0.jar`** sur la
-[page de la préversion 0.24.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.24.0).
+Téléchargez **`penumbra-0.28.0.jar`** sur la
+[page de la préversion 0.28.0](https://github.com/SpilerixOff/Penumbra/releases/tag/v0.28.0).
 Les archives de sources et le fichier `-sources.jar` servent au développement.
-Le pack ZIP accompagne le JAR avec des guides et des résultats de vérification :
-il s'installe manuellement et ne s'importe pas comme un modpack.
+Le fichier `SHA256SUMS.txt` permet de vérifier l'intégrité du JAR téléchargé.
+Cette version ne fournit pas de pack ZIP à importer comme un modpack.
 
 ## Prérequis
 
@@ -23,9 +23,9 @@ Fabric API doit être téléchargé et installé séparément.
 1. Installez Minecraft 26.1.2 et lancez-le une fois.
 2. Installez Fabric Loader pour Minecraft 26.1.2 depuis
    <https://fabricmc.net/use/installer/>.
-3. Placez Fabric API et **`penumbra-0.24.0.jar`** dans le dossier `mods/` de
+3. Placez Fabric API et **`penumbra-0.28.0.jar`** dans le dossier `mods/` de
    l'instance.
-4. Lancez le profil Fabric. Le journal doit annoncer `penumbra 0.24.0` puis
+4. Lancez le profil Fabric. Le journal doit annoncer `penumbra 0.28.0` puis
    `Penumbra initialisé`.
 
 Au premier démarrage, `config/penumbra.json` est créé. Les effets sensibles
@@ -40,16 +40,16 @@ Les images de visages et écrans noirs de screamer sont retirés en 0.24.0.
 
 ## Serveur multijoueur
 
-Installez le même JAR **Penumbra 0.24.0** et Fabric API dans `mods/` sur le serveur **et
+Installez le même JAR **Penumbra 0.28.0** et Fabric API dans `mods/` sur le serveur **et
 sur chaque client**. La configuration serveur pilote la sélection des
 événements et les modifications du monde ; les options de rendu, de zoom et
 de volume sont aussi lues localement par chaque client. Ne mélangez pas les
 versions de Penumbra entre serveur et clients.
 
-**Limite de validation :** la 0.24.0 a passé 390 tests automatisés dans 76 suites,
+**Limite de validation :** la 0.28.0 a passé 515 tests automatisés dans 99 suites,
 la compilation et la validation des ressources. Ses essais en jeu utilisent
 un seul client connecté à un serveur local et des outils de diagnostic.
-Les règles multijoueurs décrites ci-dessous sont implémentées, mais la 0.24.0
+Les règles multijoueurs décrites ci-dessous sont implémentées, mais la 0.28.0
 n'a pas encore été éprouvée avec deux clients simultanés, une campagne complète
 ou une latence distante. Voir les [problèmes connus](KNOWN_ISSUES.md).
 
@@ -69,6 +69,10 @@ ordinaires restent partagées ; la proximité d'autres joueurs peut empêcher
 ou annuler une scène personnelle. Ce comportement demande encore un essai
 avec deux clients simultanés.
 
+La Seconde Présence de la 0.28.0 est également personnelle. Un autre joueur
+qui s'approche annule la rencontre. Elle ne modifie aucun bloc et exige un
+court trajet praticable derrière un obstacle opaque dans des chunks chargés.
+
 Les scènes automatiques lourdes sont espacées de 4 secondes entre joueurs
 distants d'au plus 32 blocs, avec une priorité tournante. Les groupes plus
 éloignés et les dimensions différentes restent indépendants. Les sons d'une
@@ -77,12 +81,12 @@ scène sont positionnés et peuvent être partagés avec un compagnon situé à
 au propriétaire de la scène. Les commandes opérateur forcées ne sont pas
 bridées par cette coordination.
 
-## Mise à jour vers 0.24.0
+## Mise à jour vers 0.28.0
 
 1. Arrêtez complètement le jeu ou le serveur et sauvegardez le monde.
 2. Retirez l'ancien JAR Penumbra du dossier `mods/` ; ne conservez qu'une seule
    version.
-3. Ajoutez `penumbra-0.24.0.jar` et vérifiez les dépendances du tableau.
+3. Ajoutez `penumbra-0.28.0.jar` et vérifiez les dépendances du tableau.
 4. En multijoueur, mettez à jour le serveur et tous les clients avant de relancer.
 
 Conservez les sauvegardes, photos et fichiers de configuration existants.
@@ -90,7 +94,18 @@ Le menu personnel utilise `config/penumbra-client.json` depuis la 0.22.0 ;
 les anciens réglages Visages et Rémanences ne peuvent pas réactiver ces images.
 Les scénarios de migration anciens ci-dessous décrivent leur comportement
 historique ; ils ne constituent pas une nouvelle validation de toutes ces
-sauvegardes avec la 0.24.0.
+sauvegardes avec la 0.28.0.
+
+Les quatre volumes et la cassette de la 0.27.0 sont inclus. Les pages déjà
+collectées restent valables ; les joueurs déjà au stade 5 ou 6 avant
+l'initialisation de ce parcours conservent leur accès à la finale. Les nouveaux
+sites de secours exigent du terrain encore jamais généré ; les anciens puits
+ne reçoivent pas automatiquement une échelle. Voir le
+[guide de l'enquête](INVESTIGATION_0270.md).
+
+La rencontre ajoutée en 0.28.0 utilise `secondPresenceEnabled` dans
+`config/penumbra.json`. Elle n'exige pas de nouveau monde, mais peut être
+refusée si le terrain proche ne convient pas.
 
 ### Historique des migrations de 0.1 à 0.19.0
 
@@ -133,7 +148,7 @@ sauvegardée dans le monde et les données existantes ne demandent aucune conver
 
 ## Désinstallation
 
-Sauvegardez le monde, arrêtez le jeu puis retirez `penumbra-0.24.0.jar`.
+Sauvegardez le monde, arrêtez le jeu puis retirez `penumbra-0.28.0.jar`.
 Les données persistantes deviennent inertes, les objets Penumbra peuvent
 disparaître des inventaires et les restaurations différées ne s'exécuteront
 plus. Les structures composées de blocs vanilla restent dans le monde.
@@ -160,3 +175,8 @@ Vous pouvez ensuite supprimer `config/penumbra.json` et
   laisse volontairement la pile intacte.
 - Une configuration invalide est sauvegardée sous
   `penumbra.json.broken[.<horodatage>]`, puis remplacée par des valeurs saines.
+- Une Seconde Présence absente : vérifiez `secondPresenceEnabled` et cherchez
+  un angle opaque avec un sol sec et dégagé. `/penumbra presence test` exige
+  toujours un terrain et un contexte admissibles ; une vitre seule ne suffit
+  pas. `/penumbra presence status` affiche la scène active et
+  `/penumbra presence clear` la dissipe.
